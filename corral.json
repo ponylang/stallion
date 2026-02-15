@@ -1,0 +1,19 @@
+{
+  "packages": [
+    "http_server"
+  ],
+  "info": {
+    "description": "HTTP server for Pony",
+    "homepage": "https://github.com/ponylang/lori_http_server",
+    "license": "BSD-2-Clause",
+    "documentation_url": "https://ponylang.github.io/lori_http_server/",
+    "version": "0.0.0",
+    "name": "lori_http_server"
+  },
+  "deps": [
+    {
+      "locator": "github.com/ponylang/lori",
+      "version": "0.8.1"
+    }
+  ]
+}
