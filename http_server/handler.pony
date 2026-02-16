@@ -2,9 +2,9 @@ trait ref Handler
   """
   Application handler for HTTP requests.
 
-  All methods run synchronously inside the connection actor. The handler
-  receives a `Responder` at creation time (via `HandlerFactory`) and uses
-  it to send responses.
+  All methods run synchronously inside the connection actor. Each request
+  delivers a per-request `Responder` via `request_complete()` for sending
+  responses.
 
   Only `request_complete` must be implemented — the other methods have
   default no-op implementations for handlers that don't need them.
@@ -33,24 +33,25 @@ trait ref Handler
     """
     None
 
-  fun ref request_complete()
+  fun ref request_complete(responder: Responder)
     """
     Called when the entire request (including any body) has been received.
 
-    This is typically where the handler calls `Responder.respond()` to
-    send a response. After this method returns, the connection either
-    stays open for the next request (HTTP/1.1 keep-alive) or closes
-    (HTTP/1.0 default, or when the client sent `Connection: close`).
+    The `responder` is specific to this request. Call `Responder.respond()`
+    to send a complete response, or use `start_chunked_response()`,
+    `send_chunk()`, and `finish_response()` for streaming responses. The
+    handler may hold the responder and respond later (e.g., for deferred
+    processing).
     """
 
   fun ref closed() =>
     """
     Called when the connection closes.
 
-    This may fire during an idle keep-alive period (between requests),
-    during request processing (if the client disconnects mid-request),
-    or not at all (if the server initiates the close after a completed
-    request/response cycle).
+    Fires whenever the connection closes, whether due to client disconnect,
+    server-initiated close (keep-alive=false, parse error, idle timeout),
+    or any other reason. Not called if the connection fails before starting
+    (i.e., before any handler methods have been called).
     """
     None
 
@@ -77,7 +78,5 @@ interface val HandlerFactory
   Creates a handler for each new connection.
 
   The factory is `val` so it can be safely shared across connection actors.
-  Each call receives a `Responder` that the handler should store for
-  sending responses.
   """
-  fun apply(responder: Responder): Handler ref^
+  fun apply(): Handler ref^

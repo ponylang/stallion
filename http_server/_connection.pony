@@ -23,15 +23,19 @@ primitive _KeepAliveDecision
 
 actor _Connection is
   (lori.TCPConnectionActor & lori.ServerLifecycleEventReceiver
-    & _RequestParserNotify)
+    & _RequestParserNotify & _ResponseQueueNotify)
   """
   Per-connection actor that owns TCP I/O, parsing, handler dispatch,
-  and response sending.
+  response queue, and response sending.
 
   Implements the single-actor connection model: no actor boundaries
   between the TCP layer and application handler. Data arrives via
   `_on_received`, is fed to the parser, and parser callbacks are
   forwarded to the handler synchronously.
+
+  Pipelined requests are supported: multiple requests can be in-flight
+  on a single connection. The response queue ensures responses are sent
+  in request order, regardless of the order handlers respond.
 
   Connections are persistent by default (HTTP/1.1 keep-alive). The
   connection closes when the client sends `Connection: close`, on
@@ -40,12 +44,13 @@ actor _Connection is
   """
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   var _state: _ConnectionState = _Active
-  let _responder: Responder
   let _handler: Handler
+  var _queue: (_ResponseQueue | None) = None
+  var _current_responder: (Responder | None) = None
+  var _requests_pending: USize = 0
   var _parser: (_RequestParser | None) = None
   let _config: ServerConfig
   let _timers: (Timers | None)
-  var _keep_alive: Bool = true
   var _idle: Bool = true
   var _idle_timer: (Timer tag | None) = None
 
@@ -56,16 +61,14 @@ actor _Connection is
     config: ServerConfig,
     timers: (Timers | None) = None)
   =>
-    // Initialize responder and handler first with placeholder connection.
-    // _parser defaults to None, so all fields are now initialized and
-    // `this` becomes `ref` — required by TCPConnection.server and
-    // _RequestParser.
     _config = config
     _timers = timers
-    _responder = Responder._create(_tcp_connection)
-    _handler = handler_factory(_responder)
+    _handler = handler_factory()
+    // All let fields now initialized + all var fields have defaults,
+    // so `this` is ref — required by _ResponseQueue, TCPConnection.server,
+    // and _RequestParser constructors.
+    _queue = _ResponseQueue(this)
     _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
-    _responder._set_connection(_tcp_connection)
     _parser = _RequestParser(this, _config._parser_config())
 
   //
@@ -106,41 +109,77 @@ actor _Connection is
     version: Version,
     headers: Headers val)
   =>
-    _keep_alive = _KeepAliveDecision(version, headers.get("connection"))
+    let keep_alive = _KeepAliveDecision(version, headers.get("connection"))
+    match _queue
+    | let q: _ResponseQueue =>
+      let id = q.register(keep_alive)
+      _current_responder = Responder._create(q, id, version)
+    end
+    _requests_pending = _requests_pending + 1
     _idle = false
     _cancel_idle_timer()
-    _responder._set_version(version)
+
+    // Safety net: close if too many pipelined requests are pending
+    if _requests_pending > _config.max_pending_responses then
+      _tcp_connection.send(_ErrorResponse.no_response())
+      _close_connection()
+      return
+    end
+
     _handler.request(method, uri, version, headers)
 
   fun ref body_chunk(data: Array[U8] val) =>
     _handler.body_chunk(data)
 
   fun ref request_complete() =>
-    _handler.request_complete()
-
-    // If handler didn't respond, send 500 and close unconditionally.
-    // Protocol state is uncertain so we always close regardless of
-    // _keep_alive.
-    if not _responder.responded() then
-      _tcp_connection.send(_ErrorResponse.no_response())
-      _tcp_connection.close()
-      _state = _Closed
-      return
-    end
-
-    if _keep_alive then
-      _responder._reset()
-      _idle = true
-      _start_idle_timer()
-    else
-      _tcp_connection.close()
-      _state = _Closed
+    match _current_responder
+    | let r: Responder =>
+      _current_responder = None
+      _handler.request_complete(r)
     end
 
   fun ref parse_error(err: ParseError) =>
+    // Send error directly to TCP (bypassing queue) then close.
+    // Discarding pending pipelined responses is acceptable per HTTP spec
+    // since parse errors indicate a corrupt data stream.
     _tcp_connection.send(_ErrorResponse.for_error(err))
-    _tcp_connection.close()
-    _state = _Closed
+    _close_connection()
+
+  //
+  // _ResponseQueueNotify — called by the response queue during
+  // send_data/finish/unthrottle to delegate TCP I/O and lifecycle
+  // decisions to this connection actor.
+  //
+
+  fun ref _flush_data(data: ByteSeq) =>
+    """
+    Send response data to the TCP connection.
+
+    Called when data for the head-of-line entry is ready to send.
+    On send error, closes the connection (which in turn closes the queue,
+    making any remaining Responders inert).
+    """
+    match _tcp_connection.send(data)
+    | let _: lori.SendError =>
+      _close_connection()
+    end
+
+  fun ref _response_complete(keep_alive: Bool) =>
+    """
+    Called when a completed response has been fully flushed from the head
+    of the queue.
+
+    Decrements the pending request count and either closes the connection
+    (if keep-alive is false) or starts the idle timer (if no more requests
+    are pending).
+    """
+    _requests_pending = _requests_pending - 1
+    if not keep_alive then
+      _close_connection()
+    elseif _requests_pending == 0 then
+      _idle = true
+      _start_idle_timer()
+    end
 
   //
   // Idle timeout
@@ -164,22 +203,45 @@ actor _Connection is
 
   fun ref _handle_closed() =>
     """Notify the handler that the connection has closed."""
+    match _parser | let p: _RequestParser => p.stop() end
+    match _queue | let q: _ResponseQueue => q.close() end
     _handler.closed()
     _state = _Closed
 
   fun ref _handle_throttled() =>
     """Apply backpressure: mute the TCP connection and notify the handler."""
     _tcp_connection.mute()
+    match _queue | let q: _ResponseQueue => q.throttle() end
     _handler.throttled()
 
   fun ref _handle_unthrottled() =>
     """Release backpressure: unmute the TCP connection and notify the handler."""
     _tcp_connection.unmute()
+    match _queue | let q: _ResponseQueue => q.unthrottle() end
     _handler.unthrottled()
 
   fun ref _handle_idle_timeout() =>
     """Close the connection if it is idle (between requests)."""
     if _idle then
+      _close_connection()
+    end
+
+  fun ref _close_connection() =>
+    """
+    Close the connection and clean up all resources.
+
+    Safe to call from within queue callbacks (e.g., `_response_complete`
+    with `keep_alive=false`) — the `_Active` state guard prevents
+    double-close. After this, any Responders the handler still holds
+    become inert: their methods call through to the queue, which is
+    closed and no-ops everything.
+    """
+    match _state
+    | let _: _Active =>
+      match _parser | let p: _RequestParser => p.stop() end
+      match _queue | let q: _ResponseQueue => q.close() end
+      _cancel_idle_timer()
+      _handler.closed()
       _tcp_connection.close()
       _state = _Closed
     end

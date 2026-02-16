@@ -14,14 +14,22 @@ actor Main
     Server(lori.TCPListenAuth(env.root), MyFactory, config)
 
 class val MyFactory is HandlerFactory
-  fun apply(responder: Responder): Handler ref^ =>
-    MyHandler(responder)
+  fun apply(): Handler ref^ =>
+    MyHandler
 
 class ref MyHandler is Handler
-  let _responder: Responder
-  new ref create(responder: Responder) => _responder = responder
+  fun ref request_complete(responder: Responder) =>
+    responder.respond(StatusOK, None, "Hello!")
+```
 
-  fun ref request_complete() =>
-    _responder.respond(StatusOK, None, "Hello!")
+For streaming responses, use chunked transfer encoding:
+
+```pony
+class ref StreamHandler is Handler
+  fun ref request_complete(responder: Responder) =>
+    responder.start_chunked_response(StatusOK)
+    responder.send_chunk("chunk 1")
+    responder.send_chunk("chunk 2")
+    responder.finish_response()
 ```
 """

@@ -2,7 +2,9 @@
 Basic HTTP server that responds to every request with "Hello, World!".
 
 Demonstrates the core API: `Server`, `HandlerFactory`, `Handler`,
-`Responder`, `ServerConfig`, and `ServerNotify`.
+`Responder`, `ServerConfig`, and `ServerNotify`. Each request on a
+keep-alive connection increments a counter to demonstrate connection
+persistence.
 """
 use http_server = "../../http_server"
 use lori = "lori"
@@ -24,20 +26,19 @@ class val _ServerNotify is http_server.ServerNotify
     _env.out.print("Failed to start server")
 
 class val _HelloFactory is http_server.HandlerFactory
-  fun apply(responder: http_server.Responder): http_server.Handler ref^ =>
-    _HelloHandler(responder)
+  fun apply(): http_server.Handler ref^ =>
+    _HelloHandler
 
 class ref _HelloHandler is http_server.Handler
-  let _responder: http_server.Responder
+  var _request_count: USize = 0
 
-  new ref create(responder: http_server.Responder) =>
-    _responder = responder
-
-  fun ref request_complete() =>
+  fun ref request_complete(responder: http_server.Responder) =>
+    _request_count = _request_count + 1
+    let body: String val =
+      "Hello, World! (request " + _request_count.string() + ")"
     let headers = recover val
       let h = http_server.Headers
       h.set("content-type", "text/plain")
-      h.set("content-length", "13")
       h
     end
-    _responder.respond(http_server.StatusOK, headers, "Hello, World!")
+    responder.respond(http_server.StatusOK, headers, body)

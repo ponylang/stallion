@@ -23,6 +23,7 @@ class val ServerConfig
   let max_chunk_header_size: USize
   let max_body_size: USize
   let max_concurrent_connections: (U32 | None)
+  let max_pending_responses: USize
   let idle_timeout: U64
 
   new val create(
@@ -33,6 +34,7 @@ class val ServerConfig
     max_chunk_header_size': USize = 128,
     max_body_size': USize = 1_048_576,
     max_concurrent_connections': (U32 | None) = None,
+    max_pending_responses': USize = 100,
     idle_timeout': U64 = 0)
   =>
     """
@@ -41,7 +43,9 @@ class val ServerConfig
     `host'` and `port'` specify the listen address. Parser limits default to
     sensible values. `idle_timeout'` is in seconds (0 disables idle timeout).
     `max_concurrent_connections'` limits simultaneous connections (`None` for
-    unlimited).
+    unlimited). `max_pending_responses'` limits the number of pipelined
+    requests that can be outstanding before the connection closes — this
+    prevents unbounded memory growth from handlers that never respond.
     """
     host = host'
     port = port'
@@ -50,6 +54,7 @@ class val ServerConfig
     max_chunk_header_size = max_chunk_header_size'
     max_body_size = max_body_size'
     max_concurrent_connections = max_concurrent_connections'
+    max_pending_responses = max_pending_responses'
     idle_timeout = idle_timeout'
 
   fun _parser_config(): _ParserConfig val =>

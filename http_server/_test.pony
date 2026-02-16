@@ -77,3 +77,26 @@ actor \nodoc\ Main is TestList
     // Keep-alive decision property test
     test(Property1UnitTest[(Version, (String val | None))](
       _PropertyKeepAliveDecision))
+
+    // Chunked encoder tests
+    test(Property1UnitTest[Array[U8] val](
+      _PropertyChunkedEncoderFormat))
+    test(_TestChunkedEncoderKnownInputs)
+
+    // Response queue tests
+    test(Property1UnitTest[Array[USize] val](
+      _PropertyQueueInOrderDelivery))
+    test(Property1UnitTest[(USize, Array[USize] val)](
+      _PropertyQueueMixedResponses))
+    test(_TestQueueReverseOrder)
+    test(_TestQueueKeepAliveFalseStopsFlush)
+    test(_TestQueueStreamingHead)
+    test(_TestQueueStreamingNonHead)
+    test(_TestQueueThrottleUnthrottle)
+
+    // Pipelining and streaming integration tests
+    test(_TestPipelineCorrectness)
+    test(_TestPipelineConnectionClose)
+    test(_TestStreamingResponse)
+    test(_TestMaxPendingOverflow)
+    test(_TestHTTP10ChunkedRejection)

@@ -43,7 +43,10 @@ class _RequestParser
     var continue_parsing = true
     while continue_parsing do
       match state.parse(this)
-      | _ParseContinue => None
+      | _ParseContinue =>
+        // A handler callback (triggered by state.parse) may have called
+        // stop() — check before continuing to the next state transition.
+        if _failed then break end
       | _ParseNeedMore => continue_parsing = false
       | let err: ParseError =>
         handler.parse_error(err)
@@ -57,6 +60,15 @@ class _RequestParser
       buf.trim_in_place(pos)
       pos = 0
     end
+
+  fun ref stop() =>
+    """
+    Stop the parser. All subsequent `parse()` calls become no-ops.
+
+    Safe to call from within a handler callback during parsing — the parse
+    loop checks the failed flag after each state transition.
+    """
+    _failed = true
 
   fun ref extract_bytes(from: USize, to: USize): Array[U8] iso^ =>
     """Copy bytes from buf[from..to) into a new iso array."""
