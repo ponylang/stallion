@@ -24,3 +24,39 @@ actor \nodoc\ Main is TestList
     test(Property1UnitTest[_ResponseInput](
       _PropertyResponseWireFormat))
     test(_TestResponseSerializerKnownGood)
+
+    // Parser property-based tests
+    test(Property1UnitTest[(String val, String val)](
+      _PropertyValidRequestLineParsesCorrectly))
+    test(Property1UnitTest[String val](
+      _PropertyInvalidMethodRejected))
+    test(Property1UnitTest[Array[(String val, String val)] ref](
+      _PropertyHeadersRoundtrip))
+    test(Property1UnitTest[USize](
+      _PropertyFixedBodyDelivered))
+    test(Property1UnitTest[Array[USize] ref](
+      _PropertyChunkedBodyDelivered))
+    test(Property1UnitTest[(String val, Bool)](
+      _PropertyRequestLineBoundary))
+
+    // Parser example-based tests
+    test(_TestParserKnownGoodRequests)
+    test(_TestIncrementalByteByByte)
+    test(_TestPipelining)
+    test(_TestPipeliningWithBody)
+    test(_TestPipeliningChunked)
+    test(_TestSizeLimitRequestLine)
+    test(_TestSizeLimitHeaders)
+    test(_TestSizeLimitBody)
+    test(_TestInvalidContentLength)
+    test(_TestInvalidChunkSize)
+    test(_TestMissingCRLFAfterChunk)
+    test(_TestChunkedWithTrailers)
+    test(_TestHTTP10Version)
+    test(_TestInvalidVersion)
+    test(_TestNoBody)
+    test(_TestContentLengthZero)
+    test(_TestContentLengthAndChunked)
+    test(_TestDuplicateContentLength)
+    test(_TestInvalidURI)
+    test(_TestDataAfterError)

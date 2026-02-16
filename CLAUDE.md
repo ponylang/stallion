@@ -40,4 +40,10 @@ No release notes until after the first release. This project is pre-1.0 and hasn
   - `status.pony` — HTTP status codes (`Status` interface, 35 standard primitives)
   - `headers.pony` — Case-insensitive header collection (`Headers` class)
   - `_response_serializer.pony` — Response wire-format serializer (package-private)
+  - `_mort.pony` — Runtime enforcement primitives (`_IllegalState`, `_Unreachable`)
+  - `parse_error.pony` — Parse error types (`ParseError` union, 8 error primitives)
+  - `_parser_config.pony` — Parser size limit configuration
+  - `_request_parser_notify.pony` — Parser callback trait (synchronous `ref` methods)
+  - `_parser_state.pony` — Parser state machine (state interface, 6 state classes, `_BufferScan`)
+  - `_request_parser.pony` — Request parser class (entry point, buffer management)
 - `examples/` — example programs
