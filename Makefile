@@ -23,6 +23,20 @@ else
 	PONYC = $(COMPILE_WITH) --debug
 endif
 
+ifeq (,$(filter $(MAKECMDGOALS),clean docs TAGS))
+  ifeq ($(ssl), 3.0.x)
+          SSL = -Dopenssl_3.0.x
+  else ifeq ($(ssl), 1.1.x)
+          SSL = -Dopenssl_1.1.x
+  else ifeq ($(ssl), libressl)
+          SSL = -Dlibressl
+  else
+    $(error Unknown SSL version "$(ssl)". Must set using 'ssl=FOO')
+  endif
+endif
+
+PONYC := $(PONYC) $(SSL)
+
 SOURCE_FILES := $(shell find $(SRC_DIR) -name *.pony)
 EXAMPLES := $(notdir $(shell find $(EXAMPLES_DIR)/* -type d))
 EXAMPLES_SOURCE_FILES := $(shell find $(EXAMPLES_DIR) -name *.pony)

@@ -12,7 +12,7 @@
   },
   "deps": [
     {
-      "locator": "github.com/ponylang/lori",
+      "locator": "github.com/ponylang/lori.git",
       "version": "0.8.1"
     }
   ]

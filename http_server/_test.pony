@@ -1,5 +1,6 @@
 use "pony_test"
 use "pony_check"
+use lori = "lori"
 
 actor \nodoc\ Main is TestList
   new create(env: Env) =>
@@ -60,3 +61,7 @@ actor \nodoc\ Main is TestList
     test(_TestDuplicateContentLength)
     test(_TestInvalidURI)
     test(_TestDataAfterError)
+
+    // Server integration tests
+    test(_TestServerHelloWorld)
+    test(_TestServerParseError)
