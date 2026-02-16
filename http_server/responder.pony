@@ -48,12 +48,19 @@ class ref Responder
       | None => recover val Headers end
       end
       let response = _ResponseSerializer(status, h, body, _version)
-      _tcp_connection.send(consume response)
+      match _tcp_connection.send(consume response)
+      | let _: lori.SendError =>
+        _tcp_connection.close()
+      end
     end
 
   fun responded(): Bool =>
     """Whether a response has already been sent."""
     _responded
+
+  fun ref _reset() =>
+    """Reset for the next request on a keep-alive connection."""
+    _responded = false
 
   fun ref _set_connection(tcp_connection: lori.TCPConnection) =>
     """Update the TCP connection (called by the connection after init)."""

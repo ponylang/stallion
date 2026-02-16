@@ -65,3 +65,15 @@ actor \nodoc\ Main is TestList
     // Server integration tests
     test(_TestServerHelloWorld)
     test(_TestServerParseError)
+    test(_TestKeepAlive)
+    test(_TestConnectionClose)
+    test(_TestHTTP10Close)
+    test(_TestErrorResponse413)
+    test(_TestErrorResponse431)
+    test(_TestErrorResponse505)
+    test(_TestIdleTimeout)
+    test(_TestServerNotifyListening)
+
+    // Keep-alive decision property test
+    test(Property1UnitTest[(Version, (String val | None))](
+      _PropertyKeepAliveDecision))

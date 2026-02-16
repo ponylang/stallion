@@ -38,18 +38,37 @@ trait ref Handler
     Called when the entire request (including any body) has been received.
 
     This is typically where the handler calls `Responder.respond()` to
-    send a response. After this method returns, the connection closes
-    (Phase 3 — no keep-alive).
+    send a response. After this method returns, the connection either
+    stays open for the next request (HTTP/1.1 keep-alive) or closes
+    (HTTP/1.0 default, or when the client sent `Connection: close`).
     """
 
   fun ref closed() =>
     """
-    Called when the remote peer closes the connection before the request
-    completes.
+    Called when the connection closes.
 
-    Not called after a normal request/response cycle — once `request_complete`
-    returns, the connection transitions to a closed state before lori's close
-    notification arrives.
+    This may fire during an idle keep-alive period (between requests),
+    during request processing (if the client disconnects mid-request),
+    or not at all (if the server initiates the close after a completed
+    request/response cycle).
+    """
+    None
+
+  fun ref throttled() =>
+    """
+    Called when backpressure is applied on the connection.
+
+    The TCP send buffer is full — the handler should stop generating
+    response data until `unthrottled` is called.
+    """
+    None
+
+  fun ref unthrottled() =>
+    """
+    Called when backpressure is released on the connection.
+
+    The TCP send buffer has drained — the handler may resume generating
+    response data.
     """
     None
 

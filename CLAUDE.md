@@ -27,6 +27,15 @@ Built on lori (v0.8.1). Lori provides raw TCP I/O with a connection-actor model:
 
 **Relationship to `ponylang/http_server`**: That project is built on the stdlib `net` package and has actor-interaction issues we want to avoid. We may borrow internal logic (e.g., parsing techniques) but the overall architecture and actor interactions are designed fresh around lori's model.
 
+**Connection lifecycle**: Connections are persistent by default (HTTP/1.1 keep-alive). The `Server` constructor takes a `ServerConfig` for listen address, parser limits, connection limits, and idle timeout, plus an optional `ServerNotify` for lifecycle callbacks:
+
+```pony
+let config = ServerConfig("localhost", "8080" where idle_timeout' = 60)
+Server(lori.TCPListenAuth(env.root), MyFactory, config, MyNotify)
+```
+
+Connections close when the client sends `Connection: close`, on HTTP/1.0 requests without `Connection: keep-alive`, after a parse error (with the appropriate error status code), or when the idle timeout expires. Backpressure from lori is propagated to the handler via `throttled()`/`unthrottled()` callbacks.
+
 ### Implementation plan
 
 See [Discussion #2](https://github.com/ponylang/lori_http_server/discussions/2) for the phased implementation plan.
@@ -51,8 +60,11 @@ No release notes until after the first release. This project is pre-1.0 and hasn
   - `_request_parser.pony` — Request parser class (entry point, buffer management)
   - `handler.pony` — Application handler trait (`Handler`) and factory interface (`HandlerFactory`)
   - `responder.pony` — Response sender (`Responder` class, wraps serialization + TCP send)
+  - `server_config.pony` — Server configuration (`ServerConfig` class)
+  - `server_notify.pony` — Server lifecycle notifications (`ServerNotify` interface)
+  - `_error_response.pony` — Pre-built error response strings (`_ErrorResponse` primitive)
   - `_connection_state.pony` — Connection lifecycle states (`_Active`, `_Closed`)
-  - `_connection.pony` — Per-connection actor (`_Connection`, owns TCP + parser + handler)
+  - `_connection.pony` — Per-connection actor (`_Connection`, owns TCP + parser + handler + idle timer)
   - `server.pony` — Listener actor (`Server`, accepts connections, creates `_Connection` actors)
 - `examples/` — example programs
-  - `basic/main.pony` — Hello World HTTP server
+  - `basic/main.pony` — Hello World HTTP server with `ServerNotify`
