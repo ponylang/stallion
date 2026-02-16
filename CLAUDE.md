@@ -3,10 +3,13 @@
 ## Building
 
 ```
-make          # build and run tests
-make test     # same as above
-make clean    # clean build artifacts
+make ssl=3.0.x      # build and run tests (OpenSSL 3.x)
+make ssl=1.1.x      # build and run tests (OpenSSL 1.1.x)
+make ssl=libressl   # build and run tests (LibreSSL)
+make clean           # clean build artifacts
 ```
+
+The `ssl` option is required because lori depends on the `ssl` package.
 
 ## Architecture
 
@@ -16,7 +19,7 @@ Built on lori (v0.8.1). Lori provides raw TCP I/O with a connection-actor model:
 
 ### Key design decisions
 
-**Single-actor connection model**: Unlike `ponylang/http_server` (which uses two actors per connection with message-passing between them), this library keeps everything in one actor per connection: TCP I/O, parsing, handler dispatch, and response sending. The handler's `ref` methods run synchronously inside the connection actor. No unnecessary actor boundaries.
+**Single-actor connection model**: Unlike `ponylang/http_server` (which uses two actors per connection with message-passing between them), this library keeps everything in one actor per connection (`_Connection`): TCP I/O, parsing, handler dispatch, and response sending. The handler's `ref` methods run synchronously inside the connection actor. No unnecessary actor boundaries. The `Server` actor is a thin listener wrapper that creates `_Connection` actors on accept.
 
 **Parser callback is `ref`, not `tag`**: The parser runs inside the connection actor, so its callback interface uses `fun ref` methods (synchronous calls), not `be` behaviors (actor messages). This avoids the extra actor hop that `ponylang/http_server` requires.
 
@@ -46,4 +49,10 @@ No release notes until after the first release. This project is pre-1.0 and hasn
   - `_request_parser_notify.pony` — Parser callback trait (synchronous `ref` methods)
   - `_parser_state.pony` — Parser state machine (state interface, 6 state classes, `_BufferScan`)
   - `_request_parser.pony` — Request parser class (entry point, buffer management)
+  - `handler.pony` — Application handler trait (`Handler`) and factory interface (`HandlerFactory`)
+  - `responder.pony` — Response sender (`Responder` class, wraps serialization + TCP send)
+  - `_connection_state.pony` — Connection lifecycle states (`_Active`, `_Closed`)
+  - `_connection.pony` — Per-connection actor (`_Connection`, owns TCP + parser + handler)
+  - `server.pony` — Listener actor (`Server`, accepts connections, creates `_Connection` actors)
 - `examples/` — example programs
+  - `basic/main.pony` — Hello World HTTP server
