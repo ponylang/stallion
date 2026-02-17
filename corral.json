@@ -1,6 +1,7 @@
 {
   "packages": [
-    "http_server"
+    "http_server",
+    "http_server/uri"
   ],
   "info": {
     "description": "HTTP server for Pony",

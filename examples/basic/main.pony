@@ -2,11 +2,12 @@
 Basic HTTP server that responds to every request with "Hello, World!".
 
 Demonstrates the core API: `Server`, `HandlerFactory`, `Handler`,
-`Responder`, `ServerConfig`, and `ServerNotify`. Each request on a
-keep-alive connection increments a counter to demonstrate connection
-persistence.
+`Responder`, `ServerConfig`, and `ServerNotify`. Also demonstrates
+URI parsing with the `http_server/uri` subpackage: each request's
+URI is parsed and query parameters are extracted.
 """
 use http_server = "../../http_server"
+use uri = "../../http_server/uri"
 use lori = "lori"
 
 actor Main
@@ -31,11 +32,33 @@ class val _HelloFactory is http_server.HandlerFactory
 
 class ref _HelloHandler is http_server.Handler
   var _request_count: USize = 0
+  var _name: String val = "World"
+
+  fun ref request(
+    method: http_server.Method,
+    uri_str: String val,
+    version: http_server.Version,
+    headers: http_server.Headers val)
+  =>
+    // Parse the URI and extract a "name" query parameter if present
+    _name = "World"
+    match uri.ParseURI(uri_str)
+    | let u: uri.URI val =>
+      match u.query
+      | let q: String val =>
+        match uri.ParseQueryParameters(q)
+        | let params: Array[(String val, String val)] val =>
+          for (k, v) in params.values() do
+            if k == "name" then _name = v end
+          end
+        end
+      end
+    end
 
   fun ref request_complete(responder: http_server.Responder) =>
     _request_count = _request_count + 1
     let body: String val =
-      "Hello, World! (request " + _request_count.string() + ")"
+      "Hello, " + _name + "! (request " + _request_count.string() + ")"
     let headers = recover val
       let h = http_server.Headers
       h.set("content-type", "text/plain")

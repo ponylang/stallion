@@ -19,6 +19,11 @@ trait ref Handler
     """
     Called when the request line and all headers have been parsed.
 
+    The `uri` string is the raw request-target from the HTTP request line.
+    Use `ParseURI` from the `http_server/uri` subpackage to parse it into
+    structured components (`URI.path`, `URI.query`, etc.). For CONNECT
+    requests (authority-form `host:port`), use `ParseURIAuthority` instead.
+
     For requests with a body, `body_chunk` calls follow. For requests
     without a body, `request_complete` is called immediately after.
     """

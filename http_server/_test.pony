@@ -1,12 +1,16 @@
 use "pony_test"
 use "pony_check"
 use lori = "lori"
+use uri = "./uri"
 
 actor \nodoc\ Main is TestList
   new create(env: Env) =>
     PonyTest(env, this)
 
   fun tag tests(test: PonyTest) =>
+    // URI subpackage tests
+    uri.Main.make().tests(test)
+
     // Method tests
     test(Property1UnitTest[String val](_PropertyValidMethodParsesCorrectly))
     test(Property1UnitTest[String val](_PropertyInvalidMethodReturnsNone))
