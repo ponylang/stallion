@@ -1,4 +1,5 @@
 use lori = "lori"
+use ssl_net = "ssl/net"
 use "time"
 use uri_pkg = "./uri"
 
@@ -78,6 +79,27 @@ actor _Connection is
     // and _RequestParser constructors.
     _queue = _ResponseQueue(this)
     _tcp_connection = lori.TCPConnection.server(auth, fd, this, this)
+    _parser = _RequestParser(this, _config._parser_config())
+
+  new ssl_create(
+    auth: lori.TCPServerAuth,
+    ssl_ctx: ssl_net.SSLContext val,
+    fd: U32,
+    handler_factory: AnyHandlerFactory,
+    config: ServerConfig,
+    timers: (Timers | None) = None)
+  =>
+    _config = config
+    _timers = timers
+    _handler = match handler_factory
+    | let f: HandlerFactory => _BufferingAdapter(f())
+    | let f: StreamingHandlerFactory => f()
+    end
+    // All let fields now initialized + all var fields have defaults,
+    // so `this` is ref — required by _ResponseQueue,
+    // TCPConnection.ssl_server, and _RequestParser constructors.
+    _queue = _ResponseQueue(this)
+    _tcp_connection = lori.TCPConnection.ssl_server(auth, ssl_ctx, fd, this, this)
     _parser = _RequestParser(this, _config._parser_config())
 
   //

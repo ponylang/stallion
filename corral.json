@@ -15,6 +15,10 @@
     {
       "locator": "github.com/ponylang/lori.git",
       "version": "0.8.1"
+    },
+    {
+      "locator": "github.com/ponylang/ssl.git",
+      "version": "2.0.0"
     }
   ]
 }

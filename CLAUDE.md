@@ -9,7 +9,7 @@ make ssl=libressl   # build and run tests (LibreSSL)
 make clean           # clean build artifacts
 ```
 
-The `ssl` option is required because lori depends on the `ssl` package.
+The `ssl` option is required because this library and lori depend on the `ssl` package.
 
 ## Architecture
 
@@ -33,6 +33,14 @@ Built on lori (v0.8.1). Lori provides raw TCP I/O with a connection-actor model:
 let config = ServerConfig("localhost", "8080" where idle_timeout' = 60)
 Server(lori.TCPListenAuth(env.root), MyFactory, config, MyNotify)
 ```
+
+For HTTPS, pass an `SSLContext val` (from `ssl/net`) to `Server`:
+
+```pony
+Server(lori.TCPListenAuth(env.root), MyFactory, config where ssl_ctx = sslctx)
+```
+
+SSL handshake, encryption, and decryption are handled transparently by lori — handlers see no difference between HTTP and HTTPS connections.
 
 Connections close when the client sends `Connection: close`, on HTTP/1.0 requests without `Connection: keep-alive`, after a parse error (with the appropriate error status code), or when the idle timeout expires. Backpressure from lori is propagated to the handler via `throttled()`/`unthrottled()` callbacks and to the response queue via `throttle()`/`unthrottle()`.
 
@@ -75,8 +83,8 @@ No release notes until after the first release. This project is pre-1.0 and hasn
   - `server_notify.pony` — Server lifecycle notifications (`ServerNotify` interface)
   - `_error_response.pony` — Pre-built error response strings (`_ErrorResponse` primitive)
   - `_connection_state.pony` — Connection lifecycle states (`_Active`, `_Closed`)
-  - `_connection.pony` — Per-connection actor (`_Connection`, owns TCP + parser + URI parsing + handler + response queue + idle timer, accepts `AnyHandlerFactory`)
-  - `server.pony` — Listener actor (`Server`, accepts connections, creates `_Connection` actors, accepts `AnyHandlerFactory`)
+  - `_connection.pony` — Per-connection actor (`_Connection`, owns TCP/SSL + parser + URI parsing + handler + response queue + idle timer, accepts `AnyHandlerFactory`)
+  - `server.pony` — Listener actor (`Server`, accepts connections, creates `_Connection` actors, accepts `AnyHandlerFactory`, optional SSL)
   - `uri/` — URI parsing subpackage (RFC 3986)
     - `uri.pony` — Package docstring and `URI` class (`query_params()` convenience method)
     - `uri_authority.pony` — `URIAuthority` class
@@ -88,6 +96,10 @@ No release notes until after the first release. This project is pre-1.0 and hasn
     - `query_parameters.pony` — `ParseQueryParameters` primitive
     - `path_segments.pony` — `PathSegments` primitive
     - `_mort.pony` — `_Unreachable`, `_IllegalState` (package-private duplicate)
+- `assets/` — test assets
+  - `cert.pem` — Self-signed test certificate for SSL examples
+  - `key.pem` — Test private key for SSL examples
 - `examples/` — example programs
   - `basic/main.pony` — Hello World HTTP server with URI parsing and query parameter extraction
+  - `ssl/main.pony` — HTTPS server using SSL/TLS
   - `streaming/main.pony` — Chunked transfer encoding streaming response

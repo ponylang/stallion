@@ -52,4 +52,30 @@ class ref ChunkedResponseHandler is Handler
     responder.send_chunk("chunk 2")
     responder.finish_response()
 ```
+
+For HTTPS, pass an `SSLContext val` from the `ssl/net` package:
+
+```pony
+use "http_server"
+use "files"
+use "ssl/net"
+use lori = "lori"
+
+actor Main
+  new create(env: Env) =>
+    let sslctx = recover val
+      SSLContext
+        .> set_cert(
+          FilePath(FileAuth(env.root), "cert.pem"),
+          FilePath(FileAuth(env.root), "key.pem"))?
+        .> set_client_verify(false)
+        .> set_server_verify(false)
+    end
+    let config = ServerConfig("localhost", "8443")
+    Server(lori.TCPListenAuth(env.root), MyFactory, config
+      where ssl_ctx = sslctx)
+```
+
+Handlers are identical for HTTP and HTTPS — SSL is handled transparently
+by the connection layer.
 """
