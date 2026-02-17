@@ -1,3 +1,5 @@
+use "./uri"
+
 trait ref Handler
   """
   Application handler for HTTP requests.
@@ -12,17 +14,23 @@ trait ref Handler
 
   fun ref request(
     method: Method,
-    uri: String val,
+    uri: URI val,
     version: Version,
     headers: Headers val)
   =>
     """
     Called when the request line and all headers have been parsed.
 
-    The `uri` string is the raw request-target from the HTTP request line.
-    Use `ParseURI` from the `http_server/uri` subpackage to parse it into
-    structured components (`URI.path`, `URI.query`, etc.). For CONNECT
-    requests (authority-form `host:port`), use `ParseURIAuthority` instead.
+    The `uri` is a pre-parsed RFC 3986 URI with structured components
+    available directly (`uri.path`, `uri.query`, `uri.authority`, etc.).
+    The connection layer parses the raw request-target before delivering
+    it here — invalid URIs are rejected with 400 Bad Request before
+    reaching the handler.
+
+    For CONNECT requests, the URI has only the `authority` component
+    populated (host and port); `path` is empty. Note that
+    `uri.string()` reconstructs to `//host:port` rather than the
+    wire-format `host:port`.
 
     For requests with a body, `body_chunk` calls follow. For requests
     without a body, `request_complete` is called immediately after.

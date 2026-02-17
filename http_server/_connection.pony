@@ -1,5 +1,6 @@
 use lori = "lori"
 use "time"
+use uri_pkg = "./uri"
 
 primitive _KeepAliveDecision
   """
@@ -105,10 +106,31 @@ actor _Connection is
 
   fun ref request_received(
     method: Method,
-    uri: String val,
+    raw_uri: String val,
     version: Version,
     headers: Headers val)
   =>
+    // Parse raw URI string into structured form. The parser already validated
+    // basic syntax (no control characters); this catches structural failures
+    // from the RFC 3986 parser (e.g., invalid authority in CONNECT targets).
+    let parsed_uri: uri_pkg.URI val =
+      if method is CONNECT then
+        match uri_pkg.ParseURIAuthority(raw_uri)
+        | let a: uri_pkg.URIAuthority val =>
+          uri_pkg.URI(None, a, "", None, None)
+        | let _: uri_pkg.URIParseError val =>
+          parse_error(InvalidURI)
+          return
+        end
+      else
+        match uri_pkg.ParseURI(raw_uri)
+        | let u: uri_pkg.URI val => u
+        | let _: uri_pkg.URIParseError val =>
+          parse_error(InvalidURI)
+          return
+        end
+      end
+
     let keep_alive = _KeepAliveDecision(version, headers.get("connection"))
     match _queue
     | let q: _ResponseQueue =>
@@ -126,7 +148,7 @@ actor _Connection is
       return
     end
 
-    _handler.request(method, uri, version, headers)
+    _handler.request(method, parsed_uri, version, headers)
 
   fun ref body_chunk(data: Array[U8] val) =>
     _handler.body_chunk(data)

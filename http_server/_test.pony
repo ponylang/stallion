@@ -105,3 +105,7 @@ actor \nodoc\ Main is TestList
     test(_TestStreamingResponse)
     test(_TestMaxPendingOverflow)
     test(_TestHTTP10ChunkedRejection)
+
+    // URI parsing integration tests
+    test(_TestURIParsing)
+    test(_TestConnectURIParsing)

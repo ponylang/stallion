@@ -2,6 +2,7 @@ use "pony_check"
 use "pony_test"
 use "time"
 use lori = "lori"
+use uri = "./uri"
 
 // ---------------------------------------------------------------------------
 // Existing tests (updated for new _Connection constructor)
@@ -974,3 +975,116 @@ class \nodoc\ ref _TestChunkedFallbackHandler is Handler
     // Fallback: if chunked was rejected (HTTP/1.0), respond() still works
     // since the state is still _ResponderNotResponded
     responder.respond(StatusOK, headers, "fallback")
+
+// ---------------------------------------------------------------------------
+// URI parsing integration tests
+// ---------------------------------------------------------------------------
+
+class \nodoc\ iso _TestURIParsing is UnitTest
+  """
+  Send a GET request with path and query string. Verify the handler
+  receives a pre-parsed URI with correct path and query components.
+  """
+  fun name(): String => "server/uri parsing"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let port = "45887"
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let config = ServerConfig(host, port)
+    let listener = _TestServerListener(h, port,
+      _TestURIParsingFactory, config,
+      {(h': TestHelper, port': String) =>
+        let request =
+          "GET /hello?name=test HTTP/1.1\r\nHost: localhost\r\n\r\n"
+        let client = _TestHTTPClient(h', port', request, "200 OK",
+          "/hello|name=test")
+        h'.dispose_when_done(client)
+      })
+    h.dispose_when_done(listener)
+
+class \nodoc\ val _TestURIParsingFactory is HandlerFactory
+  fun apply(): Handler ref^ =>
+    _TestURIParsingHandler
+
+class \nodoc\ ref _TestURIParsingHandler is Handler
+  var _uri_path: String val = ""
+  var _uri_query: String val = ""
+
+  fun ref request(
+    method: Method,
+    request_uri: uri.URI val,
+    version: Version,
+    headers: Headers val)
+  =>
+    _uri_path = request_uri.path
+    _uri_query = match request_uri.query
+    | let q: String val => q
+    | None => ""
+    end
+
+  fun ref request_complete(responder: Responder) =>
+    let body: String val = _uri_path + "|" + _uri_query
+    let headers = recover val
+      let h = Headers
+      h.set("content-type", "text/plain")
+      h
+    end
+    responder.respond(StatusOK, headers, body)
+
+class \nodoc\ iso _TestConnectURIParsing is UnitTest
+  """
+  Send a CONNECT request with authority-form target. Verify the handler
+  receives a URI with the authority component populated and an empty path.
+  """
+  fun name(): String => "server/connect uri parsing"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let port = "45888"
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let config = ServerConfig(host, port)
+    let listener = _TestServerListener(h, port,
+      _TestConnectURIFactory, config,
+      {(h': TestHelper, port': String) =>
+        let request =
+          "CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n"
+        let client = _TestHTTPClient(h', port', request, "200 OK",
+          "example.com|443|")
+        h'.dispose_when_done(client)
+      })
+    h.dispose_when_done(listener)
+
+class \nodoc\ val _TestConnectURIFactory is HandlerFactory
+  fun apply(): Handler ref^ =>
+    _TestConnectURIHandler
+
+class \nodoc\ ref _TestConnectURIHandler is Handler
+  var _host: String val = ""
+  var _port: String val = ""
+  var _path: String val = ""
+
+  fun ref request(
+    method: Method,
+    request_uri: uri.URI val,
+    version: Version,
+    headers: Headers val)
+  =>
+    _path = request_uri.path
+    match request_uri.authority
+    | let a: uri.URIAuthority val =>
+      _host = a.host
+      _port = match a.port
+      | let p: U16 => p.string()
+      | None => "none"
+      end
+    end
+
+  fun ref request_complete(responder: Responder) =>
+    let body: String val = _host + "|" + _port + "|" + _path
+    let headers = recover val
+      let h = Headers
+      h.set("content-type", "text/plain")
+      h
+    end
+    responder.respond(StatusOK, headers, body)

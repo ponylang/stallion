@@ -9,7 +9,13 @@ primitive UnknownMethod is _ParseError
   fun string(): String iso^ => "UnknownMethod".clone()
 
 primitive InvalidURI is _ParseError
-  """Request URI is empty or contains spaces or control characters."""
+  """
+  Request URI is invalid.
+
+  Raised when the URI is empty, contains control characters, or fails
+  RFC 3986 structural parsing in the connection layer (e.g., invalid
+  authority in CONNECT targets).
+  """
   fun string(): String iso^ => "InvalidURI".clone()
 
 primitive InvalidVersion is _ParseError
