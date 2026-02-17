@@ -77,6 +77,7 @@ actor \nodoc\ Main is TestList
     test(_TestErrorResponse505)
     test(_TestIdleTimeout)
     test(_TestServerNotifyListening)
+    test(_TestServerNotifyClosed)
 
     // Keep-alive decision property test
     test(Property1UnitTest[(Version, (String val | None))](

@@ -215,6 +215,22 @@ class \nodoc\ iso _TestServerNotifyListening is UnitTest
     let server = Server(auth, _TestHelloFactory, config, notify)
     h.dispose_when_done(server)
 
+class \nodoc\ iso _TestServerNotifyClosed is UnitTest
+  """
+  Create a Server with a ServerNotify. Verify that the closed()
+  callback fires after dispose().
+  """
+  fun name(): String => "server/notify closed"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let auth = lori.TCPListenAuth(h.env.root)
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let config = ServerConfig(host, "45894")
+    let notify = _TestClosedNotify(h)
+    let server = Server(auth, _TestHelloFactory, config, notify)
+    h.dispose_when_done(server)
+
 // ---------------------------------------------------------------------------
 // Property-based test: keep-alive decision
 // ---------------------------------------------------------------------------
@@ -355,6 +371,12 @@ class \nodoc\ val _TestListenNotify is ServerNotify
   let _h: TestHelper
   new val create(h: TestHelper) => _h = h
   fun listening(server: Server tag) => _h.complete(true)
+
+class \nodoc\ val _TestClosedNotify is ServerNotify
+  let _h: TestHelper
+  new val create(h: TestHelper) => _h = h
+  fun listening(server: Server tag) => server.dispose()
+  fun closed(server: Server tag) => _h.complete(true)
 
 // ---------------------------------------------------------------------------
 // Test client: sends request bytes, verifies response

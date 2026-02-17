@@ -30,6 +30,9 @@ class val _ServerNotify is http_server.ServerNotify
   fun listen_failure(server: http_server.Server tag) =>
     _env.out.print("Failed to start server")
 
+  fun closed(server: http_server.Server tag) =>
+    _env.out.print("Server closed")
+
 class val _HelloFactory is http_server.HandlerFactory
   fun apply(): http_server.Handler ref^ =>
     _HelloHandler

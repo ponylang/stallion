@@ -68,7 +68,7 @@ actor Server is lori.TCPListenerActor
     connection. Pass a `HandlerFactory` for buffered request bodies or a
     `StreamingHandlerFactory` for incremental body delivery. The factory
     must be `val` (immutable and shareable). The optional `notify` receives
-    lifecycle callbacks (listening, listen failure).
+    lifecycle callbacks (listening, listen failure, closed).
 
     Pass an `SSLContext val` to enable HTTPS. Lori handles the SSL
     handshake, encryption, and decryption transparently — handlers see
@@ -105,6 +105,11 @@ actor Server is lori.TCPListenerActor
   fun ref _on_listen_failure() =>
     match _notify
     | let n: ServerNotify => n.listen_failure(this)
+    end
+
+  fun ref _on_closed() =>
+    match _notify
+    | let n: ServerNotify => n.closed(this)
     end
 
   be dispose() =>

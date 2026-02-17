@@ -2,8 +2,8 @@ interface val ServerNotify
   """
   Notifications for server lifecycle events.
 
-  Implement this to be notified when the server starts listening or fails to
-  start. Both callbacks default to no-ops.
+  Implement this to be notified when the server starts listening, fails to
+  start, or stops accepting connections. All callbacks default to no-ops.
 
   ```pony
   class val MyNotify is ServerNotify
@@ -13,6 +13,8 @@ interface val ServerNotify
       _env.out.print("Listening")
     fun listen_failure(server: Server tag) =>
       _env.out.print("Failed to start")
+    fun closed(server: Server tag) =>
+      _env.out.print("Server closed")
   ```
   """
 
@@ -22,4 +24,8 @@ interface val ServerNotify
 
   fun listen_failure(server: Server tag) =>
     """Called when the server failed to bind to the configured address."""
+    None
+
+  fun closed(server: Server tag) =>
+    """Called when the server has stopped accepting connections."""
     None

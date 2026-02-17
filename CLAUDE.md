@@ -27,7 +27,7 @@ Built on lori (v0.8.1). Lori provides raw TCP I/O with a connection-actor model:
 
 **Relationship to `ponylang/http_server`**: That project is built on the stdlib `net` package and has actor-interaction issues we want to avoid. We may borrow internal logic (e.g., parsing techniques) but the overall architecture and actor interactions are designed fresh around lori's model.
 
-**Connection lifecycle**: Connections are persistent by default (HTTP/1.1 keep-alive). The `Server` constructor takes a `ServerConfig` for listen address, parser limits, connection limits, and idle timeout, plus an optional `ServerNotify` for lifecycle callbacks:
+**Connection lifecycle**: Connections are persistent by default (HTTP/1.1 keep-alive). The `Server` constructor takes a `ServerConfig` for listen address, parser limits, connection limits, and idle timeout, plus an optional `ServerNotify` for lifecycle callbacks (listening, listen failure, closed):
 
 ```pony
 let config = ServerConfig("localhost", "8080" where idle_timeout' = 60)
