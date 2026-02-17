@@ -26,8 +26,12 @@ match ParseURIAuthority("example.com:443")
 end
 ```
 
-Use `PercentDecode`/`PercentEncode` for encoding operations, and
-`ParseQueryParameters`/`PathSegments` for higher-level query and path
+For query parameter access, `URI.query_params()` is the simplest path —
+it returns a `QueryParams` collection with `get()`, `get_all()`, and
+`contains()` methods for key-based lookup. Use `ParseQueryParameters`
+directly on the `query` field when you need to distinguish "no query"
+from "invalid percent-encoding." Use `PercentDecode`/`PercentEncode`
+for encoding operations, and `PathSegments` for decoded path segment
 access.
 """
 
@@ -90,6 +94,25 @@ class val URI is (Stringable & Equatable[URI])
     | let f: String => out.push('#'); out.append(f)
     end
     out
+
+  fun query_params(): (QueryParams val | None) =>
+    """
+    Parse the query string into a `QueryParams` collection.
+
+    Returns the parsed parameters if the query is present and decodes
+    successfully, or `None` if no query is present or if the query
+    contains invalid percent-encoding. For fine-grained error handling
+    (distinguishing "no query" from "decode failure"), use
+    `ParseQueryParameters` directly on the `query` field.
+    """
+    match query
+    | let q: String val =>
+      match ParseQueryParameters(q)
+      | let params: QueryParams val => params
+      | let _: InvalidPercentEncoding => None
+      end
+    | None => None
+    end
 
   fun eq(that: URI box): Bool =>
     let scheme_eq =

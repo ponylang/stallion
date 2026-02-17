@@ -42,7 +42,7 @@ class \nodoc\ iso _PropertyQueryParamsRoundtrip
     let query = "&".join(parts.values())
 
     match ParseQueryParameters(consume query)
-    | let parsed: Array[(String val, String val)] val =>
+    | let parsed: QueryParams val =>
       ph.assert_eq[USize](arg1.size(), parsed.size(),
         "pair count mismatch")
       var i: USize = 0
@@ -72,7 +72,7 @@ class \nodoc\ iso _PropertyQueryParamsPlusDecodes is Property1[String val]
   fun ref property(arg1: String val, ph: PropertyHelper) =>
     let query = "key=" + arg1
     match ParseQueryParameters(consume query)
-    | let parsed: Array[(String val, String val)] val =>
+    | let parsed: QueryParams val =>
       try
         (_, let v) = parsed(0)?
         let exp = String(arg1.size())
@@ -98,7 +98,7 @@ class \nodoc\ iso _PropertyQueryParamsInvalidRejected
 
   fun ref property(arg1: String val, ph: PropertyHelper) =>
     match ParseQueryParameters(arg1)
-    | let parsed: Array[(String val, String val)] val =>
+    | let parsed: QueryParams val =>
       ph.fail("expected error for: " + arg1)
     | let err: InvalidPercentEncoding val =>
       ph.assert_true(true)
@@ -121,7 +121,7 @@ class \nodoc\ iso _TestQueryParametersKnownGood is UnitTest
     _assert_params(h, "a=1&a=2",
       [("a", "1"); ("a", "2")])
 
-    // Empty string produces empty array
+    // Empty string produces empty QueryParams
     _assert_params(h, "", Array[(String val, String val)](0))
 
     // Key without value (no =)
@@ -154,7 +154,7 @@ class \nodoc\ iso _TestQueryParametersKnownGood is UnitTest
     expected: Array[(String val, String val)] val)
   =>
     match ParseQueryParameters(input)
-    | let parsed: Array[(String val, String val)] val =>
+    | let parsed: QueryParams val =>
       h.assert_eq[USize](expected.size(), parsed.size(),
         "pair count mismatch for: " + input)
       var i: USize = 0
@@ -171,4 +171,140 @@ class \nodoc\ iso _TestQueryParametersKnownGood is UnitTest
       end
     | let err: InvalidPercentEncoding val =>
       h.fail("parse failed for: " + input + ": " + err.string())
+    end
+
+class \nodoc\ iso _TestURIQueryParams is UnitTest
+  """URI.query_params() convenience method."""
+  fun name(): String => "uri/query_parameters/uri_query_params"
+
+  fun ref apply(h: TestHelper) =>
+    // URI with query string returns parsed params
+    let with_query = URI(None, None, "/path", "a=1&b=2", None)
+    match with_query.query_params()
+    | let params: QueryParams val =>
+      h.assert_eq[USize](2, params.size(), "should have 2 params")
+      try
+        h.assert_eq[String val]("a", params(0)?._1)
+        h.assert_eq[String val]("1", params(0)?._2)
+        h.assert_eq[String val]("b", params(1)?._1)
+        h.assert_eq[String val]("2", params(1)?._2)
+      else
+        h.fail("could not read params")
+      end
+    | None =>
+      h.fail("expected params, got None")
+    end
+
+    // URI without query string returns None
+    let no_query = URI(None, None, "/path", None, None)
+    match no_query.query_params()
+    | let _: QueryParams val =>
+      h.fail("expected None for no query")
+    | None => None // expected
+    end
+
+    // URI with empty query string returns empty QueryParams
+    let empty_query = URI(None, None, "/path", "", None)
+    match empty_query.query_params()
+    | let params: QueryParams val =>
+      h.assert_eq[USize](0, params.size(), "empty query = 0 params")
+    | None =>
+      h.fail("expected empty QueryParams, got None")
+    end
+
+    // URI with invalid percent-encoding in query returns None
+    let bad_encoding = URI(None, None, "/path", "key=%GG", None)
+    match bad_encoding.query_params()
+    | let _: QueryParams val =>
+      h.fail("expected None for bad encoding")
+    | None => None // expected
+    end
+
+class \nodoc\ iso _TestQueryParamsGet is UnitTest
+  """QueryParams.get() returns first value for key."""
+  fun name(): String => "uri/query_parameters/query_params_get"
+
+  fun ref apply(h: TestHelper) =>
+    match ParseQueryParameters("a=1&b=2&a=3")
+    | let params: QueryParams val =>
+      // Key present — returns first value
+      h.assert_eq[String val]("1",
+        try params.get("a") as String else "" end,
+        "get should return first value for duplicate key")
+      h.assert_eq[String val]("2",
+        try params.get("b") as String else "" end,
+        "get should return value for unique key")
+
+      // Key absent — returns None
+      match params.get("missing")
+      | let _: String => h.fail("expected None for missing key")
+      | None => None // expected
+      end
+    | let err: InvalidPercentEncoding val =>
+      h.fail("unexpected parse error")
+    end
+
+class \nodoc\ iso _TestQueryParamsGetAll is UnitTest
+  """QueryParams.get_all() returns all values for key."""
+  fun name(): String => "uri/query_parameters/query_params_get_all"
+
+  fun ref apply(h: TestHelper) =>
+    match ParseQueryParameters("a=1&b=2&a=3")
+    | let params: QueryParams val =>
+      // Multiple values
+      let a_vals = params.get_all("a")
+      h.assert_eq[USize](2, a_vals.size(), "should have 2 values for a")
+      try
+        h.assert_eq[String val]("1", a_vals(0)?)
+        h.assert_eq[String val]("3", a_vals(1)?)
+      else
+        h.fail("could not read a values")
+      end
+
+      // Single value
+      let b_vals = params.get_all("b")
+      h.assert_eq[USize](1, b_vals.size(), "should have 1 value for b")
+
+      // Absent key
+      let missing = params.get_all("missing")
+      h.assert_eq[USize](0, missing.size(),
+        "absent key should return empty array")
+    | let err: InvalidPercentEncoding val =>
+      h.fail("unexpected parse error")
+    end
+
+class \nodoc\ iso _TestQueryParamsContains is UnitTest
+  """QueryParams.contains() checks key presence."""
+  fun name(): String => "uri/query_parameters/query_params_contains"
+
+  fun ref apply(h: TestHelper) =>
+    match ParseQueryParameters("a=1&b=2")
+    | let params: QueryParams val =>
+      h.assert_true(params.contains("a"), "should contain a")
+      h.assert_true(params.contains("b"), "should contain b")
+      h.assert_false(params.contains("c"), "should not contain c")
+    | let err: InvalidPercentEncoding val =>
+      h.fail("unexpected parse error")
+    end
+
+class \nodoc\ iso _TestQueryParamsSize is UnitTest
+  """QueryParams.size() reflects pair count including duplicates."""
+  fun name(): String => "uri/query_parameters/query_params_size"
+
+  fun ref apply(h: TestHelper) =>
+    // Empty
+    match ParseQueryParameters("")
+    | let params: QueryParams val =>
+      h.assert_eq[USize](0, params.size(), "empty = 0")
+    | let err: InvalidPercentEncoding val =>
+      h.fail("unexpected parse error")
+    end
+
+    // With duplicates — counts each pair
+    match ParseQueryParameters("a=1&a=2&b=3")
+    | let params: QueryParams val =>
+      h.assert_eq[USize](3, params.size(),
+        "duplicates count separately")
+    | let err: InvalidPercentEncoding val =>
+      h.fail("unexpected parse error")
     end

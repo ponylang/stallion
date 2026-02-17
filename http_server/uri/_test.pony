@@ -42,3 +42,8 @@ actor \nodoc\ Main is TestList
     test(Property1UnitTest[String val](_PropertyQueryParamsPlusDecodes))
     test(Property1UnitTest[String val](_PropertyQueryParamsInvalidRejected))
     test(_TestQueryParametersKnownGood)
+    test(_TestURIQueryParams)
+    test(_TestQueryParamsGet)
+    test(_TestQueryParamsGetAll)
+    test(_TestQueryParamsContains)
+    test(_TestQueryParamsSize)

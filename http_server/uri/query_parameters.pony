@@ -1,6 +1,6 @@
 primitive ParseQueryParameters
   """
-  Parse a query string into key-value pairs.
+  Parse a query string into a `QueryParams` collection.
 
   Splits on `&`, then on the first `=`. Decodes `+` as space and
   percent-decodes both keys and values.
@@ -13,10 +13,11 @@ primitive ParseQueryParameters
   in practice.
   """
   fun apply(query: String val)
-    : (Array[(String val, String val)] val | InvalidPercentEncoding val)
+    : (QueryParams val | InvalidPercentEncoding val)
   =>
     if query.size() == 0 then
-      return recover val Array[(String val, String val)](0) end
+      return QueryParams(
+        recover val Array[(String val, String val)](0) end)
     end
 
     // Count pairs for pre-allocation
@@ -51,7 +52,7 @@ primitive ParseQueryParameters
     for pair in pairs.values() do
       result.push(pair)
     end
-    consume result
+    QueryParams(consume result)
 
   fun _parse_pair(pair: String val)
     : ((String val, String val) | InvalidPercentEncoding val)

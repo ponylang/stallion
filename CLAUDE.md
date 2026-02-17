@@ -73,12 +73,13 @@ No release notes until after the first release. This project is pre-1.0 and hasn
   - `_connection.pony` — Per-connection actor (`_Connection`, owns TCP + parser + URI parsing + handler + response queue + idle timer)
   - `server.pony` — Listener actor (`Server`, accepts connections, creates `_Connection` actors)
   - `uri/` — URI parsing subpackage (RFC 3986)
-    - `uri.pony` — Package docstring and `URI` class
+    - `uri.pony` — Package docstring and `URI` class (`query_params()` convenience method)
     - `uri_authority.pony` — `URIAuthority` class
     - `percent_encoding.pony` — `PercentDecode`, `PercentEncode`, `URIPart` types, `InvalidPercentEncoding`
     - `parse_uri.pony` — `ParseURI` factory
     - `parse_uri_authority.pony` — `ParseURIAuthority` factory
     - `uri_parse_error.pony` — Error types and `URIParseError` union
+    - `query_params.pony` — `QueryParams` class (key-based lookup for parsed query parameters)
     - `query_parameters.pony` — `ParseQueryParameters` primitive
     - `path_segments.pony` — `PathSegments` primitive
     - `_mort.pony` — `_Unreachable`, `_IllegalState` (package-private duplicate)

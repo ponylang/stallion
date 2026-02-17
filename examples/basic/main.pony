@@ -42,13 +42,10 @@ class ref _HelloHandler is http_server.Handler
   =>
     // Extract a "name" query parameter if present
     _name = "World"
-    match request_uri.query
-    | let q: String val =>
-      match uri.ParseQueryParameters(q)
-      | let params: Array[(String val, String val)] val =>
-        for (k, v) in params.values() do
-          if k == "name" then _name = v end
-        end
+    match request_uri.query_params()
+    | let params: uri.QueryParams val =>
+      match params.get("name")
+      | let name: String => _name = name
       end
     end
 
