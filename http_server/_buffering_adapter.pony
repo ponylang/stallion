@@ -17,8 +17,8 @@ class ref _BufferingAdapter is StreamingHandler
   new create(inner: Handler) =>
     _inner = inner
 
-  fun ref request(request': Request val) =>
-    _inner.request(request')
+  fun ref request(r: Request val) =>
+    _inner.request(r)
 
   fun ref body_chunk(data: Array[U8] val) =>
     _has_body = true

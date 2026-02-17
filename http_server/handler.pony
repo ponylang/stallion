@@ -17,23 +17,23 @@ trait ref Handler
   default no-op implementations for handlers that don't need them.
   """
 
-  fun ref request(request': Request val) =>
+  fun ref request(r: Request val) =>
     """
     Called when the request line and all headers have been parsed.
 
     The `Request` bundles method, URI, version, and headers into a single
-    immutable value. Access components via `request'.method`,
-    `request'.uri`, `request'.version`, and `request'.headers`.
+    immutable value. Access components via `r.method`, `r.uri`,
+    `r.version`, and `r.headers`.
 
     The URI is a pre-parsed RFC 3986 structure with components available
-    directly (`request'.uri.path`, `request'.uri.query`,
-    `request'.uri.authority`, etc.). The connection layer parses the raw
-    request-target before delivering it here — invalid URIs are rejected
-    with 400 Bad Request before reaching the handler.
+    directly (`r.uri.path`, `r.uri.query`, `r.uri.authority`, etc.). The
+    connection layer parses the raw request-target before delivering it
+    here — invalid URIs are rejected with 400 Bad Request before reaching
+    the handler.
 
     For CONNECT requests, the URI has only the `authority` component
     populated (host and port); `path` is empty. Note that
-    `request'.uri.string()` reconstructs to `//host:port` rather than the
+    `r.uri.string()` reconstructs to `//host:port` rather than the
     wire-format `host:port`.
 
     For requests with a body, the body is buffered internally and
@@ -107,23 +107,23 @@ trait ref StreamingHandler
   default no-op implementations for handlers that don't need them.
   """
 
-  fun ref request(request': Request val) =>
+  fun ref request(r: Request val) =>
     """
     Called when the request line and all headers have been parsed.
 
     The `Request` bundles method, URI, version, and headers into a single
-    immutable value. Access components via `request'.method`,
-    `request'.uri`, `request'.version`, and `request'.headers`.
+    immutable value. Access components via `r.method`, `r.uri`,
+    `r.version`, and `r.headers`.
 
     The URI is a pre-parsed RFC 3986 structure with components available
-    directly (`request'.uri.path`, `request'.uri.query`,
-    `request'.uri.authority`, etc.). The connection layer parses the raw
-    request-target before delivering it here — invalid URIs are rejected
-    with 400 Bad Request before reaching the handler.
+    directly (`r.uri.path`, `r.uri.query`, `r.uri.authority`, etc.). The
+    connection layer parses the raw request-target before delivering it
+    here — invalid URIs are rejected with 400 Bad Request before reaching
+    the handler.
 
     For CONNECT requests, the URI has only the `authority` component
     populated (host and port); `path` is empty. Note that
-    `request'.uri.string()` reconstructs to `//host:port` rather than the
+    `r.uri.string()` reconstructs to `//host:port` rather than the
     wire-format `host:port`.
 
     For requests with a body, `body_chunk` calls follow. For requests

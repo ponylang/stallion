@@ -41,10 +41,10 @@ class ref _HelloHandler is http_server.Handler
   var _request_count: USize = 0
   var _name: String val = "World"
 
-  fun ref request(request': http_server.Request val) =>
+  fun ref request(r: http_server.Request val) =>
     // Extract a "name" query parameter if present
     _name = "World"
-    match request'.uri.query_params()
+    match r.uri.query_params()
     | let params: uri.QueryParams val =>
       match params.get("name")
       | let name: String => _name = name
