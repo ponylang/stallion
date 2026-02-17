@@ -4,7 +4,8 @@ HTTP server for Pony, built on lori.
 Start a server with `Server`, passing a handler factory and `ServerConfig`.
 
 Most handlers should use `Handler` (buffered), where the complete request
-body is delivered in `request_complete`:
+body is delivered in `request_complete`. Build responses with
+`ResponseBuilder` and send them via `Responder.respond_raw()`:
 
 ```pony
 use "http_server"
@@ -21,7 +22,13 @@ class val MyFactory is HandlerFactory
 
 class ref MyHandler is Handler
   fun ref request_complete(responder: Responder, body: RequestBody) =>
-    responder.respond(StatusOK, None, "Hello!")
+    let resp_body: String val = "Hello!"
+    let response = ResponseBuilder(StatusOK)
+      .add_header("Content-Length", resp_body.size().string())
+      .finish_headers()
+      .add_chunk(resp_body)
+      .build()
+    responder.respond_raw(response)
 ```
 
 For streaming request bodies (large uploads, proxying), use
@@ -39,7 +46,12 @@ class ref MyStreamingHandler is StreamingHandler
     None
 
   fun ref request_complete(responder: Responder) =>
-    responder.respond(StatusOK, None, "Done!")
+    let response = ResponseBuilder(StatusOK)
+      .add_header("Content-Length", "5")
+      .finish_headers()
+      .add_chunk("Done!")
+      .build()
+    responder.respond_raw(response)
 ```
 
 For streaming responses, use chunked transfer encoding:

@@ -22,7 +22,7 @@ primitive _ErrorResponse
 
   fun no_response(): String val =>
     """
-    Response sent when a handler completes without calling `respond()`.
+    Response sent when a handler completes without sending a response.
 
     This is a server error (500) — the handler should always send a response.
     """

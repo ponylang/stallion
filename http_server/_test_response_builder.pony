@@ -160,12 +160,12 @@ class \nodoc\ iso _TestRespondRaw is UnitTest
     h.assert_eq[USize](0, queue.pending(),
       "queue should have no pending entries")
 
-class \nodoc\ iso _TestRespondRawIgnoredAfterRespond is UnitTest
+class \nodoc\ iso _TestRespondRawIgnoredAfterFirst is UnitTest
   """
-  Verify that respond_raw() is silently ignored after respond() has
-  already been called.
+  Verify that a second respond_raw() is silently ignored after the first
+  has already been called.
   """
-  fun name(): String => "responder/respond_raw_ignored_after_respond"
+  fun name(): String => "responder/respond_raw_ignored_after_first"
 
   fun apply(h: TestHelper) =>
     let notify = _TestQueueNotify
@@ -173,8 +173,7 @@ class \nodoc\ iso _TestRespondRawIgnoredAfterRespond is UnitTest
     let id = queue.register(true)
 
     let responder = Responder._create(queue, id, HTTP11)
-    let headers = recover val Headers end
-    responder.respond(StatusOK, headers, "first")
+    responder.respond_raw("HTTP/1.1 200 OK\r\n\r\nfirst")
 
     // Second call via respond_raw should be silently ignored
     responder.respond_raw("HTTP/1.1 200 OK\r\n\r\nsecond")

@@ -50,7 +50,7 @@ Connections close when the client sends `Connection: close`, on HTTP/1.0 request
 
 `Server` and `_Connection` accept `AnyHandlerFactory`. Internally, `_Connection` always works with `StreamingHandler`. When a `HandlerFactory` is provided, the connection wraps the `Handler` in `_BufferingAdapter`, which accumulates body chunks and delivers the complete body at `request_complete`. The adapter resets its buffer between pipelined requests.
 
-**Per-request Responder and response queue**: Each request gets its own `Responder` instance, delivered via `Handler.request_complete()` or `StreamingHandler.request_complete()`. The factory creates a bare handler. Responders send data through a `_ResponseQueue` that ensures pipelined responses are delivered in request order, regardless of the order handlers respond. The queue calls back to the connection via `_ResponseQueueNotify` for TCP I/O — it never holds the TCP connection directly. Responders support three modes: simple (`respond()` with full body), streaming (`start_chunked_response()` + `send_chunk()` + `finish_response()` using chunked transfer encoding), and raw (`respond_raw()` with pre-serialized bytes from `ResponseBuilder`). After connection close, any Responders the handler still holds become inert — their methods route to the closed queue, which no-ops everything.
+**Per-request Responder and response queue**: Each request gets its own `Responder` instance, delivered via `Handler.request_complete()` or `StreamingHandler.request_complete()`. The factory creates a bare handler. Responders send data through a `_ResponseQueue` that ensures pipelined responses are delivered in request order, regardless of the order handlers respond. The queue calls back to the connection via `_ResponseQueueNotify` for TCP I/O — it never holds the TCP connection directly. Responders support two modes: complete (`respond_raw()` with pre-serialized bytes from `ResponseBuilder`) and streaming (`start_chunked_response()` + `send_chunk()` + `finish_response()` using chunked transfer encoding). After connection close, any Responders the handler still holds become inert — their methods route to the closed queue, which no-ops everything.
 
 **Response builder**: `ResponseBuilder` constructs complete HTTP responses as pre-serialized `Array[U8] val` byte arrays, using a typed state machine (via return-type narrowing) to enforce correct construction order: status line, then headers, then body. The builder output is suitable for caching and reuse via `Responder.respond_raw()`, avoiding per-request serialization overhead. The caller is responsible for all response formatting including Content-Length — no headers are injected automatically.
 
@@ -80,7 +80,7 @@ No release notes until after the first release. This project is pre-1.0 and hasn
   - `handler.pony` — Application handler traits (`Handler` buffered, `StreamingHandler` streaming, receives `Request val`) and factory interfaces (`HandlerFactory`, `StreamingHandlerFactory`)
   - `_buffering_adapter.pony` — Adapts `Handler` to `StreamingHandler` by buffering body chunks (`_BufferingAdapter`)
   - `response_builder.pony` — Pre-serialized response construction (`ResponseBuilder` primitive, `ResponseBuilderHeaders`/`ResponseBuilderBody` phase interfaces, `_ResponseBuilderImpl`)
-  - `responder.pony` — Per-request response sender (`Responder` class, state machine, simple, streaming, and raw modes)
+  - `responder.pony` — Per-request response sender (`Responder` class, state machine, complete and streaming modes)
   - `_response_queue.pony` — Pipelined response ordering (`_ResponseQueue`, `_ResponseQueueNotify`, `_QueueEntry`)
   - `_chunked_encoder.pony` — Chunked transfer encoding (`_ChunkedEncoder` primitive)
   - `server_config.pony` — Server configuration (`ServerConfig` class)
@@ -105,6 +105,6 @@ No release notes until after the first release. This project is pre-1.0 and hasn
   - `key.pem` — Test private key for SSL examples
 - `examples/` — example programs
   - `basic/main.pony` — Hello World HTTP server with URI parsing and query parameter extraction
-  - `builder/main.pony` — Pre-built cached response using `ResponseBuilder` and `respond_raw()`
+  - `builder/main.pony` — Dynamic response construction using `ResponseBuilder` and `respond_raw()`
   - `ssl/main.pony` — HTTPS server using SSL/TLS
   - `streaming/main.pony` — Chunked transfer encoding streaming response

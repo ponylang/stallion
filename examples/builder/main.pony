@@ -1,14 +1,10 @@
 """
 HTTP server using ResponseBuilder to construct responses dynamically.
 
-Demonstrates `ResponseBuilder` as an alternative to `Responder.respond()`
-for building and sending HTTP responses. The builder constructs the
-response as a single byte array via a typed state machine that guides
-the caller through status, headers, then body.
-
-The builder is useful when you want explicit control over response
-construction without the `recover val` ceremony that `Responder.respond()`
-requires for headers.
+Demonstrates `ResponseBuilder` for building and sending HTTP responses.
+The builder constructs the response as a single byte array via a typed
+state machine that guides the caller through status, headers, then body.
+Send the built response via `Responder.respond_raw()`.
 """
 // In user code with corral, this would be: use http_server = "http_server"
 use http_server = "../../http_server"

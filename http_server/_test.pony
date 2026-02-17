@@ -35,7 +35,7 @@ actor \nodoc\ Main is TestList
       _PropertyBuilderMatchesSerializer))
     test(_TestResponseBuilderKnownGood)
     test(_TestRespondRaw)
-    test(_TestRespondRawIgnoredAfterRespond)
+    test(_TestRespondRawIgnoredAfterFirst)
 
     // Parser property-based tests
     test(Property1UnitTest[(String val, String val)](

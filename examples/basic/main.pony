@@ -58,9 +58,10 @@ class ref _HelloHandler is http_server.Handler
     _request_count = _request_count + 1
     let resp_body: String val =
       "Hello, " + _name + "! (request " + _request_count.string() + ")"
-    let headers = recover val
-      let h = http_server.Headers
-      h.set("content-type", "text/plain")
-      h
-    end
-    responder.respond(http_server.StatusOK, headers, resp_body)
+    let response = http_server.ResponseBuilder(http_server.StatusOK)
+      .add_header("Content-Type", "text/plain")
+      .add_header("Content-Length", resp_body.size().string())
+      .finish_headers()
+      .add_chunk(resp_body)
+      .build()
+    responder.respond_raw(response)

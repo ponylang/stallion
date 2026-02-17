@@ -60,9 +60,11 @@ class ref _HelloHandler is http_server.Handler
     responder: http_server.Responder,
     body: http_server.RequestBody)
   =>
-    let headers = recover val
-      let h = http_server.Headers
-      h.set("content-type", "text/plain")
-      h
-    end
-    responder.respond(http_server.StatusOK, headers, "Hello, World!")
+    let resp_body: String val = "Hello, World!"
+    let response = http_server.ResponseBuilder(http_server.StatusOK)
+      .add_header("Content-Type", "text/plain")
+      .add_header("Content-Length", resp_body.size().string())
+      .finish_headers()
+      .add_chunk(resp_body)
+      .build()
+    responder.respond_raw(response)
