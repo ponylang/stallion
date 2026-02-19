@@ -2,13 +2,13 @@
 
 Each subdirectory is a self-contained Pony program demonstrating a different part of the http_server library. Ordered from simplest to most involved.
 
-## [basic](basic/)
+## [hello](hello/)
 
-Responds to every request with "Hello, World!". Demonstrates the core API: the listener actor implements `lori.TCPListenerActor` directly, creating `HTTPServerActor` instances via `HTTPServer`, `Request`, `Responder`, and `ServerConfig`. Also shows query parameter extraction from the pre-parsed URI. Start here if you're new to the library.
+Greeting server that responds with "Hello, World!" by default, or "Hello, {name}!" when a `?name=X` query parameter is provided. Tracks a per-connection request counter. Demonstrates the core API: a listener actor implements `lori.TCPListenerActor`, creates connection actors in `_on_accept`, and each connection actor uses `HTTPServerActor`, `HTTPServer`, `Request`, `Responder`, `ResponseBuilder`, and `ServerConfig`. Start here if you're new to the library.
 
 ## [builder](builder/)
 
-Constructs responses dynamically using `ResponseBuilder`. Demonstrates the builder's typed state machine that guides the caller through status line, headers, then body. Similar to basic but focused on the response construction API.
+Constructs responses dynamically using `ResponseBuilder`. Demonstrates the builder's typed state machine that guides the caller through status line, headers, then body. Similar to hello but focused on the response construction API.
 
 ## [ssl](ssl/)
 

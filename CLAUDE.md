@@ -28,13 +28,13 @@ http layer:    HTTPServer (class) + HTTPServerActor (trait) + HTTPServerLifecycl
 
 The user's actor stores `HTTPServer` as a field and implements `HTTPServerActor` (which extends both `TCPConnectionActor` and `HTTPServerLifecycleEventReceiver`). The protocol class handles all HTTP parsing, response queue management, and connection lifecycle — calling back to the user's actor for HTTP-level events. Other actors can communicate directly with the user's actor since it IS the connection actor.
 
-**No HTTP-layer listener wrapper**: The user's listener actor implements `lori.TCPListenerActor` directly, creating `HTTPServerActor` instances in `_on_accept`. Lifecycle callbacks (`_on_listening`, `_on_listen_failure`, `_on_closed`) go directly to the user's listener actor. This mirrors lori's own echo server pattern — no factory class, no notify class, no hidden internal actor.
+**No HTTP-layer listener wrapper**: A separate listener actor implements `lori.TCPListenerActor` directly, creating `HTTPServerActor` instances in `_on_accept`. Lifecycle callbacks (`_on_listening`, `_on_listen_failure`, `_on_closed`) go directly to the listener actor. This mirrors lori's own echo server pattern — `Main` creates the listener, the listener creates connections. No factory class, no notify class, no hidden internal actor.
 
 **`none()` constructor for field defaults**: `HTTPServer.none()` creates a placeholder instance that allows the `_http` field to have a default value. This is needed because Pony actor constructors require all fields to be initialized before `this` becomes `ref`. Without a default, `this` is `tag` in the constructor body, which can't be passed to `HTTPServer.create()`. The `none()` instance is immediately replaced by `create()` — its methods are never called.
 
 **Capability chain in the protocol constructor**: `HTTPServer.create` takes `server_actor: HTTPServerActor ref` (the user's `this`):
-- Stored as `_receiver: HTTPServerLifecycleEventReceiver ref` — for synchronous HTTP callbacks (upcast)
-- Stored as `_actor: (HTTPServerActor tag | None)` — for idle timer behavior (`ref <: tag`; `None` for the `none()` placeholder)
+- Stored as `_lifecycle_event_receiver: (HTTPServerLifecycleEventReceiver ref | None)` — for synchronous HTTP callbacks (upcast; `None` for the `none()` placeholder)
+- Stored as `_enclosing: (HTTPServerActor | None)` — for idle timer behavior (`ref <: tag`; `None` for the `none()` placeholder)
 - Passed to `TCPConnection.server(auth, fd, server_actor, this)` as `TCPConnectionActor ref` — lori ASIO wiring (upcast)
 - Protocol passes `this` to `TCPConnection.server()` as `ServerLifecycleEventReceiver ref`
 
@@ -108,7 +108,7 @@ No release notes until after the first release. This project is pre-1.0 and hasn
   - `cert.pem` — Self-signed test certificate for SSL examples
   - `key.pem` — Test private key for SSL examples
 - `examples/` — example programs
-  - `basic/main.pony` — Hello World HTTP server with URI parsing and query parameter extraction
+  - `hello/main.pony` — Greeting server with URI parsing and query parameter extraction
   - `builder/main.pony` — Dynamic response construction using `ResponseBuilder` and `respond()`
   - `ssl/main.pony` — HTTPS server using SSL/TLS
   - `streaming/main.pony` — Chunked transfer encoding streaming response

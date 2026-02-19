@@ -3,9 +3,6 @@ use ssl_net = "ssl/net"
 use "time"
 use uri_pkg = "uri"
 
-class _NullReceiver is HTTPServerLifecycleEventReceiver
-  """Placeholder receiver for `HTTPServer.none()`."""
-
 primitive _KeepAliveDecision
   """
   Determine whether to keep a connection alive based on HTTP version
@@ -59,9 +56,9 @@ class HTTPServer is
         timers)
   ```
   """
-  let _receiver: HTTPServerLifecycleEventReceiver ref
-  let _actor: (HTTPServerActor tag | None)
-  let _config: ServerConfig
+  let _lifecycle_event_receiver: (HTTPServerLifecycleEventReceiver ref | None)
+  let _enclosing: (HTTPServerActor | None)
+  let _config: (ServerConfig | None)
   let _timers: (Timers | None)
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   var _state: _ConnectionState = _Active
@@ -81,9 +78,9 @@ class HTTPServer is
     body. The placeholder is immediately replaced by `create()` — its
     methods must never be called.
     """
-    _receiver = _NullReceiver
-    _actor = None
-    _config = ServerConfig("", "")
+    _lifecycle_event_receiver = None
+    _enclosing = None
+    _config = None
     _timers = None
 
   new create(
@@ -99,18 +96,18 @@ class HTTPServer is
 
     Called inside the `HTTPServerActor` constructor. The `server_actor`
     parameter must be the actor's `this` — it provides both the
-    `HTTPServerLifecycleEventReceiver ref` for synchronous callbacks and
-    the `HTTPServerActor tag` for idle timer notifications.
+    `HTTPServerLifecycleEventReceiver ref` for synchronous HTTP callbacks and
+    the `HTTPServerActor` for idle timer notifications.
     """
-    _receiver = server_actor
-    _actor = server_actor
+    _lifecycle_event_receiver = server_actor
+    _enclosing = server_actor
     _config = config
     _timers = timers
     // All let fields now initialized + all var fields have defaults,
     // so `this` is ref — required by _ResponseQueue, TCPConnection.server,
     // and _RequestParser constructors.
     _queue = _ResponseQueue(this)
-    _parser = _RequestParser(this, _config._parser_config())
+    _parser = _RequestParser(this, config._parser_config())
     _tcp_connection = match ssl_ctx
     | let ctx: ssl_net.SSLContext val =>
       lori.TCPConnection.ssl_server(auth, ctx, fd, server_actor, this)
@@ -189,22 +186,42 @@ class HTTPServer is
     _cancel_idle_timer()
 
     // Safety net: close if too many pipelined requests are pending
-    if _requests_pending > _config.max_pending_responses then
-      _tcp_connection.send(_ErrorResponse.no_response())
-      _close_connection()
-      return
+    match _config
+    | let c: ServerConfig =>
+      if _requests_pending > c.max_pending_responses then
+        _tcp_connection.send(_ErrorResponse.no_response())
+        _close_connection()
+        return
+      end
+    | None =>
+      _Unreachable()
     end
 
-    _receiver.request(Request(method, parsed_uri, version, headers))
+    match _lifecycle_event_receiver
+    | let r: HTTPServerLifecycleEventReceiver ref =>
+      r.request(Request(method, parsed_uri, version, headers))
+    | None =>
+      _Unreachable()
+    end
 
   fun ref body_chunk(data: Array[U8] val) =>
-    _receiver.body_chunk(data)
+    match _lifecycle_event_receiver
+    | let r: HTTPServerLifecycleEventReceiver ref =>
+      r.body_chunk(data)
+    | None =>
+      _Unreachable()
+    end
 
   fun ref request_complete() =>
     match _current_responder
     | let r: Responder =>
       _current_responder = None
-      _receiver.request_complete(r)
+      match _lifecycle_event_receiver
+      | let recv: HTTPServerLifecycleEventReceiver ref =>
+        recv.request_complete(r)
+      | None =>
+        _Unreachable()
+      end
     end
 
   fun ref parse_error(err: ParseError) =>
@@ -264,20 +281,29 @@ class HTTPServer is
     """Notify the receiver that the connection has closed."""
     match _parser | let p: _RequestParser => p.stop() end
     match _queue | let q: _ResponseQueue => q.close() end
-    _receiver.closed()
+    match _lifecycle_event_receiver
+    | let r: HTTPServerLifecycleEventReceiver ref => r.closed()
+    | None => _Unreachable()
+    end
     _state = _Closed
 
   fun ref _handle_throttled() =>
     """Apply backpressure: mute the TCP connection and notify the receiver."""
     _tcp_connection.mute()
     match _queue | let q: _ResponseQueue => q.throttle() end
-    _receiver.throttled()
+    match _lifecycle_event_receiver
+    | let r: HTTPServerLifecycleEventReceiver ref => r.throttled()
+    | None => _Unreachable()
+    end
 
   fun ref _handle_unthrottled() =>
     """Release backpressure: unmute the TCP connection and notify the receiver."""
     _tcp_connection.unmute()
     match _queue | let q: _ResponseQueue => q.unthrottle() end
-    _receiver.unthrottled()
+    match _lifecycle_event_receiver
+    | let r: HTTPServerLifecycleEventReceiver ref => r.unthrottled()
+    | None => _Unreachable()
+    end
 
   fun ref _handle_idle_timeout() =>
     """Close the connection if it is idle (between requests)."""
@@ -300,7 +326,10 @@ class HTTPServer is
       match _parser | let p: _RequestParser => p.stop() end
       match _queue | let q: _ResponseQueue => q.close() end
       _cancel_idle_timer()
-      _receiver.closed()
+      match _lifecycle_event_receiver
+      | let r: HTTPServerLifecycleEventReceiver ref => r.closed()
+      | None => _Unreachable()
+      end
       _tcp_connection.close()
       _state = _Closed
     end
@@ -310,15 +339,18 @@ class HTTPServer is
   //
 
   fun ref _start_idle_timer() =>
-    if _config.idle_timeout == 0 then return end
-    match (_timers, _actor)
-    | (let timers: Timers, let a: HTTPServerActor tag) =>
-      let timer = Timer(
-        _IdleTimerNotify(a),
-        _config.idle_timeout * 1_000_000_000)
-      let t: Timer tag = timer
-      timers(consume timer)
-      _idle_timer = t
+    match _config
+    | let c: ServerConfig =>
+      if c.idle_timeout == 0 then return end
+      match (_timers, _enclosing)
+      | (let timers: Timers, let a: HTTPServerActor) =>
+        let timer = Timer(
+          _IdleTimerNotify(a),
+          c.idle_timeout * 1_000_000_000)
+        let t: Timer tag = timer
+        timers(consume timer)
+        _idle_timer = t
+      end
     end
 
   fun ref _cancel_idle_timer() =>
@@ -330,9 +362,9 @@ class HTTPServer is
 
 class _IdleTimerNotify is TimerNotify
   """Timer notify that sends an idle timeout message to the server actor."""
-  let _server_actor: HTTPServerActor tag
+  let _server_actor: HTTPServerActor
 
-  new iso create(server_actor: HTTPServerActor tag) =>
+  new iso create(server_actor: HTTPServerActor) =>
     _server_actor = server_actor
 
   fun ref apply(timer: Timer, count: U64): Bool =>

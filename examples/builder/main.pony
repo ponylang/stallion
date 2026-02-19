@@ -13,34 +13,43 @@ use lori = "lori"
 use ssl_net = "ssl/net"
 use "time"
 
-actor Main is lori.TCPListenerActor
+actor Main
+  new create(env: Env) =>
+    let auth = lori.TCPListenAuth(env.root)
+    Listener(auth, "localhost", "8080", env.out)
+
+actor Listener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _env: Env
+  let _out: OutStream
   let _config: http_server.ServerConfig
   let _server_auth: lori.TCPServerAuth
 
-  new create(env: Env) =>
-    _env = env
-    let auth = lori.TCPListenAuth(env.root)
+  new create(
+    auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    out: OutStream)
+  =>
+    _out = out
     _server_auth = lori.TCPServerAuth(auth)
-    _config = http_server.ServerConfig("localhost", "8080")
-    _tcp_listener = lori.TCPListener(auth, "localhost", "8080", this)
+    _config = http_server.ServerConfig(host, port)
+    _tcp_listener = lori.TCPListener(auth, host, port, this)
 
   fun ref _listener(): lori.TCPListener => _tcp_listener
 
   fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
-    _HelloServer(_server_auth, fd, _config, None, None)
+    HelloServer(_server_auth, fd, _config, None, None)
 
   fun ref _on_listening() =>
-    _env.out.print("Builder example listening on localhost:8080")
+    _out.print("Builder example listening on localhost:8080")
 
   fun ref _on_listen_failure() =>
-    _env.out.print("Failed to start server")
+    _out.print("Failed to start server")
 
   fun ref _on_closed() =>
-    _env.out.print("Server closed")
+    _out.print("Server closed")
 
-actor _HelloServer is http_server.HTTPServerActor
+actor HelloServer is http_server.HTTPServerActor
   var _http: http_server.HTTPServer = http_server.HTTPServer.none()
   var _name: String val = "World"
 

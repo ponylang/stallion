@@ -1,26 +1,29 @@
 """
 HTTP server for Pony, built on lori.
 
-The user's listener actor implements `lori.TCPListenerActor` directly,
-creating `HTTPServerActor` instances in `_on_accept`. Each connection
-actor owns an `HTTPServer` that handles HTTP parsing and response
-management, delivering HTTP events via `HTTPServerLifecycleEventReceiver`
-callbacks.
+A listener actor implements `lori.TCPListenerActor` and creates
+`HTTPServerActor` instances in `_on_accept`. Each connection actor owns
+an `HTTPServer` that handles HTTP parsing and response management,
+delivering HTTP events via `HTTPServerLifecycleEventReceiver` callbacks.
 
 ```pony
 use "http_server"
 use lori = "lori"
 
-actor Main is lori.TCPListenerActor
+actor Main
+  new create(env: Env) =>
+    let auth = lori.TCPListenAuth(env.root)
+    MyListener(auth, "localhost", "8080")
+
+actor MyListener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
   let _config: ServerConfig
 
-  new create(env: Env) =>
-    let auth = lori.TCPListenAuth(env.root)
+  new create(auth: lori.TCPListenAuth, host: String, port: String) =>
     _server_auth = lori.TCPServerAuth(auth)
-    _config = ServerConfig("localhost", "8080")
-    _tcp_listener = lori.TCPListener(auth, "localhost", "8080", this)
+    _config = ServerConfig(host, port)
+    _tcp_listener = lori.TCPListener(auth, host, port, this)
 
   fun ref _listener(): lori.TCPListener => _tcp_listener
 
@@ -68,12 +71,7 @@ use "files"
 use "ssl/net"
 use lori = "lori"
 
-actor Main is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
-  let _config: ServerConfig
-  let _ssl_ctx: SSLContext val
-
+actor Main
   new create(env: Env) =>
     let sslctx = recover val
       SSLContext
@@ -83,11 +81,22 @@ actor Main is lori.TCPListenerActor
         .> set_client_verify(false)
         .> set_server_verify(false)
     end
-    _ssl_ctx = sslctx
     let auth = lori.TCPListenAuth(env.root)
+    MyListener(auth, "localhost", "8443", sslctx)
+
+actor MyListener is lori.TCPListenerActor
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _config: ServerConfig
+  let _ssl_ctx: SSLContext val
+
+  new create(auth: lori.TCPListenAuth, host: String, port: String,
+    ssl_ctx: SSLContext val)
+  =>
+    _ssl_ctx = ssl_ctx
     _server_auth = lori.TCPServerAuth(auth)
-    _config = ServerConfig("localhost", "8443")
-    _tcp_listener = lori.TCPListener(auth, "localhost", "8443", this)
+    _config = ServerConfig(host, port)
+    _tcp_listener = lori.TCPListener(auth, host, port, this)
 
   fun ref _listener(): lori.TCPListener => _tcp_listener
 

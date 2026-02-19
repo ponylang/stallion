@@ -15,50 +15,64 @@ use http_server = "../../http_server"
 use lori = "lori"
 use "time"
 
-actor Main is lori.TCPListenerActor
+actor Main
+  new create(env: Env) =>
+    let file_auth = FileAuth(env.root)
+    let sslctx =
+      try
+        recover val
+          SSLContext
+            .> set_authority(
+              FilePath(file_auth, "assets/cert.pem"))?
+            .> set_cert(
+              FilePath(file_auth, "assets/cert.pem"),
+              FilePath(file_auth, "assets/key.pem"))?
+            .> set_client_verify(false)
+            .> set_server_verify(false)
+        end
+      else
+        env.out.print("Unable to set up SSL context")
+        return
+      end
+
+    let auth = lori.TCPListenAuth(env.root)
+    Listener(auth, "localhost", "8443", env.out, sslctx)
+
+actor Listener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _env: Env
+  let _out: OutStream
   let _config: http_server.ServerConfig
   let _server_auth: lori.TCPServerAuth
-  var _ssl_ctx: (SSLContext val | None) = None
+  let _ssl_ctx: SSLContext val
 
-  new create(env: Env) =>
-    _env = env
-    let auth = lori.TCPListenAuth(env.root)
+  new create(
+    auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    out: OutStream,
+    ssl_ctx: SSLContext val)
+  =>
+    _out = out
+    _ssl_ctx = ssl_ctx
     _server_auth = lori.TCPServerAuth(auth)
-    _config = http_server.ServerConfig("localhost", "8443")
-    let file_auth = FileAuth(env.root)
-    try
-      _ssl_ctx = recover val
-        SSLContext
-          .> set_authority(
-            FilePath(file_auth, "assets/cert.pem"))?
-          .> set_cert(
-            FilePath(file_auth, "assets/cert.pem"),
-            FilePath(file_auth, "assets/key.pem"))?
-          .> set_client_verify(false)
-          .> set_server_verify(false)
-      end
-      _tcp_listener = lori.TCPListener(auth, "localhost", "8443", this)
-    else
-      env.out.print("Unable to set up SSL context")
-    end
+    _config = http_server.ServerConfig(host, port)
+    _tcp_listener = lori.TCPListener(auth, host, port, this)
 
   fun ref _listener(): lori.TCPListener => _tcp_listener
 
   fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
-    _HelloServer(_server_auth, fd, _config, _ssl_ctx, None)
+    HelloServer(_server_auth, fd, _config, _ssl_ctx, None)
 
   fun ref _on_listening() =>
-    _env.out.print("HTTPS server listening on localhost:8443")
+    _out.print("HTTPS server listening on localhost:8443")
 
   fun ref _on_listen_failure() =>
-    _env.out.print("Failed to start server")
+    _out.print("Failed to start server")
 
   fun ref _on_closed() =>
-    _env.out.print("Server closed")
+    _out.print("Server closed")
 
-actor _HelloServer is http_server.HTTPServerActor
+actor HelloServer is http_server.HTTPServerActor
   var _http: http_server.HTTPServer = http_server.HTTPServer.none()
 
   new create(
