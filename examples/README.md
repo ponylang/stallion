@@ -16,4 +16,4 @@ HTTPS server using SSL/TLS. Demonstrates creating an `SSLContext`, loading certi
 
 ## [streaming](streaming/)
 
-Streams responses using chunked transfer encoding. Demonstrates `start_chunked_response()`, `send_chunk()`, and `finish_response()` on `Responder`. Each request receives three chunks before the response is finalized.
+Streams responses using chunked transfer encoding with timer-driven delivery. Demonstrates `start_chunked_response()`, `send_chunk()`, and `finish_response()` on `Responder`. The actor stores the `Responder` and sends chunks at one-second intervals as timer messages arrive, simulating a response where data becomes available over time.

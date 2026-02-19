@@ -2,8 +2,11 @@
 HTTP server that streams responses using chunked transfer encoding.
 
 Demonstrates the streaming response API: `start_chunked_response()`,
-`send_chunk()`, and `finish_response()`. Each request receives three
-chunks before the response is finalized.
+`send_chunk()`, and `finish_response()`. A timer drives chunk delivery
+at one-second intervals, simulating a response where data becomes
+available over time (e.g., progress updates, log tailing, or results
+from a long-running computation). The actor stores the `Responder`
+across behavior turns and sends chunks as timer messages arrive.
 
 Note: this demonstrates streaming *responses*, not streaming request
 bodies. Request body data arrives via `body_chunk()` callbacks — this
@@ -24,6 +27,7 @@ actor Listener is lori.TCPListenerActor
   let _out: OutStream
   let _config: http_server.ServerConfig
   let _server_auth: lori.TCPServerAuth
+  let _timers: Timers
 
   new create(
     auth: lori.TCPListenAuth,
@@ -34,12 +38,13 @@ actor Listener is lori.TCPListenerActor
     _out = out
     _server_auth = lori.TCPServerAuth(auth)
     _config = http_server.ServerConfig(host, port)
+    _timers = Timers
     _tcp_listener = lori.TCPListener(auth, host, port, this)
 
   fun ref _listener(): lori.TCPListener => _tcp_listener
 
   fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
-    StreamServer(_server_auth, fd, _config, None, None)
+    StreamServer(_server_auth, fd, _config, None, _timers)
 
   fun ref _on_listening() =>
     _out.print("Server listening on localhost:8080")
@@ -51,33 +56,70 @@ actor Listener is lori.TCPListenerActor
     _out.print("Server closed")
 
 actor StreamServer is http_server.HTTPServerActor
+  let _timers: Timers
   var _http: http_server.HTTPServer = http_server.HTTPServer.none()
-  var _request_count: USize = 0
+  var _responder: (http_server.Responder | None) = None
+  var _chunks_sent: USize = 0
+  var _chunk_timer: (Timer tag | None) = None
 
   new create(
     auth: lori.TCPServerAuth,
     fd: U32,
     config: http_server.ServerConfig,
     ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None))
+    timers: Timers)
   =>
+    _timers = timers
     _http = http_server.HTTPServer(auth, fd, ssl_ctx, this,
       config, timers)
 
   fun ref _http_connection(): http_server.HTTPServer => _http
 
   fun ref request_complete(responder: http_server.Responder) =>
-    _request_count = _request_count + 1
     let headers = recover val
       let h = http_server.Headers
       h.set("content-type", "text/plain")
       h
     end
     responder.start_chunked_response(http_server.StatusOK, headers)
-    responder.send_chunk(
-      "chunk 1 of request " + _request_count.string() + "\n")
-    responder.send_chunk(
-      "chunk 2 of request " + _request_count.string() + "\n")
-    responder.send_chunk(
-      "chunk 3 of request " + _request_count.string() + "\n")
-    responder.finish_response()
+    responder.send_chunk("chunk 1 of 5\n")
+    _responder = responder
+    _chunks_sent = 1
+    // Send remaining chunks at one-second intervals
+    let timer = Timer(_ChunkNotify(this), 1_000_000_000, 1_000_000_000)
+    _chunk_timer = timer
+    _timers(consume timer)
+
+  be _send_chunk() =>
+    match _responder
+    | let r: http_server.Responder =>
+      _chunks_sent = _chunks_sent + 1
+      r.send_chunk("chunk " + _chunks_sent.string() + " of 5\n")
+      if _chunks_sent == 5 then
+        r.finish_response()
+        _cancel_chunk_timer()
+      end
+    end
+
+  fun ref closed() =>
+    _cancel_chunk_timer()
+
+  fun ref _cancel_chunk_timer() =>
+    match _chunk_timer
+    | let t: Timer tag => _timers.cancel(t)
+    end
+    _chunk_timer = None
+    _responder = None
+
+class _ChunkNotify is TimerNotify
+  let _server: StreamServer tag
+
+  new iso create(server: StreamServer tag) =>
+    _server = server
+
+  fun ref apply(timer: Timer, count: U64): Bool =>
+    _server._send_chunk()
+    true
+
+  fun ref cancel(timer: Timer) =>
+    None
