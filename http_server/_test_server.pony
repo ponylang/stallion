@@ -1,7 +1,6 @@
 use "files"
 use "pony_check"
 use "pony_test"
-use "time"
 use lori = "lori"
 use ssl_net = "ssl/net"
 use uri = "uri"
@@ -194,16 +193,17 @@ class \nodoc\ iso _TestIdleTimeout is UnitTest
     h.long_test(5_000_000_000)
     let port = "45879"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
-    let config = ServerConfig(host, port where idle_timeout' = 1)
-    let timers = Timers
+    let idle_timeout = match lori.MakeIdleTimeout(1_000)
+    | let t: lori.IdleTimeout => t
+    end
+    let config = ServerConfig(host, port where idle_timeout' = idle_timeout)
     let listener = _TestServerListener(h, port, _TestHelloServerFactory,
       config,
       {(h': TestHelper, port': String) =>
         let request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
         let client = _TestHTTPClientExpectClose(h', port', request, "200 OK")
         h'.dispose_when_done(client)
-      }, timers)
-    h.dispose_when_done(timers)
+      })
     h.dispose_when_done(listener)
 
 // ---------------------------------------------------------------------------
@@ -284,8 +284,7 @@ interface \nodoc\ val _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None)
+    ssl_ctx: (ssl_net.SSLContext val | None)
   ): lori.TCPConnectionActor
 
 // ---------------------------------------------------------------------------
@@ -297,10 +296,9 @@ class \nodoc\ val _TestHelloServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None)
+    ssl_ctx: (ssl_net.SSLContext val | None)
   ): lori.TCPConnectionActor =>
-    _TestHelloServer(auth, fd, config, ssl_ctx, timers)
+    _TestHelloServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestHelloServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
@@ -309,14 +307,13 @@ actor \nodoc\ _TestHelloServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None))
+    ssl_ctx: (ssl_net.SSLContext val | None))
   =>
     _http = match ssl_ctx
     | let ctx: ssl_net.SSLContext val =>
-      HTTPServer.ssl(auth, ctx, fd, this, config, timers)
+      HTTPServer.ssl(auth, ctx, fd, this, config)
     else
-      HTTPServer(auth, fd, this, config, timers)
+      HTTPServer(auth, fd, this, config)
     end
 
   fun ref _http_connection(): HTTPServer => _http
@@ -340,7 +337,6 @@ actor \nodoc\ _TestServerListener is lori.TCPListenerActor
   let _server_auth: lori.TCPServerAuth
   let _connection_factory: _TestConnectionFactory
   let _config: ServerConfig
-  let _timers: (Timers | None)
   let _ssl_ctx: (ssl_net.SSLContext val | None)
   let _h: TestHelper
   let _port: String
@@ -352,14 +348,12 @@ actor \nodoc\ _TestServerListener is lori.TCPListenerActor
     connection_factory: _TestConnectionFactory,
     config: ServerConfig,
     start_client: {(TestHelper, String)} val,
-    timers: (Timers | None) = None,
     ssl_ctx: (ssl_net.SSLContext val | None) = None)
   =>
     _h = h
     _port = port
     _connection_factory = connection_factory
     _config = config
-    _timers = timers
     _ssl_ctx = ssl_ctx
     _start_client = start_client
     let listen_auth = lori.TCPListenAuth(_h.env.root)
@@ -371,7 +365,7 @@ actor \nodoc\ _TestServerListener is lori.TCPListenerActor
     _tcp_listener
 
   fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
-    _connection_factory(_server_auth, fd, _config, _ssl_ctx, _timers)
+    _connection_factory(_server_auth, fd, _config, _ssl_ctx)
 
   fun ref _on_listening() =>
     _start_client(_h, _port)
@@ -701,10 +695,9 @@ class \nodoc\ val _TestPipelineServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None)
+    ssl_ctx: (ssl_net.SSLContext val | None)
   ): lori.TCPConnectionActor =>
-    _TestPipelineServer(auth, fd, config, ssl_ctx, timers)
+    _TestPipelineServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestPipelineServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
@@ -714,15 +707,14 @@ actor \nodoc\ _TestPipelineServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None))
+    ssl_ctx: (ssl_net.SSLContext val | None))
   =>
     _responders = Array[Responder]
     _http = match ssl_ctx
     | let ctx: ssl_net.SSLContext val =>
-      HTTPServer.ssl(auth, ctx, fd, this, config, timers)
+      HTTPServer.ssl(auth, ctx, fd, this, config)
     else
-      HTTPServer(auth, fd, this, config, timers)
+      HTTPServer(auth, fd, this, config)
     end
 
   fun ref _http_connection(): HTTPServer => _http
@@ -757,10 +749,9 @@ class \nodoc\ val _TestStreamServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None)
+    ssl_ctx: (ssl_net.SSLContext val | None)
   ): lori.TCPConnectionActor =>
-    _TestStreamServer(auth, fd, config, ssl_ctx, timers)
+    _TestStreamServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestStreamServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
@@ -769,14 +760,13 @@ actor \nodoc\ _TestStreamServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None))
+    ssl_ctx: (ssl_net.SSLContext val | None))
   =>
     _http = match ssl_ctx
     | let ctx: ssl_net.SSLContext val =>
-      HTTPServer.ssl(auth, ctx, fd, this, config, timers)
+      HTTPServer.ssl(auth, ctx, fd, this, config)
     else
-      HTTPServer(auth, fd, this, config, timers)
+      HTTPServer(auth, fd, this, config)
     end
 
   fun ref _http_connection(): HTTPServer => _http
@@ -963,10 +953,9 @@ class \nodoc\ val _TestPartialRespondServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None)
+    ssl_ctx: (ssl_net.SSLContext val | None)
   ): lori.TCPConnectionActor =>
-    _TestPartialRespondServer(auth, fd, config, ssl_ctx, timers)
+    _TestPartialRespondServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestPartialRespondServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
@@ -976,14 +965,13 @@ actor \nodoc\ _TestPartialRespondServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None))
+    ssl_ctx: (ssl_net.SSLContext val | None))
   =>
     _http = match ssl_ctx
     | let ctx: ssl_net.SSLContext val =>
-      HTTPServer.ssl(auth, ctx, fd, this, config, timers)
+      HTTPServer.ssl(auth, ctx, fd, this, config)
     else
-      HTTPServer(auth, fd, this, config, timers)
+      HTTPServer(auth, fd, this, config)
     end
 
   fun ref _http_connection(): HTTPServer => _http
@@ -1063,10 +1051,9 @@ class \nodoc\ val _TestChunkedFallbackServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None)
+    ssl_ctx: (ssl_net.SSLContext val | None)
   ): lori.TCPConnectionActor =>
-    _TestChunkedFallbackServer(auth, fd, config, ssl_ctx, timers)
+    _TestChunkedFallbackServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestChunkedFallbackServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
@@ -1075,14 +1062,13 @@ actor \nodoc\ _TestChunkedFallbackServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None))
+    ssl_ctx: (ssl_net.SSLContext val | None))
   =>
     _http = match ssl_ctx
     | let ctx: ssl_net.SSLContext val =>
-      HTTPServer.ssl(auth, ctx, fd, this, config, timers)
+      HTTPServer.ssl(auth, ctx, fd, this, config)
     else
-      HTTPServer(auth, fd, this, config, timers)
+      HTTPServer(auth, fd, this, config)
     end
 
   fun ref _http_connection(): HTTPServer => _http
@@ -1138,10 +1124,9 @@ class \nodoc\ val _TestChunkSentServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None)
+    ssl_ctx: (ssl_net.SSLContext val | None)
   ): lori.TCPConnectionActor =>
-    _TestChunkSentServer(auth, fd, config, ssl_ctx, timers)
+    _TestChunkSentServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestChunkSentServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
@@ -1152,14 +1137,13 @@ actor \nodoc\ _TestChunkSentServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None))
+    ssl_ctx: (ssl_net.SSLContext val | None))
   =>
     _http = match ssl_ctx
     | let ctx: ssl_net.SSLContext val =>
-      HTTPServer.ssl(auth, ctx, fd, this, config, timers)
+      HTTPServer.ssl(auth, ctx, fd, this, config)
     else
-      HTTPServer(auth, fd, this, config, timers)
+      HTTPServer(auth, fd, this, config)
     end
 
   fun ref _http_connection(): HTTPServer => _http
@@ -1271,10 +1255,9 @@ class \nodoc\ val _TestURIParsingServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None)
+    ssl_ctx: (ssl_net.SSLContext val | None)
   ): lori.TCPConnectionActor =>
-    _TestURIParsingServer(auth, fd, config, ssl_ctx, timers)
+    _TestURIParsingServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestURIParsingServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
@@ -1283,14 +1266,13 @@ actor \nodoc\ _TestURIParsingServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None))
+    ssl_ctx: (ssl_net.SSLContext val | None))
   =>
     _http = match ssl_ctx
     | let ctx: ssl_net.SSLContext val =>
-      HTTPServer.ssl(auth, ctx, fd, this, config, timers)
+      HTTPServer.ssl(auth, ctx, fd, this, config)
     else
-      HTTPServer(auth, fd, this, config, timers)
+      HTTPServer(auth, fd, this, config)
     end
 
   fun ref _http_connection(): HTTPServer => _http
@@ -1337,10 +1319,9 @@ class \nodoc\ val _TestConnectURIServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None)
+    ssl_ctx: (ssl_net.SSLContext val | None)
   ): lori.TCPConnectionActor =>
-    _TestConnectURIServer(auth, fd, config, ssl_ctx, timers)
+    _TestConnectURIServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestConnectURIServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
@@ -1349,14 +1330,13 @@ actor \nodoc\ _TestConnectURIServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None))
+    ssl_ctx: (ssl_net.SSLContext val | None))
   =>
     _http = match ssl_ctx
     | let ctx: ssl_net.SSLContext val =>
-      HTTPServer.ssl(auth, ctx, fd, this, config, timers)
+      HTTPServer.ssl(auth, ctx, fd, this, config)
     else
-      HTTPServer(auth, fd, this, config, timers)
+      HTTPServer(auth, fd, this, config)
     end
 
   fun ref _http_connection(): HTTPServer => _http
@@ -1414,10 +1394,9 @@ class \nodoc\ val _TestBodyServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None)
+    ssl_ctx: (ssl_net.SSLContext val | None)
   ): lori.TCPConnectionActor =>
-    _TestBodyServer(auth, fd, config, ssl_ctx, timers)
+    _TestBodyServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestBodyServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
@@ -1428,14 +1407,13 @@ actor \nodoc\ _TestBodyServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
-    timers: (Timers | None))
+    ssl_ctx: (ssl_net.SSLContext val | None))
   =>
     _http = match ssl_ctx
     | let ctx: ssl_net.SSLContext val =>
-      HTTPServer.ssl(auth, ctx, fd, this, config, timers)
+      HTTPServer.ssl(auth, ctx, fd, this, config)
     else
-      HTTPServer(auth, fd, this, config, timers)
+      HTTPServer(auth, fd, this, config)
     end
 
   fun ref _http_connection(): HTTPServer => _http

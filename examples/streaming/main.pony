@@ -66,7 +66,7 @@ actor StreamServer is http_server.HTTPServerActor
     fd: U32,
     config: http_server.ServerConfig)
   =>
-    _http = http_server.HTTPServer(auth, fd, this, config, None)
+    _http = http_server.HTTPServer(auth, fd, this, config)
 
   fun ref _http_connection(): http_server.HTTPServer => _http
 

@@ -15,7 +15,7 @@ The `ssl` option is required because this library and lori depend on the `ssl` p
 
 Package: `http_server` (repo name is `lori_http_server`, but the Pony package name is `http_server`)
 
-Built on lori (v0.8.3). Lori provides raw TCP I/O with a connection-actor model: `_on_received(data: Array[U8] iso)` for incoming data, `TCPConnection.send(data): (SendToken | SendError)` for outgoing, plus backpressure notifications and SSL support.
+Built on lori (v0.8.4). Lori provides raw TCP I/O with a connection-actor model: `_on_received(data: Array[U8] iso)` for incoming data, `TCPConnection.send(data): (SendToken | SendError)` for outgoing, plus backpressure notifications, SSL support, and per-connection ASIO-level idle timers.
 
 ### Key design decisions
 
@@ -34,7 +34,6 @@ The user's actor stores `HTTPServer` as a field and implements `HTTPServerActor`
 
 **Capability chain in the protocol constructors**: Both `HTTPServer.create` (plain HTTP) and `HTTPServer.ssl` (HTTPS) take `server_actor: HTTPServerActor ref` (the user's `this`):
 - Stored as `_lifecycle_event_receiver: (HTTPServerLifecycleEventReceiver ref | None)` — for synchronous HTTP callbacks (upcast; `None` for the `none()` placeholder)
-- Stored as `_enclosing: (HTTPServerActor | None)` — for idle timer behavior (`ref <: tag`; `None` for the `none()` placeholder)
 - `create` passes to `TCPConnection.server(auth, fd, server_actor, this)` as `TCPConnectionActor ref`; `ssl` passes to `TCPConnection.ssl_server(auth, ssl_ctx, fd, server_actor, this)`
 - Protocol passes `this` to `TCPConnection.server()`/`ssl_server()` as `ServerLifecycleEventReceiver ref`
 
@@ -47,17 +46,26 @@ The user's actor stores `HTTPServer` as a field and implements `HTTPServerActor`
 **Connection lifecycle**: Connections are persistent by default (HTTP/1.1 keep-alive). The user's listener creates connections via `_on_accept`, passing `ServerConfig` for parser limits and idle timeout:
 
 ```pony
-let config = ServerConfig("localhost", "8080" where idle_timeout' = 60)
+let config = ServerConfig("localhost", "8080")
+```
+
+Idle timeout defaults to 60 seconds via `DefaultIdleTimeout`. To customize:
+
+```pony
+let timeout = match lori.MakeIdleTimeout(30_000)
+| let t: lori.IdleTimeout => t
+end
+let config = ServerConfig("localhost", "8080" where idle_timeout' = timeout)
 ```
 
 For HTTPS, pass an `SSLContext val` (from `ssl/net`) to connection actors, which use `HTTPServer.ssl` instead of `HTTPServer`:
 
 ```pony
 fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
-  MyServer(_server_auth, fd, _config, _ssl_ctx, _timers)
+  MyServer(_server_auth, fd, _config, _ssl_ctx)
 ```
 
-SSL handshake, encryption, and decryption are handled transparently by lori. Actors explicitly choose `HTTPServer(auth, fd, this, config, timers)` for plain HTTP or `HTTPServer.ssl(auth, ssl_ctx, fd, this, config, timers)` for HTTPS.
+SSL handshake, encryption, and decryption are handled transparently by lori. Actors explicitly choose `HTTPServer(auth, fd, this, config)` for plain HTTP or `HTTPServer.ssl(auth, ssl_ctx, fd, this, config)` for HTTPS.
 
 Connections close when the client sends `Connection: close`, on HTTP/1.0 requests without `Connection: keep-alive`, after a parse error (with the appropriate error status code), when the idle timeout expires, or when the actor calls `HTTPServer.close()`. The `close()` method is the public API for server-initiated connection close — use it after rejecting a request early (e.g., 413 response sent in `on_request()` before body arrives). Backpressure from lori is propagated to the actor via `on_throttled()`/`on_unthrottled()` callbacks and to the response queue via `throttle()`/`unthrottle()`.
 
@@ -69,7 +77,7 @@ Connections close when the client sends `Connection: close`, on HTTP/1.0 request
 
 **Response builder**: `ResponseBuilder` constructs complete HTTP responses as pre-serialized `Array[U8] val` byte arrays, using a typed state machine (via return-type narrowing) to enforce correct construction order: status line, then headers, then body. The builder output is suitable for caching and reuse via `Responder.respond()`, avoiding per-request serialization overhead. The caller is responsible for all response formatting including Content-Length — no headers are injected automatically.
 
-**Idle timer flow**: Timer fires -> `_IdleTimerNotify` (in Timers actor) sends `be _on_idle_timeout()` to user's actor (via tag) -> `HTTPServerActor._on_idle_timeout()` default impl forwards to `_http_connection()._handle_idle_timeout()`.
+**Idle timeout**: Uses lori's per-connection ASIO-level idle timer (lori 0.8.4+). `_on_started()` calls `_tcp_connection.idle_timeout(config.idle_timeout)` to arm the timer. Lori automatically resets the timer on every send/receive and re-arms after each firing. `HTTPServer._on_idle_timeout()` (from lori's `ServerLifecycleEventReceiver`) calls `_handle_idle_timeout()`, which closes the connection only if `_idle` is true (between requests). The `_idle` flag acts as a safety net: if the timer fires during a long computation (no TCP activity but a request is pending), `_idle` is false and the connection stays open.
 
 **Flow-controlled streaming**: `send_chunk()` returns a `ChunkSendToken` immediately. The chunk data and token flow through the response queue (buffered or flushed directly depending on head-of-line position and throttle state). On flush, `_flush_data(data, token)` calls `TCPConnection.send()` and pushes the HTTP-level token onto a FIFO (`_pending_sent_tokens`) inside `HTTPServer`. When lori's `_on_sent` fires asynchronously (data handed to OS), `HTTPServer._handle_sent()` pops the FIFO — if the token is a `ChunkSendToken`, it delivers `on_chunk_sent(token)` to the actor; if `None` (internal send: headers, terminal chunk, error response), it skips. The FIFO ordering depends on lori's guarantee that `_on_sent` callbacks arrive in the same order as the `send()` calls that produced them. The FIFO is cleared on connection close (`_close_connection()` and `_handle_closed()`) — any `_on_send_failed` callbacks that arrive afterward find the `_Closed` state and no-op.
 
@@ -98,15 +106,14 @@ No release notes until after the first release. This project is pre-1.0 and hasn
   - `request.pony` — Immutable request metadata bundle (`Request val`: method, URI, version, headers)
   - `chunk_send_token.pony` — Opaque chunk send token (`ChunkSendToken val`, `Equatable`, private constructor)
   - `http_server_lifecycle_event_receiver.pony` — HTTP callback trait (`HTTPServerLifecycleEventReceiver`: on_request, on_body_chunk, on_request_complete, on_chunk_sent, on_closed, on_throttled, on_unthrottled)
-  - `http_server_actor.pony` — Server actor trait (`HTTPServerActor`: extends `TCPConnectionActor` and `HTTPServerLifecycleEventReceiver`, provides `_connection()` and `_on_idle_timeout()` defaults)
-  - `http_server.pony` — Package docstring and protocol class (`HTTPServer`: owns TCP connection + parser + URI parsing + response queue + idle timer, implements `ServerLifecycleEventReceiver` + `_RequestParserNotify` + `_ResponseQueueNotify`)
+  - `http_server_actor.pony` — Server actor trait (`HTTPServerActor`: extends `TCPConnectionActor` and `HTTPServerLifecycleEventReceiver`, provides `_connection()` default)
+  - `http_server.pony` — Package docstring and protocol class (`HTTPServer`: owns TCP connection + parser + URI parsing + response queue, implements `ServerLifecycleEventReceiver` + `_RequestParserNotify` + `_ResponseQueueNotify`)
   - `_keep_alive_decision.pony` — Keep-alive logic (`_KeepAliveDecision` primitive)
-  - `_idle_timer_notify.pony` — Idle timeout timer notify (`_IdleTimerNotify` class)
   - `response_builder.pony` — Pre-serialized response construction (`ResponseBuilder` primitive, `ResponseHeadersBuilder`/`ResponseBodyBuilder` phase interfaces, `_ResponseBuilderImpl`)
   - `responder.pony` — Per-request response sender (`Responder` class, state machine, complete and streaming modes)
   - `_response_queue.pony` — Pipelined response ordering (`_ResponseQueue`, `_ResponseQueueNotify`, `_QueueEntry`)
   - `_chunked_encoder.pony` — Chunked transfer encoding (`_ChunkedEncoder` primitive)
-  - `server_config.pony` — Server configuration (`ServerConfig` class)
+  - `server_config.pony` — Server configuration (`ServerConfig` class, `DefaultIdleTimeout` primitive)
   - `_error_response.pony` — Pre-built error response strings (`_ErrorResponse` primitive)
   - `_connection_state.pony` — Connection lifecycle states (`_Active`, `_Closed`; routes `on_sent` for chunk token delivery)
 - `assets/` — test assets

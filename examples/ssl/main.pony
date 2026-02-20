@@ -13,7 +13,6 @@ use "files"
 use "ssl/net"
 use http_server = "../../http_server"
 use lori = "lori"
-use "time"
 
 actor Main
   new create(env: Env) =>
@@ -61,7 +60,7 @@ actor Listener is lori.TCPListenerActor
   fun ref _listener(): lori.TCPListener => _tcp_listener
 
   fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
-    HelloServer(_server_auth, fd, _config, _ssl_ctx, None)
+    HelloServer(_server_auth, fd, _config, _ssl_ctx)
 
   fun ref _on_listening() =>
     try
@@ -84,11 +83,9 @@ actor HelloServer is http_server.HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: http_server.ServerConfig,
-    ssl_ctx: SSLContext val,
-    timers: (Timers | None))
+    ssl_ctx: SSLContext val)
   =>
-    _http = http_server.HTTPServer.ssl(auth, ssl_ctx, fd, this,
-      config, timers)
+    _http = http_server.HTTPServer.ssl(auth, ssl_ctx, fd, this, config)
 
   fun ref _http_connection(): http_server.HTTPServer => _http
 

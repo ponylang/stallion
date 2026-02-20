@@ -12,7 +12,6 @@ request bodies — for body accumulation, see the streaming example.
 use http_server = "../../http_server"
 use uri = "uri"
 use lori = "lori"
-use "time"
 
 actor Main
   new create(env: Env) =>
@@ -39,7 +38,7 @@ actor Listener is lori.TCPListenerActor
   fun ref _listener(): lori.TCPListener => _tcp_listener
 
   fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
-    HelloServer(_server_auth, fd, _config, None)
+    HelloServer(_server_auth, fd, _config)
 
   fun ref _on_listening() =>
     try
@@ -61,10 +60,9 @@ actor HelloServer is http_server.HTTPServerActor
   new create(
     auth: lori.TCPServerAuth,
     fd: U32,
-    config: http_server.ServerConfig,
-    timers: (Timers | None))
+    config: http_server.ServerConfig)
   =>
-    _http = http_server.HTTPServer(auth, fd, this, config, timers)
+    _http = http_server.HTTPServer(auth, fd, this, config)
 
   fun ref _http_connection(): http_server.HTTPServer => _http
 

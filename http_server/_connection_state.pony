@@ -25,6 +25,9 @@ trait ref _ConnectionState
   fun ref on_sent(server: HTTPServer ref, token: lori.SendToken)
     """Handle send completion notification from lori."""
 
+  fun ref on_idle_timeout(server: HTTPServer ref)
+    """Handle idle timeout notification from lori."""
+
 class ref _Active is _ConnectionState
   """
   Connection is active — parsing requests and dispatching to the receiver.
@@ -45,6 +48,9 @@ class ref _Active is _ConnectionState
   fun ref on_sent(server: HTTPServer ref, token: lori.SendToken) =>
     server._handle_sent(token)
 
+  fun ref on_idle_timeout(server: HTTPServer ref) =>
+    server._handle_idle_timeout()
+
 class ref _Closed is _ConnectionState
   """
   Connection is closed — all operations are no-ops.
@@ -63,4 +69,7 @@ class ref _Closed is _ConnectionState
     None
 
   fun ref on_sent(server: HTTPServer ref, token: lori.SendToken) =>
+    None
+
+  fun ref on_idle_timeout(server: HTTPServer ref) =>
     None

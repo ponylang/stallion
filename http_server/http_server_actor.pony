@@ -18,10 +18,9 @@ trait tag HTTPServerActor is
     var _http: HTTPServer = HTTPServer.none()
 
     new create(auth: lori.TCPServerAuth, fd: U32,
-      config: ServerConfig,
-      timers: (Timers | None))
+      config: ServerConfig)
     =>
-      _http = HTTPServer(auth, fd, this, config, timers)
+      _http = HTTPServer(auth, fd, this, config)
 
     fun ref _http_connection(): HTTPServer => _http
 
@@ -31,8 +30,8 @@ trait tag HTTPServerActor is
       // build and send response using request' and responder
   ```
 
-  For HTTPS, use `HTTPServer.ssl(auth, ssl_ctx, fd, this, config, timers)`
-  instead of `HTTPServer(auth, fd, this, config, timers)`.
+  For HTTPS, use `HTTPServer.ssl(auth, ssl_ctx, fd, this, config)`
+  instead of `HTTPServer(auth, fd, this, config)`.
 
   The `none()` default ensures all fields are initialized before the
   constructor body runs, so `this` is `ref` when passed to
@@ -43,19 +42,10 @@ trait tag HTTPServerActor is
     """
     Return the protocol instance owned by this actor.
 
-    Called by default implementations of `_connection()` and
-    `_on_idle_timeout()`. Must return the same instance every time.
+    Called by the default implementation of `_connection()`. Must return
+    the same instance every time.
     """
 
   fun ref _connection(): lori.TCPConnection =>
     """Delegates to the protocol's TCP connection."""
     _http_connection()._connection()
-
-  be _on_idle_timeout() =>
-    """
-    Receives idle timeout notifications from the timer system.
-
-    Sent asynchronously by the idle timer when it fires. The default
-    implementation forwards to the protocol for handling.
-    """
-    _http_connection()._handle_idle_timeout()

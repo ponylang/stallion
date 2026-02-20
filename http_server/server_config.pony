@@ -1,3 +1,15 @@
+use lori = "lori"
+
+primitive DefaultIdleTimeout
+  """60-second idle timeout, the default for HTTP connections."""
+  fun apply(): (lori.IdleTimeout | None) =>
+    match lori.MakeIdleTimeout(60_000)
+    | let t: lori.IdleTimeout => t
+    else
+      // Unreachable: 60_000 > 0 always passes IdleTimeout validation.
+      _Unreachable(); None
+    end
+
 class val ServerConfig
   """
   Server-level configuration.
@@ -7,13 +19,19 @@ class val ServerConfig
   connection can sit without activity before being closed.
 
   ```pony
-  // All defaults
+  // All defaults (60-second idle timeout)
   ServerConfig("localhost", "8080")
 
-  // Custom limits
+  // Custom timeout via MakeIdleTimeout (milliseconds)
+  let timeout = match lori.MakeIdleTimeout(30_000)
+  | let t: lori.IdleTimeout => t
+  end
   ServerConfig("0.0.0.0", "80" where
     max_body_size' = 10_485_760,  // 10 MB
-    idle_timeout' = 60)           // 60 seconds
+    idle_timeout' = timeout)
+
+  // Disable idle timeout
+  ServerConfig("0.0.0.0", "80" where idle_timeout' = None)
   ```
   """
   let host: String
@@ -24,7 +42,7 @@ class val ServerConfig
   let max_body_size: USize
   let max_concurrent_connections: (U32 | None)
   let max_pending_responses: USize
-  let idle_timeout: U64
+  let idle_timeout: (lori.IdleTimeout | None)
 
   new val create(
     host': String,
@@ -35,13 +53,15 @@ class val ServerConfig
     max_body_size': USize = 1_048_576,
     max_concurrent_connections': (U32 | None) = None,
     max_pending_responses': USize = 100,
-    idle_timeout': U64 = 0)
+    idle_timeout': (lori.IdleTimeout | None) = DefaultIdleTimeout())
   =>
     """
     Create server configuration.
 
     `host'` and `port'` specify the listen address. Parser limits default to
-    sensible values. `idle_timeout'` is in seconds (0 disables idle timeout).
+    sensible values. `idle_timeout'` is an `IdleTimeout` (milliseconds) or
+    `None` to disable idle timeout. Defaults to 60 seconds. Use
+    `lori.MakeIdleTimeout(ms)` to create custom timeout values.
     `max_concurrent_connections'` limits simultaneous connections (`None` for
     unlimited). `max_pending_responses'` limits the number of pipelined
     requests that can be outstanding before the connection closes — this

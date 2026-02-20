@@ -28,16 +28,15 @@ actor MyListener is lori.TCPListenerActor
   fun ref _listener(): lori.TCPListener => _tcp_listener
 
   fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
-    MyServer(_server_auth, fd, _config, None)
+    MyServer(_server_auth, fd, _config)
 
 actor MyServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
 
   new create(auth: lori.TCPServerAuth, fd: U32,
-    config: ServerConfig,
-    timers: (Timers | None))
+    config: ServerConfig)
   =>
-    _http = HTTPServer(auth, fd, this, config, timers)
+    _http = HTTPServer(auth, fd, this, config)
 
   fun ref _http_connection(): HTTPServer => _http
 
@@ -107,18 +106,17 @@ actor MyListener is lori.TCPListenerActor
   fun ref _listener(): lori.TCPListener => _tcp_listener
 
   fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
-    MyServer(_server_auth, fd, _config, _ssl_ctx, None)
+    MyServer(_server_auth, fd, _config, _ssl_ctx)
 ```
 
 The actor explicitly chooses `HTTPServer` (plain HTTP) or `HTTPServer.ssl`
 (HTTPS) in its constructor. The `MyServer` actor in the HTTPS example
-would use `HTTPServer.ssl(auth, ssl_ctx, fd, this, config, timers)`
-instead of `HTTPServer(auth, fd, this, config, timers)`.
+would use `HTTPServer.ssl(auth, ssl_ctx, fd, this, config)`
+instead of `HTTPServer(auth, fd, this, config)`.
 """
 
 use lori = "lori"
 use ssl_net = "ssl/net"
-use "time"
 use uri_pkg = "uri"
 
 class HTTPServer is
@@ -146,16 +144,13 @@ class HTTPServer is
     var _http: HTTPServer = HTTPServer.none()
 
     new create(auth: lori.TCPServerAuth, fd: U32,
-      config: ServerConfig,
-      timers: (Timers | None))
+      config: ServerConfig)
     =>
-      _http = HTTPServer(auth, fd, this, config, timers)
+      _http = HTTPServer(auth, fd, this, config)
   ```
   """
   let _lifecycle_event_receiver: (HTTPServerLifecycleEventReceiver ref | None)
-  let _enclosing: (HTTPServerActor | None)
   let _config: (ServerConfig | None)
-  let _timers: (Timers | None)
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   var _state: _ConnectionState = _Active
   var _queue: (_ResponseQueue | None) = None
@@ -164,7 +159,6 @@ class HTTPServer is
   var _requests_pending: USize = 0
   var _parser: (_RequestParser | None) = None
   var _idle: Bool = true
-  var _idle_timer: (Timer tag | None) = None
   embed _pending_sent_tokens: Array[(ChunkSendToken | None)]
 
   new none() =>
@@ -177,30 +171,24 @@ class HTTPServer is
     — its methods must never be called.
     """
     _lifecycle_event_receiver = None
-    _enclosing = None
     _config = None
-    _timers = None
     _pending_sent_tokens = Array[(ChunkSendToken | None)]
 
   new create(
     auth: lori.TCPServerAuth,
     fd: U32,
     server_actor: HTTPServerActor ref,
-    config: ServerConfig,
-    timers: (Timers | None))
+    config: ServerConfig)
   =>
     """
     Create the protocol handler for a plain HTTP connection.
 
     Called inside the `HTTPServerActor` constructor. The `server_actor`
-    parameter must be the actor's `this` — it provides both the
-    `HTTPServerLifecycleEventReceiver ref` for synchronous HTTP callbacks and
-    the `HTTPServerActor` for idle timer notifications.
+    parameter must be the actor's `this` — it provides the
+    `HTTPServerLifecycleEventReceiver ref` for synchronous HTTP callbacks.
     """
     _lifecycle_event_receiver = server_actor
-    _enclosing = server_actor
     _config = config
-    _timers = timers
     _pending_sent_tokens = Array[(ChunkSendToken | None)]
     _queue = _ResponseQueue(this)
     _parser = _RequestParser(this, config._parser_config())
@@ -212,8 +200,7 @@ class HTTPServer is
     ssl_ctx: ssl_net.SSLContext val,
     fd: U32,
     server_actor: HTTPServerActor ref,
-    config: ServerConfig,
-    timers: (Timers | None))
+    config: ServerConfig)
   =>
     """
     Create the protocol handler for an HTTPS connection.
@@ -223,9 +210,7 @@ class HTTPServer is
     HTTPS connections.
     """
     _lifecycle_event_receiver = server_actor
-    _enclosing = server_actor
     _config = config
-    _timers = timers
     _pending_sent_tokens = Array[(ChunkSendToken | None)]
     _queue = _ResponseQueue(this)
     _parser = _RequestParser(this, config._parser_config())
@@ -241,13 +226,15 @@ class HTTPServer is
   //
 
   fun ref _on_started() =>
-    _start_idle_timer()
+    match _config
+    | let c: ServerConfig =>
+      _tcp_connection.idle_timeout(c.idle_timeout)
+    end
 
   fun ref _on_received(data: Array[U8] iso) =>
     _state.on_received(this, consume data)
 
   fun ref _on_closed() =>
-    _cancel_idle_timer()
     _state.on_closed(this)
 
   fun ref _on_start_failure() =>
@@ -263,6 +250,9 @@ class HTTPServer is
 
   fun ref _on_sent(token: lori.SendToken) =>
     _state.on_sent(this, token)
+
+  fun ref _on_idle_timeout() =>
+    _state.on_idle_timeout(this)
 
   //
   // _RequestParserNotify — forwarding parser events to receiver
@@ -307,7 +297,6 @@ class HTTPServer is
     end
     _requests_pending = _requests_pending + 1
     _idle = false
-    _cancel_idle_timer()
 
     // Safety net: close if too many pipelined requests are pending
     match _config
@@ -387,15 +376,14 @@ class HTTPServer is
     of the queue.
 
     Decrements the pending request count and either closes the connection
-    (if keep-alive is false) or starts the idle timer (if no more requests
-    are pending).
+    (if keep-alive is false) or marks the connection as idle (if no more
+    requests are pending).
     """
     _requests_pending = _requests_pending - 1
     if not keep_alive then
       _close_connection()
     elseif _requests_pending == 0 then
       _idle = true
-      _start_idle_timer()
     end
 
   //
@@ -489,37 +477,10 @@ class HTTPServer is
       match _parser | let p: _RequestParser => p.stop() end
       match _queue | let q: _ResponseQueue => q.close() end
       _pending_sent_tokens.clear()
-      _cancel_idle_timer()
       match _lifecycle_event_receiver
       | let r: HTTPServerLifecycleEventReceiver ref => r.on_closed()
       | None => _Unreachable()
       end
       _tcp_connection.close()
       _state = _Closed
-    end
-
-  //
-  // Timer helpers
-  //
-
-  fun ref _start_idle_timer() =>
-    match _config
-    | let c: ServerConfig =>
-      if c.idle_timeout == 0 then return end
-      match (_timers, _enclosing)
-      | (let timers: Timers, let a: HTTPServerActor) =>
-        let timer = Timer(
-          _IdleTimerNotify(a),
-          c.idle_timeout * 1_000_000_000)
-        let t: Timer tag = timer
-        timers(consume timer)
-        _idle_timer = t
-      end
-    end
-
-  fun ref _cancel_idle_timer() =>
-    match (_timers, _idle_timer)
-    | (let timers: Timers, let timer: Timer tag) =>
-      timers.cancel(timer)
-      _idle_timer = None
     end
