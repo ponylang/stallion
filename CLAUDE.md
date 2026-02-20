@@ -114,6 +114,5 @@ No release notes until after the first release. This project is pre-1.0 and hasn
   - `key.pem` — Test private key for SSL examples
 - `examples/` — example programs
   - `hello/main.pony` — Greeting server with URI parsing and query parameter extraction
-  - `builder/main.pony` — Dynamic response construction using `ResponseBuilder` and `respond()`
   - `ssl/main.pony` — HTTPS server using SSL/TLS
   - `streaming/main.pony` — Flow-controlled chunked transfer encoding streaming response using `chunk_sent()` callbacks

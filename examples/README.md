@@ -6,10 +6,6 @@ Each subdirectory is a self-contained Pony program demonstrating a different par
 
 Greeting server that responds with "Hello, World!" by default, or "Hello, {name}!" when a `?name=X` query parameter is provided. Demonstrates the core API: a listener actor implements `lori.TCPListenerActor`, creates connection actors in `_on_accept`, and each connection actor uses `HTTPServerActor`, `HTTPServer`, `Request`, `Responder`, `ResponseBuilder`, and `ServerConfig`. Start here if you're new to the library.
 
-## [builder](builder/)
-
-Constructs responses dynamically using `ResponseBuilder`. Demonstrates the builder's typed state machine that guides the caller through status line, headers, then body. Similar to hello but focused on the response construction API.
-
 ## [ssl](ssl/)
 
 HTTPS server using SSL/TLS. Demonstrates creating an `SSLContext`, loading certificate and key files, and passing the context to connection actors via `_on_accept`. Actors use `HTTPServer.ssl` instead of `HTTPServer` to create an HTTPS connection.
