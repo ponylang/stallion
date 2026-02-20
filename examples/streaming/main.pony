@@ -48,7 +48,12 @@ actor Listener is lori.TCPListenerActor
     StreamServer(_server_auth, fd, _config, None, _timers)
 
   fun ref _on_listening() =>
-    _out.print("Server listening on localhost:8080")
+    try
+      (let host, let port) = _tcp_listener.local_address().name()?
+      _out.print("Server listening on " + host + ":" + port)
+    else
+      _out.print("Server listening")
+    end
 
   fun ref _on_listen_failure() =>
     _out.print("Failed to start server")

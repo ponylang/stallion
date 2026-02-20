@@ -41,7 +41,12 @@ actor Listener is lori.TCPListenerActor
     HelloServer(_server_auth, fd, _config, None, None)
 
   fun ref _on_listening() =>
-    _out.print("Builder example listening on localhost:8080")
+    try
+      (let host, let port) = _tcp_listener.local_address().name()?
+      _out.print("Builder example listening on " + host + ":" + port)
+    else
+      _out.print("Builder example listening")
+    end
 
   fun ref _on_listen_failure() =>
     _out.print("Failed to start server")

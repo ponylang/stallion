@@ -64,7 +64,12 @@ actor Listener is lori.TCPListenerActor
     HelloServer(_server_auth, fd, _config, _ssl_ctx, None)
 
   fun ref _on_listening() =>
-    _out.print("HTTPS server listening on localhost:8443")
+    try
+      (let host, let port) = _tcp_listener.local_address().name()?
+      _out.print("HTTPS server listening on " + host + ":" + port)
+    else
+      _out.print("HTTPS server listening")
+    end
 
   fun ref _on_listen_failure() =>
     _out.print("Failed to start server")
