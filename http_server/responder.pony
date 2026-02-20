@@ -9,8 +9,9 @@ class ref Responder
   """
   Sends an HTTP response for a single request.
 
-  Each request receives its own `Responder` via
-  `HTTPServerLifecycleEventReceiver.request_complete()`. The Responder
+  Each request receives its own `Responder`, delivered via both
+  `HTTPServerLifecycleEventReceiver.request()` and
+  `request_complete()`. The Responder
   buffers response data through the connection's response queue, which
   ensures pipelined responses are sent in request order.
 

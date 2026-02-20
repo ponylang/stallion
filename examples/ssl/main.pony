@@ -87,7 +87,9 @@ actor HelloServer is http_server.HTTPServerActor
 
   fun ref _http_connection(): http_server.HTTPServer => _http
 
-  fun ref request_complete(responder: http_server.Responder) =>
+  fun ref request_complete(request': http_server.Request val,
+    responder: http_server.Responder)
+  =>
     let resp_body: String val = "Hello, World!"
     let response = http_server.ResponseBuilder(http_server.StatusOK)
       .add_header("Content-Type", "text/plain")

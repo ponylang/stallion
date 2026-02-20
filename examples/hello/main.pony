@@ -53,7 +53,6 @@ actor Listener is lori.TCPListenerActor
 
 actor HelloServer is http_server.HTTPServerActor
   var _http: http_server.HTTPServer = http_server.HTTPServer.none()
-  var _name: String val = "World"
 
   new create(
     auth: lori.TCPServerAuth,
@@ -67,18 +66,18 @@ actor HelloServer is http_server.HTTPServerActor
 
   fun ref _http_connection(): http_server.HTTPServer => _http
 
-  fun ref request(request': http_server.Request val) =>
+  fun ref request_complete(request': http_server.Request val,
+    responder: http_server.Responder)
+  =>
     // Extract a "name" query parameter if present
-    _name = "World"
+    var name: String val = "World"
     match request'.uri.query_params()
     | let params: uri.QueryParams val =>
       match params.get("name")
-      | let name: String => _name = name
+      | let n: String => name = n
       end
     end
-
-  fun ref request_complete(responder: http_server.Responder) =>
-    let resp_body: String val = "Hello, " + _name + "!"
+    let resp_body: String val = "Hello, " + name + "!"
     let response = http_server.ResponseBuilder(http_server.StatusOK)
       .add_header("Content-Type", "text/plain")
       .add_header("Content-Length", resp_body.size().string())

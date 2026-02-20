@@ -5,8 +5,9 @@ Demonstrates the streaming response API: `start_chunked_response()`,
 `send_chunk()`, and `finish_response()`. A timer drives chunk delivery
 at one-second intervals, simulating a response where data becomes
 available over time (e.g., progress updates, log tailing, or results
-from a long-running computation). The actor stores the `Responder`
-across behavior turns and sends chunks as timer messages arrive.
+from a long-running computation). The actor receives the `Responder` in
+`request()` and stores it across behavior turns, sending chunks as timer
+messages arrive.
 
 Note: this demonstrates streaming *responses*, not streaming request
 bodies. Request body data arrives via `body_chunk()` callbacks — this
@@ -75,7 +76,9 @@ actor StreamServer is http_server.HTTPServerActor
 
   fun ref _http_connection(): http_server.HTTPServer => _http
 
-  fun ref request_complete(responder: http_server.Responder) =>
+  fun ref request(request': http_server.Request val,
+    responder: http_server.Responder)
+  =>
     let headers = recover val
       let h = http_server.Headers
       h.set("content-type", "text/plain")

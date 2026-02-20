@@ -63,6 +63,7 @@ class HTTPServer is
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   var _state: _ConnectionState = _Active
   var _queue: (_ResponseQueue | None) = None
+  var _current_request: (Request val | None) = None
   var _current_responder: (Responder | None) = None
   var _requests_pending: USize = 0
   var _parser: (_RequestParser | None) = None
@@ -176,10 +177,14 @@ class HTTPServer is
       end
 
     let keep_alive = _KeepAliveDecision(version, headers.get("connection"))
+    let req = Request(method, parsed_uri, version, headers)
+    _current_request = req
     match _queue
     | let q: _ResponseQueue =>
       let id = q.register(keep_alive)
       _current_responder = Responder._create(q, id, version)
+    else
+      _Unreachable(); return
     end
     _requests_pending = _requests_pending + 1
     _idle = false
@@ -197,10 +202,10 @@ class HTTPServer is
       _Unreachable()
     end
 
-    match _lifecycle_event_receiver
-    | let r: HTTPServerLifecycleEventReceiver ref =>
-      r.request(Request(method, parsed_uri, version, headers))
-    | None =>
+    match (_lifecycle_event_receiver, _current_responder)
+    | (let r: HTTPServerLifecycleEventReceiver ref, let resp: Responder) =>
+      r.request(req, resp)
+    else
       _Unreachable()
     end
 
@@ -213,15 +218,15 @@ class HTTPServer is
     end
 
   fun ref request_complete() =>
-    match _current_responder
-    | let r: Responder =>
+    match (_lifecycle_event_receiver, _current_request, _current_responder)
+    | (let recv: HTTPServerLifecycleEventReceiver ref,
+      let req: Request val, let resp: Responder)
+    =>
+      _current_request = None
       _current_responder = None
-      match _lifecycle_event_receiver
-      | let recv: HTTPServerLifecycleEventReceiver ref =>
-        recv.request_complete(r)
-      | None =>
-        _Unreachable()
-      end
+      recv.request_complete(req, resp)
+    else
+      _Unreachable()
     end
 
   fun ref parse_error(err: ParseError) =>
@@ -310,6 +315,17 @@ class HTTPServer is
     if _idle then
       _close_connection()
     end
+
+  fun ref close() =>
+    """
+    Close the connection from the server actor.
+
+    Use this when the actor needs to force-close the connection — for
+    example, after rejecting a request early (413 Payload Too Large) via
+    the `Responder` delivered in `request()`. Safe to call at any time;
+    idempotent due to the `_Active` state guard.
+    """
+    _close_connection()
 
   fun ref _close_connection() =>
     """

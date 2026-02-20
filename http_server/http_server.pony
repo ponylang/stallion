@@ -42,7 +42,9 @@ actor MyServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(responder: Responder) =>
+  fun ref request_complete(request': Request val,
+    responder: Responder)
+  =>
     let body: String val = "Hello!"
     let response = ResponseBuilder(StatusOK)
       .add_header("Content-Length", body.size().string())
@@ -55,7 +57,9 @@ actor MyServer is HTTPServerActor
 For streaming responses, use chunked transfer encoding:
 
 ```pony
-fun ref request_complete(responder: Responder) =>
+fun ref request_complete(request': Request val,
+  responder: Responder)
+=>
   responder.start_chunked_response(StatusOK)
   responder.send_chunk("chunk 1")
   responder.send_chunk("chunk 2")

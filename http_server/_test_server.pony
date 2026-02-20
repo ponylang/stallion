@@ -316,7 +316,7 @@ actor \nodoc\ _TestHelloServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(responder: Responder) =>
+  fun ref request_complete(request': Request val, responder: Responder) =>
     let resp_body: String val = "Hello, World!"
     let response = ResponseBuilder(StatusOK)
       .add_header("content-type", "text/plain")
@@ -717,7 +717,7 @@ actor \nodoc\ _TestPipelineServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(responder: Responder) =>
+  fun ref request_complete(request': Request val, responder: Responder) =>
     _responders.push(responder)
     if _responders.size() == 3 then
       // Respond in reverse order (2, 1, 0)
@@ -766,7 +766,7 @@ actor \nodoc\ _TestStreamServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(responder: Responder) =>
+  fun ref request_complete(request': Request val, responder: Responder) =>
     let headers = recover val
       let h = Headers
       h.set("content-type", "text/plain")
@@ -968,7 +968,7 @@ actor \nodoc\ _TestPartialRespondServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(responder: Responder) =>
+  fun ref request_complete(request': Request val, responder: Responder) =>
     _count = _count + 1
     if _count == 1 then
       let resp_body: String val = "first-ok"
@@ -1062,7 +1062,7 @@ actor \nodoc\ _TestChunkedFallbackServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(responder: Responder) =>
+  fun ref request_complete(request': Request val, responder: Responder) =>
     let headers = recover val
       let h = Headers
       h.set("content-type", "text/plain")
@@ -1122,8 +1122,6 @@ class \nodoc\ val _TestURIParsingServerFactory is _TestConnectionFactory
 
 actor \nodoc\ _TestURIParsingServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
-  var _uri_path: String val = ""
-  var _uri_query: String val = ""
 
   new create(
     auth: lori.TCPServerAuth,
@@ -1136,15 +1134,12 @@ actor \nodoc\ _TestURIParsingServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request(request': Request val) =>
-    _uri_path = request'.uri.path
-    _uri_query = match request'.uri.query
+  fun ref request_complete(request': Request val, responder: Responder) =>
+    let uri_query: String val = match request'.uri.query
     | let q: String val => q
     | None => ""
     end
-
-  fun ref request_complete(responder: Responder) =>
-    let resp_body: String val = _uri_path + "|" + _uri_query
+    let resp_body: String val = request'.uri.path + "|" + uri_query
     let response = ResponseBuilder(StatusOK)
       .add_header("content-type", "text/plain")
       .add_header("Content-Length", resp_body.size().string())
@@ -1188,9 +1183,6 @@ class \nodoc\ val _TestConnectURIServerFactory is _TestConnectionFactory
 
 actor \nodoc\ _TestConnectURIServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
-  var _host: String val = ""
-  var _port: String val = ""
-  var _path: String val = ""
 
   new create(
     auth: lori.TCPServerAuth,
@@ -1203,19 +1195,18 @@ actor \nodoc\ _TestConnectURIServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request(request': Request val) =>
-    _path = request'.uri.path
+  fun ref request_complete(request': Request val, responder: Responder) =>
+    var host: String val = ""
+    var port: String val = ""
     match request'.uri.authority
     | let a: uri.URIAuthority val =>
-      _host = a.host
-      _port = match a.port
+      host = a.host
+      port = match a.port
       | let p: U16 => p.string()
       | None => "none"
       end
     end
-
-  fun ref request_complete(responder: Responder) =>
-    let resp_body: String val = _host + "|" + _port + "|" + _path
+    let resp_body: String val = host + "|" + port + "|" + request'.uri.path
     let response = ResponseBuilder(StatusOK)
       .add_header("content-type", "text/plain")
       .add_header("Content-Length", resp_body.size().string())
@@ -1282,7 +1273,7 @@ actor \nodoc\ _TestBodyServer is HTTPServerActor
     _has_body = true
     _body.append(data)
 
-  fun ref request_complete(responder: Responder) =>
+  fun ref request_complete(request': Request val, responder: Responder) =>
     let resp_body: String val =
       if _has_body then
         _has_body = false

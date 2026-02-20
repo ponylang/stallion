@@ -229,6 +229,13 @@ class _ExpectHeaders is _ParserState
           // Empty line: end of headers
           p.pos = crlf + 2
 
+          // Check body size limit before delivering the request. The actor
+          // can now respond in request(), so rejections must precede delivery.
+          match _content_length
+          | let cl: USize if cl > _config.max_body_size =>
+            return BodyTooLarge
+          end
+
           // Destructive read: swap out headers as val, replace with empty
           let headers: Headers val =
             (_headers = recover iso Headers end)
@@ -245,9 +252,6 @@ class _ExpectHeaders is _ParserState
 
           match _content_length
           | let cl: USize if cl > 0 =>
-            if cl > _config.max_body_size then
-              return BodyTooLarge
-            end
             p.state = _ExpectFixedBody(cl)
             return _ParseContinue
           else

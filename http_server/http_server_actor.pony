@@ -26,8 +26,10 @@ trait tag HTTPServerActor is
 
     fun ref _http_connection(): HTTPServer => _http
 
-    fun ref request_complete(responder: Responder) =>
-      // build and send response
+    fun ref request_complete(request': Request val,
+      responder: Responder)
+    =>
+      // build and send response using request' and responder
   ```
 
   The `none()` default ensures all fields are initialized before the
