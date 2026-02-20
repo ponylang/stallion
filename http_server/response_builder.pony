@@ -1,4 +1,4 @@
-interface ref ResponseBuilderHeaders
+interface ref ResponseHeadersBuilder
   """
   Header construction phase of `ResponseBuilder`.
 
@@ -6,7 +6,7 @@ interface ref ResponseBuilderHeaders
   to the body phase. Headers are serialized in the order they are added.
   """
 
-  fun ref add_header(name: String, value: String): ResponseBuilderHeaders
+  fun ref add_header(name: String, value: String): ResponseHeadersBuilder
     """
     Add a header to the response.
 
@@ -14,14 +14,14 @@ interface ref ResponseBuilderHeaders
     setting any required headers (including `Content-Length`).
     """
 
-  fun ref finish_headers(): ResponseBuilderBody
+  fun ref finish_headers(): ResponseBodyBuilder
     """
     Finish the header section and transition to the body phase.
 
     Writes the blank line that separates headers from the body.
     """
 
-interface ref ResponseBuilderBody
+interface ref ResponseBodyBuilder
   """
   Body construction phase of `ResponseBuilder`.
 
@@ -29,7 +29,7 @@ interface ref ResponseBuilderBody
   final serialized response bytes.
   """
 
-  fun ref add_chunk(data: ByteSeq): ResponseBuilderBody
+  fun ref add_chunk(data: ByteSeq): ResponseBodyBuilder
     """
     Append body data to the response.
 
@@ -88,12 +88,12 @@ primitive ResponseBuilder
   fun apply(
     status: Status,
     version: Version = HTTP11)
-    : ResponseBuilderHeaders
+    : ResponseHeadersBuilder
   =>
     """Create a builder with the given status and version."""
     _ResponseBuilderImpl._create(status, version)
 
-class ref _ResponseBuilderImpl is (ResponseBuilderHeaders & ResponseBuilderBody)
+class ref _ResponseBuilderImpl is (ResponseHeadersBuilder & ResponseBodyBuilder)
   var _buf: Array[U8] iso
 
   new ref _create(status: Status, version: Version) =>
@@ -106,18 +106,18 @@ class ref _ResponseBuilderImpl is (ResponseBuilderHeaders & ResponseBuilderBody)
         .>append("\r\n")
     end
 
-  fun ref add_header(name: String, value: String): ResponseBuilderHeaders =>
+  fun ref add_header(name: String, value: String): ResponseHeadersBuilder =>
     _buf.>append(name)
       .>append(": ")
       .>append(value)
       .>append("\r\n")
     this
 
-  fun ref finish_headers(): ResponseBuilderBody =>
+  fun ref finish_headers(): ResponseBodyBuilder =>
     _buf.append("\r\n")
     this
 
-  fun ref add_chunk(data: ByteSeq): ResponseBuilderBody =>
+  fun ref add_chunk(data: ByteSeq): ResponseBodyBuilder =>
     match data
     | let s: String val => _buf.append(s)
     | let a: Array[U8] val => _buf.append(a)

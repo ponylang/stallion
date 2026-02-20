@@ -61,12 +61,12 @@ class \nodoc\ iso _PropertyBuilderMatchesSerializer
       _ResponseSerializer(status, headers, body where version = version)
 
     // Build with ResponseBuilder
-    var builder: ResponseBuilderHeaders =
+    var builder: ResponseHeadersBuilder =
       ResponseBuilder(status where version = version)
     for (hdr_name, hdr_value) in headers.values() do
       builder = builder.add_header(hdr_name, hdr_value)
     end
-    var body_builder: ResponseBuilderBody = builder.finish_headers()
+    var body_builder: ResponseBodyBuilder = builder.finish_headers()
     match body
     | let b: Array[U8] val => body_builder = body_builder.add_chunk(b)
     end
