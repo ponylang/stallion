@@ -1,12 +1,14 @@
 """
-HTTP server using ResponseBuilder to construct responses dynamically.
+Basic HTTP server that responds to every request with "Hello, World!".
 
-Demonstrates `ResponseBuilder` for building and sending HTTP responses.
-The builder constructs the response as a single byte array via a typed
-state machine that guides the caller through status, headers, then body.
-Send the built response via `Responder.respond()`.
+Demonstrates the core API: a listener actor implements
+`lori.TCPListenerActor` and creates `HTTPServerActor` instances in
+`_on_accept`. Also demonstrates query parameter extraction from the
+pre-parsed URI: a `?name=X` parameter customizes the greeting.
+
+Body data arrives via `body_chunk()` callbacks. This example ignores
+request bodies — for body accumulation, see the streaming example.
 """
-// In user code with corral, this would be: use http_server = "http_server"
 use http_server = "../../http_server"
 use uri = "uri"
 use lori = "lori"
@@ -41,7 +43,7 @@ actor Listener is lori.TCPListenerActor
     HelloServer(_server_auth, fd, _config, None, None)
 
   fun ref _on_listening() =>
-    _out.print("Builder example listening on localhost:8080")
+    _out.print("Server listening on localhost:8080")
 
   fun ref _on_listen_failure() =>
     _out.print("Failed to start server")
@@ -66,6 +68,7 @@ actor HelloServer is http_server.HTTPServerActor
   fun ref _http_connection(): http_server.HTTPServer => _http
 
   fun ref request(request': http_server.Request val) =>
+    // Extract a "name" query parameter if present
     _name = "World"
     match request'.uri.query_params()
     | let params: uri.QueryParams val =>

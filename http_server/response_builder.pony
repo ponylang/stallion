@@ -68,7 +68,7 @@ primitive ResponseBuilder
     .add_chunk(body)
     .build()
 
-  // Later, in a handler:
+  // Later, in request_complete:
   responder.respond(response)
   ```
 

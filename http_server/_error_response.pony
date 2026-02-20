@@ -22,8 +22,8 @@ primitive _ErrorResponse
 
   fun no_response(): String val =>
     """
-    Response sent when a handler completes without sending a response.
+    Response sent when the pending request limit is exceeded.
 
-    This is a server error (500) — the handler should always send a response.
+    This is a server error (500) — the connection closes after sending.
     """
     "HTTP/1.1 500 Internal Server Error\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"

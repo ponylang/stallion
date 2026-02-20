@@ -2,8 +2,9 @@
 HTTPS server that responds to every request with "Hello, World!".
 
 Demonstrates SSL/TLS support: creating an `SSLContext`, loading certificate
-and key files, and passing the context to `Server`. Handlers are identical
-to plaintext HTTP — SSL is handled transparently by the connection layer.
+and key files, and passing the context to connection actors via `_on_accept`.
+The `HTTPServer` handles SSL dispatch internally — actors are identical for
+HTTP and HTTPS.
 
 Must be run from the project root so the relative certificate paths resolve
 correctly. Test with `curl -k https://localhost:8443/`.
@@ -12,6 +13,7 @@ use "files"
 use "ssl/net"
 use http_server = "../../http_server"
 use lori = "lori"
+use "time"
 
 actor Main
   new create(env: Env) =>
@@ -34,32 +36,58 @@ actor Main
       end
 
     let auth = lori.TCPListenAuth(env.root)
-    let config = http_server.ServerConfig("localhost", "8443")
-    http_server.Server(auth, _HelloFactory, config, _ServerNotify(env)
-      where ssl_ctx = sslctx)
+    Listener(auth, "localhost", "8443", env.out, sslctx)
 
-class val _ServerNotify is http_server.ServerNotify
-  let _env: Env
-  new val create(env: Env) => _env = env
+actor Listener is lori.TCPListenerActor
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _out: OutStream
+  let _config: http_server.ServerConfig
+  let _server_auth: lori.TCPServerAuth
+  let _ssl_ctx: SSLContext val
 
-  fun listening(server: http_server.Server tag) =>
-    _env.out.print("HTTPS server listening on localhost:8443")
-
-  fun listen_failure(server: http_server.Server tag) =>
-    _env.out.print("Failed to start server")
-
-  fun closed(server: http_server.Server tag) =>
-    _env.out.print("Server closed")
-
-class val _HelloFactory is http_server.HandlerFactory
-  fun apply(): http_server.Handler ref^ =>
-    _HelloHandler
-
-class ref _HelloHandler is http_server.Handler
-  fun ref request_complete(
-    responder: http_server.Responder,
-    body: http_server.RequestBody)
+  new create(
+    auth: lori.TCPListenAuth,
+    host: String,
+    port: String,
+    out: OutStream,
+    ssl_ctx: SSLContext val)
   =>
+    _out = out
+    _ssl_ctx = ssl_ctx
+    _server_auth = lori.TCPServerAuth(auth)
+    _config = http_server.ServerConfig(host, port)
+    _tcp_listener = lori.TCPListener(auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener => _tcp_listener
+
+  fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
+    HelloServer(_server_auth, fd, _config, _ssl_ctx, None)
+
+  fun ref _on_listening() =>
+    _out.print("HTTPS server listening on localhost:8443")
+
+  fun ref _on_listen_failure() =>
+    _out.print("Failed to start server")
+
+  fun ref _on_closed() =>
+    _out.print("Server closed")
+
+actor HelloServer is http_server.HTTPServerActor
+  var _http: http_server.HTTPServer = http_server.HTTPServer.none()
+
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: http_server.ServerConfig,
+    ssl_ctx: (SSLContext val | None),
+    timers: (Timers | None))
+  =>
+    _http = http_server.HTTPServer(auth, fd, ssl_ctx, this,
+      config, timers)
+
+  fun ref _http_connection(): http_server.HTTPServer => _http
+
+  fun ref request_complete(responder: http_server.Responder) =>
     let resp_body: String val = "Hello, World!"
     let response = http_server.ResponseBuilder(http_server.StatusOK)
       .add_header("Content-Type", "text/plain")

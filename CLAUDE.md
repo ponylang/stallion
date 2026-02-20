@@ -19,7 +19,24 @@ Built on lori (v0.8.3). Lori provides raw TCP I/O with a connection-actor model:
 
 ### Key design decisions
 
-**Single-actor connection model**: Unlike `ponylang/http_server` (which uses two actors per connection with message-passing between them), this library keeps everything in one actor per connection (`_Connection`): TCP I/O, parsing, handler dispatch, response queue, and response sending. The handler's `ref` methods run synchronously inside the connection actor. No unnecessary actor boundaries. The `Server` actor is a thin listener wrapper that creates `_Connection` actors on accept.
+**Protocol class pattern (mirrors lori's layering)**: The user's actor IS the connection — no hidden internal actor. The architecture mirrors lori's own layering:
+
+```
+lori layer:    TCPConnection (class) + TCPConnectionActor (trait) + ServerLifecycleEventReceiver (trait)
+http layer:    HTTPServer (class) + HTTPServerActor (trait) + HTTPServerLifecycleEventReceiver (trait)
+```
+
+The user's actor stores `HTTPServer` as a field and implements `HTTPServerActor` (which extends both `TCPConnectionActor` and `HTTPServerLifecycleEventReceiver`). The protocol class handles all HTTP parsing, response queue management, and connection lifecycle — calling back to the user's actor for HTTP-level events. Other actors can communicate directly with the user's actor since it IS the connection actor.
+
+**No HTTP-layer listener wrapper**: A separate listener actor implements `lori.TCPListenerActor` directly, creating `HTTPServerActor` instances in `_on_accept`. Lifecycle callbacks (`_on_listening`, `_on_listen_failure`, `_on_closed`) go directly to the listener actor. This mirrors lori's own echo server pattern — `Main` creates the listener, the listener creates connections. No factory class, no notify class, no hidden internal actor.
+
+**`none()` constructor for field defaults**: `HTTPServer.none()` creates a placeholder instance that allows the `_http` field to have a default value. This is needed because Pony actor constructors require all fields to be initialized before `this` becomes `ref`. Without a default, `this` is `tag` in the constructor body, which can't be passed to `HTTPServer.create()`. The `none()` instance is immediately replaced by `create()` — its methods are never called.
+
+**Capability chain in the protocol constructor**: `HTTPServer.create` takes `server_actor: HTTPServerActor ref` (the user's `this`):
+- Stored as `_lifecycle_event_receiver: (HTTPServerLifecycleEventReceiver ref | None)` — for synchronous HTTP callbacks (upcast; `None` for the `none()` placeholder)
+- Stored as `_enclosing: (HTTPServerActor | None)` — for idle timer behavior (`ref <: tag`; `None` for the `none()` placeholder)
+- Passed to `TCPConnection.server(auth, fd, server_actor, this)` as `TCPConnectionActor ref` — lori ASIO wiring (upcast)
+- Protocol passes `this` to `TCPConnection.server()` as `ServerLifecycleEventReceiver ref`
 
 **Parser callback is `ref`, not `tag`**: The parser runs inside the connection actor, so its callback interface uses `fun ref` methods (synchronous calls), not `be` behaviors (actor messages). This avoids the extra actor hop that `ponylang/http_server` requires.
 
@@ -27,32 +44,32 @@ Built on lori (v0.8.3). Lori provides raw TCP I/O with a connection-actor model:
 
 **Relationship to `ponylang/http_server`**: That project is built on the stdlib `net` package and has actor-interaction issues we want to avoid. We may borrow internal logic (e.g., parsing techniques) but the overall architecture and actor interactions are designed fresh around lori's model.
 
-**Connection lifecycle**: Connections are persistent by default (HTTP/1.1 keep-alive). The `Server` constructor takes a `ServerConfig` for listen address, parser limits, connection limits, and idle timeout, plus an optional `ServerNotify` for lifecycle callbacks (listening, listen failure, closed):
+**Connection lifecycle**: Connections are persistent by default (HTTP/1.1 keep-alive). The user's listener creates connections via `_on_accept`, passing `ServerConfig` for parser limits and idle timeout:
 
 ```pony
 let config = ServerConfig("localhost", "8080" where idle_timeout' = 60)
-Server(lori.TCPListenAuth(env.root), MyFactory, config, MyNotify)
 ```
 
-For HTTPS, pass an `SSLContext val` (from `ssl/net`) to `Server`:
+For HTTPS, pass an `SSLContext val` (from `ssl/net`) to connection actors:
 
 ```pony
-Server(lori.TCPListenAuth(env.root), MyFactory, config where ssl_ctx = sslctx)
+fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
+  MyServer(_server_auth, fd, _config, _ssl_ctx, _timers)
 ```
 
-SSL handshake, encryption, and decryption are handled transparently by lori — handlers see no difference between HTTP and HTTPS connections.
+SSL handshake, encryption, and decryption are handled transparently by lori — actors see no difference between HTTP and HTTPS connections. `HTTPServer.create` handles SSL dispatch internally (single constructor takes `(SSLContext val | None)`).
 
-Connections close when the client sends `Connection: close`, on HTTP/1.0 requests without `Connection: keep-alive`, after a parse error (with the appropriate error status code), or when the idle timeout expires. Backpressure from lori is propagated to the handler via `throttled()`/`unthrottled()` callbacks and to the response queue via `throttle()`/`unthrottle()`.
+Connections close when the client sends `Connection: close`, on HTTP/1.0 requests without `Connection: keep-alive`, after a parse error (with the appropriate error status code), or when the idle timeout expires. Backpressure from lori is propagated to the actor via `throttled()`/`unthrottled()` callbacks and to the response queue via `throttle()`/`unthrottle()`.
 
-**URI parsing in the connection layer**: The connection layer parses the raw request-target string into a `URI val` (from the `uri` package, `ponylang/uri`) before delivering it to the handler as part of the `Request val` object. For CONNECT requests, `ParseURIAuthority` parses the authority-form target; for all other methods, `ParseURI` handles origin-form, absolute-form, and asterisk-form targets. Invalid URIs are rejected with 400 Bad Request before reaching the handler. Handlers that access URI components (e.g., `request'.uri.query_params()`) need `use "uri"` in their package to name types like `QueryParams`.
+**URI parsing in the protocol layer**: The protocol layer parses the raw request-target string into a `URI val` (from the `uri` package, `ponylang/uri`) before delivering it to the actor as part of the `Request val` object. For CONNECT requests, `ParseURIAuthority` parses the authority-form target; for all other methods, `ParseURI` handles origin-form, absolute-form, and asterisk-form targets. Invalid URIs are rejected with 400 Bad Request before reaching the actor. Actors that access URI components (e.g., `request'.uri.query_params()`) need `use "uri"` in their package to name types like `QueryParams`.
 
-**Two handler traits — buffered and streaming**: Both traits receive a `Request val` in their `request()` callback, bundling method, URI, version, and headers into a single immutable value. `Handler` (buffered) delivers the complete request body as a single `Array[U8] val` in `request_complete(responder, body)`. `StreamingHandler` delivers body data incrementally via `body_chunk(data)` and calls `request_complete(responder)` with no body parameter. Most handlers should use `Handler`; use `StreamingHandler` for large uploads, proxying, or incremental processing.
+**Streaming-only body delivery**: Body data is delivered incrementally via `body_chunk()` callbacks on `HTTPServerLifecycleEventReceiver`. Actors that need the complete body accumulate chunks manually. There is no built-in buffering adapter — convenience buffered body delivery is future work per [lori #7](https://github.com/ponylang/lori/issues/7).
 
-`Server` and `_Connection` accept `AnyHandlerFactory`. Internally, `_Connection` always works with `StreamingHandler`. When a `HandlerFactory` is provided, the connection wraps the `Handler` in `_BufferingAdapter`, which accumulates body chunks and delivers the complete body at `request_complete`. The adapter resets its buffer between pipelined requests.
-
-**Per-request Responder and response queue**: Each request gets its own `Responder` instance, delivered via `Handler.request_complete()` or `StreamingHandler.request_complete()`. The factory creates a bare handler. Responders send data through a `_ResponseQueue` that ensures pipelined responses are delivered in request order, regardless of the order handlers respond. The queue calls back to the connection via `_ResponseQueueNotify` for TCP I/O — it never holds the TCP connection directly. Responders support two modes: complete (`respond()` with pre-serialized bytes from `ResponseBuilder`) and streaming (`start_chunked_response()` + `send_chunk()` + `finish_response()` using chunked transfer encoding). After connection close, any Responders the handler still holds become inert — their methods route to the closed queue, which no-ops everything.
+**Per-request Responder and response queue**: Each request gets its own `Responder` instance, delivered via `HTTPServerLifecycleEventReceiver.request_complete()`. The user's listener creates a new actor per connection in `_on_accept`. Responders send data through a `_ResponseQueue` that ensures pipelined responses are delivered in request order, regardless of the order actors respond. The queue calls back to the protocol via `_ResponseQueueNotify` for TCP I/O — it never holds the TCP connection directly. Responders support two modes: complete (`respond()` with pre-serialized bytes from `ResponseBuilder`) and streaming (`start_chunked_response()` + `send_chunk()` + `finish_response()` using chunked transfer encoding). After connection close, any Responders the actor still holds become inert — their methods route to the closed queue, which no-ops everything.
 
 **Response builder**: `ResponseBuilder` constructs complete HTTP responses as pre-serialized `Array[U8] val` byte arrays, using a typed state machine (via return-type narrowing) to enforce correct construction order: status line, then headers, then body. The builder output is suitable for caching and reuse via `Responder.respond()`, avoiding per-request serialization overhead. The caller is responsible for all response formatting including Content-Length — no headers are injected automatically.
+
+**Idle timer flow**: Timer fires -> `_IdleTimerNotify` (in Timers actor) sends `be _idle_timeout()` to user's actor (via tag) -> `HTTPServerActor._idle_timeout()` default impl forwards to `_http_connection()._handle_idle_timeout()`.
 
 ### Implementation plan
 
@@ -77,23 +94,21 @@ No release notes until after the first release. This project is pre-1.0 and hasn
   - `_parser_state.pony` — Parser state machine (state interface, 6 state classes, `_BufferScan`)
   - `_request_parser.pony` — Request parser class (entry point, buffer management)
   - `request.pony` — Immutable request metadata bundle (`Request val`: method, URI, version, headers)
-  - `handler.pony` — Application handler traits (`Handler` buffered, `StreamingHandler` streaming, receives `Request val`) and factory interfaces (`HandlerFactory`, `StreamingHandlerFactory`)
-  - `_buffering_adapter.pony` — Adapts `Handler` to `StreamingHandler` by buffering body chunks (`_BufferingAdapter`)
+  - `http_server_lifecycle_event_receiver.pony` — HTTP callback trait (`HTTPServerLifecycleEventReceiver`: request, body_chunk, request_complete, closed, throttled, unthrottled)
+  - `http_server_actor.pony` — Server actor trait (`HTTPServerActor`: extends `TCPConnectionActor` and `HTTPServerLifecycleEventReceiver`, provides `_connection()` and `_idle_timeout()` defaults)
+  - `http_server_protocol.pony` — Protocol class (`HTTPServer`: owns TCP connection + parser + URI parsing + response queue + idle timer, implements `ServerLifecycleEventReceiver` + `_RequestParserNotify` + `_ResponseQueueNotify`; also contains `_KeepAliveDecision` and `_IdleTimerNotify`)
   - `response_builder.pony` — Pre-serialized response construction (`ResponseBuilder` primitive, `ResponseBuilderHeaders`/`ResponseBuilderBody` phase interfaces, `_ResponseBuilderImpl`)
   - `responder.pony` — Per-request response sender (`Responder` class, state machine, complete and streaming modes)
   - `_response_queue.pony` — Pipelined response ordering (`_ResponseQueue`, `_ResponseQueueNotify`, `_QueueEntry`)
   - `_chunked_encoder.pony` — Chunked transfer encoding (`_ChunkedEncoder` primitive)
   - `server_config.pony` — Server configuration (`ServerConfig` class)
-  - `server_notify.pony` — Server lifecycle notifications (`ServerNotify` interface)
   - `_error_response.pony` — Pre-built error response strings (`_ErrorResponse` primitive)
   - `_connection_state.pony` — Connection lifecycle states (`_Active`, `_Closed`)
-  - `_connection.pony` — Per-connection actor (`_Connection`, owns TCP/SSL + parser + URI parsing + handler + response queue + idle timer, accepts `AnyHandlerFactory`)
-  - `server.pony` — Listener actor (`Server`, accepts connections, creates `_Connection` actors, accepts `AnyHandlerFactory`, optional SSL)
 - `assets/` — test assets
   - `cert.pem` — Self-signed test certificate for SSL examples
   - `key.pem` — Test private key for SSL examples
 - `examples/` — example programs
-  - `basic/main.pony` — Hello World HTTP server with URI parsing and query parameter extraction
+  - `hello/main.pony` — Greeting server with URI parsing and query parameter extraction
   - `builder/main.pony` — Dynamic response construction using `ResponseBuilder` and `respond()`
   - `ssl/main.pony` — HTTPS server using SSL/TLS
-  - `streaming/main.pony` — Chunked transfer encoding streaming response
+  - `streaming/main.pony` — Timer-driven chunked transfer encoding streaming response

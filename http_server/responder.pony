@@ -9,10 +9,10 @@ class ref Responder
   """
   Sends an HTTP response for a single request.
 
-  Each request receives its own `Responder` via `Handler.request_complete()`
-  or `StreamingHandler.request_complete()`.
-  The Responder buffers response data through the connection's response queue,
-  which ensures pipelined responses are sent in request order.
+  Each request receives its own `Responder` via
+  `HTTPServerLifecycleEventReceiver.request_complete()`. The Responder
+  buffers response data through the connection's response queue, which
+  ensures pipelined responses are sent in request order.
 
   Two response modes are available:
 
@@ -37,7 +37,7 @@ class ref Responder
   responder.finish_response()
   ```
 
-  Responders are created internally by the connection actor. Application
+  Responders are created internally by `HTTPServer`. Application
   code should not attempt to construct them directly.
   """
   let _queue: _ResponseQueue ref

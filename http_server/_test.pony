@@ -78,8 +78,6 @@ actor \nodoc\ Main is TestList
     test(_TestErrorResponse431)
     test(_TestErrorResponse505)
     test(_TestIdleTimeout)
-    test(_TestServerNotifyListening)
-    test(_TestServerNotifyClosed)
 
     // Keep-alive decision property test
     test(Property1UnitTest[(Version, (String val | None))](
@@ -113,12 +111,11 @@ actor \nodoc\ Main is TestList
     test(_TestURIParsing)
     test(_TestConnectURIParsing)
 
-    // Request body buffering integration tests
-    test(_TestBufferedBody)
-    test(_TestBufferedNoBody)
-    test(_TestBufferedContentLengthZero)
-    test(_TestBufferedPipelinedBodies)
-    test(_TestStreamingBody)
+    // Request body integration tests
+    test(_TestBody)
+    test(_TestServerNoBody)
+    test(_TestServerContentLengthZero)
+    test(_TestPipelinedBodies)
 
     // SSL integration tests
     test(_TestSSLHelloWorld)

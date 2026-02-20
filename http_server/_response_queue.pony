@@ -48,7 +48,7 @@ class ref _ResponseQueue
   Each request is registered via `register()` which assigns a monotonically
   increasing ID. Response data is submitted via `send_data()` and completed
   via `finish()`. The queue ensures data reaches the TCP connection in
-  registration order, regardless of the order handlers respond.
+  registration order, regardless of the order actors respond.
 
   For the head-of-line entry, data is sent immediately via the notify
   callback (unless throttled). For non-head entries, data is buffered until

@@ -7,13 +7,13 @@ use ssl_net = "ssl/net"
 use uri = "uri"
 
 // ---------------------------------------------------------------------------
-// Existing tests (updated for new _Connection constructor)
+// Server integration tests
 // ---------------------------------------------------------------------------
 
 class \nodoc\ iso _TestServerHelloWorld is UnitTest
   """
   Start a listener, connect a client, send a GET request,
-  verify the handler responds with 200 OK and "Hello, World!" body.
+  verify the server responds with 200 OK and "Hello, World!" body.
   """
   fun name(): String => "server/hello world"
 
@@ -22,7 +22,8 @@ class \nodoc\ iso _TestServerHelloWorld is UnitTest
     let port = "45871"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let listener = _TestServerListener(h, port, _TestHelloFactory, config,
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
       {(h': TestHelper, port': String) =>
         let request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
         let client = _TestHTTPClient(h', port', request, "200 OK",
@@ -43,17 +44,14 @@ class \nodoc\ iso _TestServerParseError is UnitTest
     let port = "45872"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let listener = _TestServerListener(h, port, _TestHelloFactory, config,
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
       {(h': TestHelper, port': String) =>
         let client = _TestHTTPClient(h', port', "GARBAGE DATA\r\n\r\n",
           "400 Bad Request", None)
         h'.dispose_when_done(client)
       })
     h.dispose_when_done(listener)
-
-// ---------------------------------------------------------------------------
-// New integration tests
-// ---------------------------------------------------------------------------
 
 class \nodoc\ iso _TestKeepAlive is UnitTest
   """
@@ -67,7 +65,8 @@ class \nodoc\ iso _TestKeepAlive is UnitTest
     let port = "45873"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let listener = _TestServerListener(h, port, _TestHelloFactory, config,
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
       {(h': TestHelper, port': String) =>
         let client = _TestKeepAliveClient(h', port')
         h'.dispose_when_done(client)
@@ -86,7 +85,8 @@ class \nodoc\ iso _TestConnectionClose is UnitTest
     let port = "45874"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let listener = _TestServerListener(h, port, _TestHelloFactory, config,
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
       {(h': TestHelper, port': String) =>
         let request =
           "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
@@ -107,7 +107,8 @@ class \nodoc\ iso _TestHTTP10Close is UnitTest
     let port = "45875"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let listener = _TestServerListener(h, port, _TestHelloFactory, config,
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
       {(h': TestHelper, port': String) =>
         let request = "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n"
         let client = _TestHTTPClientExpectClose(h', port', request, "200 OK")
@@ -127,7 +128,8 @@ class \nodoc\ iso _TestErrorResponse413 is UnitTest
     let port = "45876"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port where max_body_size' = 10)
-    let listener = _TestServerListener(h, port, _TestHelloFactory, config,
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
       {(h': TestHelper, port': String) =>
         let request =
           "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 100\r\n\r\n"
@@ -149,7 +151,8 @@ class \nodoc\ iso _TestErrorResponse431 is UnitTest
     let port = "45877"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port where max_header_size' = 10)
-    let listener = _TestServerListener(h, port, _TestHelloFactory, config,
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
       {(h': TestHelper, port': String) =>
         let request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
         let client = _TestHTTPClient(h', port', request,
@@ -170,7 +173,8 @@ class \nodoc\ iso _TestErrorResponse505 is UnitTest
     let port = "45878"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let listener = _TestServerListener(h, port, _TestHelloFactory, config,
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
       {(h': TestHelper, port': String) =>
         let request = "GET / HTTP/2.0\r\nHost: localhost\r\n\r\n"
         let client = _TestHTTPClient(h', port', request,
@@ -192,7 +196,8 @@ class \nodoc\ iso _TestIdleTimeout is UnitTest
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port where idle_timeout' = 1)
     let timers = Timers
-    let listener = _TestServerListener(h, port, _TestHelloFactory, config,
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
       {(h': TestHelper, port': String) =>
         let request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
         let client = _TestHTTPClientExpectClose(h', port', request, "200 OK")
@@ -200,38 +205,6 @@ class \nodoc\ iso _TestIdleTimeout is UnitTest
       }, timers)
     h.dispose_when_done(timers)
     h.dispose_when_done(listener)
-
-class \nodoc\ iso _TestServerNotifyListening is UnitTest
-  """
-  Create a Server with a ServerNotify. Verify that the listening()
-  callback fires.
-  """
-  fun name(): String => "server/notify listening"
-
-  fun apply(h: TestHelper) =>
-    h.long_test(5_000_000_000)
-    let auth = lori.TCPListenAuth(h.env.root)
-    let host = ifdef linux then "127.0.0.2" else "localhost" end
-    let config = ServerConfig(host, "45881")
-    let notify = _TestListenNotify(h)
-    let server = Server(auth, _TestHelloFactory, config, notify)
-    h.dispose_when_done(server)
-
-class \nodoc\ iso _TestServerNotifyClosed is UnitTest
-  """
-  Create a Server with a ServerNotify. Verify that the closed()
-  callback fires after dispose().
-  """
-  fun name(): String => "server/notify closed"
-
-  fun apply(h: TestHelper) =>
-    h.long_test(5_000_000_000)
-    let auth = lori.TCPListenAuth(h.env.root)
-    let host = ifdef linux then "127.0.0.2" else "localhost" end
-    let config = ServerConfig(host, "45894")
-    let notify = _TestClosedNotify(h)
-    let server = Server(auth, _TestHelloFactory, config, notify)
-    h.dispose_when_done(server)
 
 // ---------------------------------------------------------------------------
 // Property-based test: keep-alive decision
@@ -241,10 +214,10 @@ class \nodoc\ iso _PropertyKeepAliveDecision
   is Property1[(Version, (String val | None))]
   """
   The keep-alive decision matches the HTTP/1.x spec:
-  - HTTP/1.1 + no header → keep-alive
-  - HTTP/1.1 + Connection: close (any case) → close
-  - HTTP/1.0 + no header → close
-  - HTTP/1.0 + Connection: keep-alive (any case) → keep-alive
+  - HTTP/1.1 + no header -> keep-alive
+  - HTTP/1.1 + Connection: close (any case) -> close
+  - HTTP/1.0 + no header -> close
+  - HTTP/1.0 + Connection: keep-alive (any case) -> keep-alive
   - Unrecognized Connection values use version default
   """
   fun name(): String => "keep-alive/decision"
@@ -303,15 +276,47 @@ class \nodoc\ iso _PropertyKeepAliveDecision
     end
 
 // ---------------------------------------------------------------------------
-// Test handler: responds with "Hello, World!" on every request
+// Test-only connection factory interface
 // ---------------------------------------------------------------------------
 
-class \nodoc\ val _TestHelloFactory is HandlerFactory
-  fun apply(): Handler ref^ =>
-    _TestHelloHandler
+interface \nodoc\ val _TestConnectionFactory
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None)
+  ): lori.TCPConnectionActor
 
-class \nodoc\ ref _TestHelloHandler is Handler
-  fun ref request_complete(responder: Responder, body: RequestBody) =>
+// ---------------------------------------------------------------------------
+// Test server actor: responds with "Hello, World!" on every request
+// ---------------------------------------------------------------------------
+
+class \nodoc\ val _TestHelloServerFactory is _TestConnectionFactory
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None)
+  ): lori.TCPConnectionActor =>
+    _TestHelloServer(auth, fd, config, ssl_ctx, timers)
+
+actor \nodoc\ _TestHelloServer is HTTPServerActor
+  var _http: HTTPServer = HTTPServer.none()
+
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None))
+  =>
+    _http = HTTPServer(auth, fd, ssl_ctx, this, config, timers)
+
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref request_complete(responder: Responder) =>
     let resp_body: String val = "Hello, World!"
     let response = ResponseBuilder(StatusOK)
       .add_header("content-type", "text/plain")
@@ -322,15 +327,16 @@ class \nodoc\ ref _TestHelloHandler is Handler
     responder.respond(response)
 
 // ---------------------------------------------------------------------------
-// Test listener: creates _Connection actors, starts test client
+// Test listener: creates server actors, starts test client
 // ---------------------------------------------------------------------------
 
 actor \nodoc\ _TestServerListener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
-  let _handler_factory: AnyHandlerFactory
+  let _connection_factory: _TestConnectionFactory
   let _config: ServerConfig
   let _timers: (Timers | None)
+  let _ssl_ctx: (ssl_net.SSLContext val | None)
   let _h: TestHelper
   let _port: String
   let _start_client: {(TestHelper, String)} val
@@ -338,16 +344,18 @@ actor \nodoc\ _TestServerListener is lori.TCPListenerActor
   new create(
     h: TestHelper,
     port: String,
-    handler_factory: AnyHandlerFactory,
+    connection_factory: _TestConnectionFactory,
     config: ServerConfig,
     start_client: {(TestHelper, String)} val,
-    timers: (Timers | None) = None)
+    timers: (Timers | None) = None,
+    ssl_ctx: (ssl_net.SSLContext val | None) = None)
   =>
     _h = h
     _port = port
-    _handler_factory = handler_factory
+    _connection_factory = connection_factory
     _config = config
     _timers = timers
+    _ssl_ctx = ssl_ctx
     _start_client = start_client
     let listen_auth = lori.TCPListenAuth(_h.env.root)
     _server_auth = lori.TCPServerAuth(listen_auth)
@@ -357,8 +365,8 @@ actor \nodoc\ _TestServerListener is lori.TCPListenerActor
   fun ref _listener(): lori.TCPListener =>
     _tcp_listener
 
-  fun ref _on_accept(fd: U32): _Connection =>
-    _Connection(_server_auth, fd, _handler_factory, _config, _timers)
+  fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
+    _connection_factory(_server_auth, fd, _config, _ssl_ctx, _timers)
 
   fun ref _on_listening() =>
     _start_client(_h, _port)
@@ -366,21 +374,6 @@ actor \nodoc\ _TestServerListener is lori.TCPListenerActor
   fun ref _on_listen_failure() =>
     _h.fail("Listener failed to start on port " + _port)
     _h.complete(false)
-
-// ---------------------------------------------------------------------------
-// Test server notify: completes test on listening
-// ---------------------------------------------------------------------------
-
-class \nodoc\ val _TestListenNotify is ServerNotify
-  let _h: TestHelper
-  new val create(h: TestHelper) => _h = h
-  fun listening(server: Server tag) => _h.complete(true)
-
-class \nodoc\ val _TestClosedNotify is ServerNotify
-  let _h: TestHelper
-  new val create(h: TestHelper) => _h = h
-  fun listening(server: Server tag) => server.dispose()
-  fun closed(server: Server tag) => _h.complete(true)
 
 // ---------------------------------------------------------------------------
 // Test client: sends request bytes, verifies response
@@ -579,7 +572,7 @@ actor \nodoc\ _TestKeepAliveClient is
 
 class \nodoc\ iso _TestPipelineCorrectness is UnitTest
   """
-  Send 3 GET requests in one buffer. Handler accumulates responders and
+  Send 3 GET requests in one buffer. Server accumulates responders and
   responds in reverse order (2, 1, 0). Client verifies responses arrive
   in registration order (0, 1, 2).
   """
@@ -590,7 +583,8 @@ class \nodoc\ iso _TestPipelineCorrectness is UnitTest
     let port = "45882"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let listener = _TestServerListener(h, port, _TestPipelineFactory, config,
+    let listener = _TestServerListener(h, port, _TestPipelineServerFactory,
+      config,
       {(h': TestHelper, port': String) =>
         let client = _TestPipelineClient(h', port')
         h'.dispose_when_done(client)
@@ -609,7 +603,8 @@ class \nodoc\ iso _TestPipelineConnectionClose is UnitTest
     let port = "45883"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let listener = _TestServerListener(h, port, _TestHelloFactory, config,
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
       {(h': TestHelper, port': String) =>
         let request: String val =
           "GET /1 HTTP/1.1\r\nHost: localhost\r\n\r\n" +
@@ -621,7 +616,7 @@ class \nodoc\ iso _TestPipelineConnectionClose is UnitTest
 
 class \nodoc\ iso _TestStreamingResponse is UnitTest
   """
-  Handler uses chunked transfer encoding to stream a response. Client
+  Server uses chunked transfer encoding to stream a response. Client
   verifies the response has Transfer-Encoding: chunked and contains
   all chunks.
   """
@@ -632,7 +627,8 @@ class \nodoc\ iso _TestStreamingResponse is UnitTest
     let port = "45884"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let listener = _TestServerListener(h, port, _TestStreamFactory, config,
+    let listener = _TestServerListener(h, port, _TestStreamServerFactory,
+      config,
       {(h': TestHelper, port': String) =>
         let client = _TestStreamClient(h', port')
         h'.dispose_when_done(client)
@@ -641,7 +637,7 @@ class \nodoc\ iso _TestStreamingResponse is UnitTest
 
 class \nodoc\ iso _TestMaxPendingOverflow is UnitTest
   """
-  Configure max_pending_responses to 2. Use a handler that responds to the
+  Configure max_pending_responses to 2. Use a server that responds to the
   first request but holds subsequent Responders. Send 4 pipelined requests.
   Verify:
   - The first request gets a 200 OK response (not overflow)
@@ -656,7 +652,7 @@ class \nodoc\ iso _TestMaxPendingOverflow is UnitTest
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port where max_pending_responses' = 2)
     let listener = _TestServerListener(h, port,
-      _TestPartialRespondFactory, config,
+      _TestPartialRespondServerFactory, config,
       {(h': TestHelper, port': String) =>
         let request: String val =
           "GET /1 HTTP/1.1\r\nHost: localhost\r\n\r\n" +
@@ -670,7 +666,7 @@ class \nodoc\ iso _TestMaxPendingOverflow is UnitTest
 
 class \nodoc\ iso _TestHTTP10ChunkedRejection is UnitTest
   """
-  Send an HTTP/1.0 request to a handler that attempts chunked encoding
+  Send an HTTP/1.0 request to a server that attempts chunked encoding
   then falls back to respond(). Verify that chunked is silently rejected
   (HTTP/1.0 doesn't support it) and the fallback respond() succeeds.
   """
@@ -682,7 +678,7 @@ class \nodoc\ iso _TestHTTP10ChunkedRejection is UnitTest
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
     let listener = _TestServerListener(h, port,
-      _TestChunkedFallbackFactory, config,
+      _TestChunkedFallbackServerFactory, config,
       {(h': TestHelper, port': String) =>
         let request = "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n"
         let client = _TestHTTPClient(h', port', request, "200 OK",
@@ -692,20 +688,36 @@ class \nodoc\ iso _TestHTTP10ChunkedRejection is UnitTest
     h.dispose_when_done(listener)
 
 // ---------------------------------------------------------------------------
-// Pipeline test handler: accumulates responders, responds in reverse order
+// Pipeline test server: accumulates responders, responds in reverse order
 // ---------------------------------------------------------------------------
 
-class \nodoc\ val _TestPipelineFactory is HandlerFactory
-  fun apply(): Handler ref^ =>
-    _TestPipelineHandler
+class \nodoc\ val _TestPipelineServerFactory is _TestConnectionFactory
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None)
+  ): lori.TCPConnectionActor =>
+    _TestPipelineServer(auth, fd, config, ssl_ctx, timers)
 
-class \nodoc\ ref _TestPipelineHandler is Handler
+actor \nodoc\ _TestPipelineServer is HTTPServerActor
+  var _http: HTTPServer = HTTPServer.none()
   embed _responders: Array[Responder]
 
-  new ref create() =>
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None))
+  =>
     _responders = Array[Responder]
+    _http = HTTPServer(auth, fd, ssl_ctx, this, config, timers)
 
-  fun ref request_complete(responder: Responder, body: RequestBody) =>
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref request_complete(responder: Responder) =>
     _responders.push(responder)
     if _responders.size() == 3 then
       // Respond in reverse order (2, 1, 0)
@@ -727,15 +739,34 @@ class \nodoc\ ref _TestPipelineHandler is Handler
     responder.respond(response)
 
 // ---------------------------------------------------------------------------
-// Streaming test handler: sends chunked response
+// Streaming test server: sends chunked response
 // ---------------------------------------------------------------------------
 
-class \nodoc\ val _TestStreamFactory is HandlerFactory
-  fun apply(): Handler ref^ =>
-    _TestStreamHandler
+class \nodoc\ val _TestStreamServerFactory is _TestConnectionFactory
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None)
+  ): lori.TCPConnectionActor =>
+    _TestStreamServer(auth, fd, config, ssl_ctx, timers)
 
-class \nodoc\ ref _TestStreamHandler is Handler
-  fun ref request_complete(responder: Responder, body: RequestBody) =>
+actor \nodoc\ _TestStreamServer is HTTPServerActor
+  var _http: HTTPServer = HTTPServer.none()
+
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None))
+  =>
+    _http = HTTPServer(auth, fd, ssl_ctx, this, config, timers)
+
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref request_complete(responder: Responder) =>
     let headers = recover val
       let h = Headers
       h.set("content-type", "text/plain")
@@ -909,17 +940,35 @@ actor \nodoc\ _TestStreamClient is
     _h.complete(false)
 
 // ---------------------------------------------------------------------------
-// Partial-respond handler: responds to 1st request, holds rest — for overflow
+// Partial-respond server: responds to 1st request, holds rest — for overflow
 // ---------------------------------------------------------------------------
 
-class \nodoc\ val _TestPartialRespondFactory is HandlerFactory
-  fun apply(): Handler ref^ =>
-    _TestPartialRespondHandler
+class \nodoc\ val _TestPartialRespondServerFactory is _TestConnectionFactory
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None)
+  ): lori.TCPConnectionActor =>
+    _TestPartialRespondServer(auth, fd, config, ssl_ctx, timers)
 
-class \nodoc\ ref _TestPartialRespondHandler is Handler
+actor \nodoc\ _TestPartialRespondServer is HTTPServerActor
+  var _http: HTTPServer = HTTPServer.none()
   var _count: USize = 0
 
-  fun ref request_complete(responder: Responder, body: RequestBody) =>
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None))
+  =>
+    _http = HTTPServer(auth, fd, ssl_ctx, this, config, timers)
+
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref request_complete(responder: Responder) =>
     _count = _count + 1
     if _count == 1 then
       let resp_body: String val = "first-ok"
@@ -986,15 +1035,34 @@ actor \nodoc\ _TestMaxPendingClient is
     _h.complete(false)
 
 // ---------------------------------------------------------------------------
-// Chunked fallback handler: tries chunked encoding, falls back to respond()
+// Chunked fallback server: tries chunked encoding, falls back to respond()
 // ---------------------------------------------------------------------------
 
-class \nodoc\ val _TestChunkedFallbackFactory is HandlerFactory
-  fun apply(): Handler ref^ =>
-    _TestChunkedFallbackHandler
+class \nodoc\ val _TestChunkedFallbackServerFactory is _TestConnectionFactory
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None)
+  ): lori.TCPConnectionActor =>
+    _TestChunkedFallbackServer(auth, fd, config, ssl_ctx, timers)
 
-class \nodoc\ ref _TestChunkedFallbackHandler is Handler
-  fun ref request_complete(responder: Responder, body: RequestBody) =>
+actor \nodoc\ _TestChunkedFallbackServer is HTTPServerActor
+  var _http: HTTPServer = HTTPServer.none()
+
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None))
+  =>
+    _http = HTTPServer(auth, fd, ssl_ctx, this, config, timers)
+
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref request_complete(responder: Responder) =>
     let headers = recover val
       let h = Headers
       h.set("content-type", "text/plain")
@@ -1021,7 +1089,7 @@ class \nodoc\ ref _TestChunkedFallbackHandler is Handler
 
 class \nodoc\ iso _TestURIParsing is UnitTest
   """
-  Send a GET request with path and query string. Verify the handler
+  Send a GET request with path and query string. Verify the server
   receives a pre-parsed URI with correct path and query components.
   """
   fun name(): String => "server/uri parsing"
@@ -1032,7 +1100,7 @@ class \nodoc\ iso _TestURIParsing is UnitTest
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
     let listener = _TestServerListener(h, port,
-      _TestURIParsingFactory, config,
+      _TestURIParsingServerFactory, config,
       {(h': TestHelper, port': String) =>
         let request =
           "GET /hello?name=test HTTP/1.1\r\nHost: localhost\r\n\r\n"
@@ -1042,22 +1110,40 @@ class \nodoc\ iso _TestURIParsing is UnitTest
       })
     h.dispose_when_done(listener)
 
-class \nodoc\ val _TestURIParsingFactory is HandlerFactory
-  fun apply(): Handler ref^ =>
-    _TestURIParsingHandler
+class \nodoc\ val _TestURIParsingServerFactory is _TestConnectionFactory
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None)
+  ): lori.TCPConnectionActor =>
+    _TestURIParsingServer(auth, fd, config, ssl_ctx, timers)
 
-class \nodoc\ ref _TestURIParsingHandler is Handler
+actor \nodoc\ _TestURIParsingServer is HTTPServerActor
+  var _http: HTTPServer = HTTPServer.none()
   var _uri_path: String val = ""
   var _uri_query: String val = ""
 
-  fun ref request(r: Request val) =>
-    _uri_path = r.uri.path
-    _uri_query = match r.uri.query
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None))
+  =>
+    _http = HTTPServer(auth, fd, ssl_ctx, this, config, timers)
+
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref request(request': Request val) =>
+    _uri_path = request'.uri.path
+    _uri_query = match request'.uri.query
     | let q: String val => q
     | None => ""
     end
 
-  fun ref request_complete(responder: Responder, body: RequestBody) =>
+  fun ref request_complete(responder: Responder) =>
     let resp_body: String val = _uri_path + "|" + _uri_query
     let response = ResponseBuilder(StatusOK)
       .add_header("content-type", "text/plain")
@@ -1069,7 +1155,7 @@ class \nodoc\ ref _TestURIParsingHandler is Handler
 
 class \nodoc\ iso _TestConnectURIParsing is UnitTest
   """
-  Send a CONNECT request with authority-form target. Verify the handler
+  Send a CONNECT request with authority-form target. Verify the server
   receives a URI with the authority component populated and an empty path.
   """
   fun name(): String => "server/connect uri parsing"
@@ -1080,7 +1166,7 @@ class \nodoc\ iso _TestConnectURIParsing is UnitTest
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
     let listener = _TestServerListener(h, port,
-      _TestConnectURIFactory, config,
+      _TestConnectURIServerFactory, config,
       {(h': TestHelper, port': String) =>
         let request =
           "CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n"
@@ -1090,18 +1176,36 @@ class \nodoc\ iso _TestConnectURIParsing is UnitTest
       })
     h.dispose_when_done(listener)
 
-class \nodoc\ val _TestConnectURIFactory is HandlerFactory
-  fun apply(): Handler ref^ =>
-    _TestConnectURIHandler
+class \nodoc\ val _TestConnectURIServerFactory is _TestConnectionFactory
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None)
+  ): lori.TCPConnectionActor =>
+    _TestConnectURIServer(auth, fd, config, ssl_ctx, timers)
 
-class \nodoc\ ref _TestConnectURIHandler is Handler
+actor \nodoc\ _TestConnectURIServer is HTTPServerActor
+  var _http: HTTPServer = HTTPServer.none()
   var _host: String val = ""
   var _port: String val = ""
   var _path: String val = ""
 
-  fun ref request(r: Request val) =>
-    _path = r.uri.path
-    match r.uri.authority
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None))
+  =>
+    _http = HTTPServer(auth, fd, ssl_ctx, this, config, timers)
+
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref request(request': Request val) =>
+    _path = request'.uri.path
+    match request'.uri.authority
     | let a: uri.URIAuthority val =>
       _host = a.host
       _port = match a.port
@@ -1110,7 +1214,7 @@ class \nodoc\ ref _TestConnectURIHandler is Handler
       end
     end
 
-  fun ref request_complete(responder: Responder, body: RequestBody) =>
+  fun ref request_complete(responder: Responder) =>
     let resp_body: String val = _host + "|" + _port + "|" + _path
     let response = ResponseBuilder(StatusOK)
       .add_header("content-type", "text/plain")
@@ -1121,16 +1225,15 @@ class \nodoc\ ref _TestConnectURIHandler is Handler
     responder.respond(response)
 
 // ---------------------------------------------------------------------------
-// Request body buffering integration tests
+// Request body integration tests
 // ---------------------------------------------------------------------------
 
-class \nodoc\ iso _TestBufferedBody is UnitTest
+class \nodoc\ iso _TestBody is UnitTest
   """
-  Send a POST with a body. Handler uses buffered `Handler` trait — the
-  complete body arrives as a single `Array[U8] val` in `request_complete`.
-  Handler echoes the body in the response to verify.
+  Send a POST with a body. Server accumulates body chunks and echoes
+  the body in the response.
   """
-  fun name(): String => "server/buffered body"
+  fun name(): String => "server/body"
 
   fun apply(h: TestHelper) =>
     h.long_test(5_000_000_000)
@@ -1138,7 +1241,7 @@ class \nodoc\ iso _TestBufferedBody is UnitTest
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
     let listener = _TestServerListener(h, port,
-      _TestBufferedBodyFactory, config,
+      _TestBodyServerFactory, config,
       {(h': TestHelper, port': String) =>
         let request: String val =
           "POST / HTTP/1.1\r\nHost: localhost\r\n" +
@@ -1149,16 +1252,45 @@ class \nodoc\ iso _TestBufferedBody is UnitTest
       })
     h.dispose_when_done(listener)
 
-class \nodoc\ val _TestBufferedBodyFactory is HandlerFactory
-  fun apply(): Handler ref^ =>
-    _TestBufferedBodyHandler
+class \nodoc\ val _TestBodyServerFactory is _TestConnectionFactory
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None)
+  ): lori.TCPConnectionActor =>
+    _TestBodyServer(auth, fd, config, ssl_ctx, timers)
 
-class \nodoc\ ref _TestBufferedBodyHandler is Handler
-  fun ref request_complete(responder: Responder, body: RequestBody) =>
-    let resp_body: String val = match body
-    | let b: Array[U8] val => String.from_array(b)
-    | None => "no body"
-    end
+actor \nodoc\ _TestBodyServer is HTTPServerActor
+  var _http: HTTPServer = HTTPServer.none()
+  var _body: Array[U8] iso = recover iso Array[U8] end
+  var _has_body: Bool = false
+
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    timers: (Timers | None))
+  =>
+    _http = HTTPServer(auth, fd, ssl_ctx, this, config, timers)
+
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref body_chunk(data: Array[U8] val) =>
+    _has_body = true
+    _body.append(data)
+
+  fun ref request_complete(responder: Responder) =>
+    let resp_body: String val =
+      if _has_body then
+        _has_body = false
+        let body: Array[U8] val = (_body = recover iso Array[U8] end)
+        String.from_array(body)
+      else
+        "no body"
+      end
     let response = ResponseBuilder(StatusOK)
       .add_header("content-type", "text/plain")
       .add_header("Content-Length", resp_body.size().string())
@@ -1167,12 +1299,12 @@ class \nodoc\ ref _TestBufferedBodyHandler is Handler
       .build()
     responder.respond(response)
 
-class \nodoc\ iso _TestBufferedNoBody is UnitTest
+class \nodoc\ iso _TestServerNoBody is UnitTest
   """
-  Send a GET (no body). Handler uses buffered `Handler` trait — verify
-  that `body` is `None` in `request_complete`.
+  Send a GET (no body). Verify that `request_complete` fires with
+  no prior `body_chunk` calls.
   """
-  fun name(): String => "server/buffered no body"
+  fun name(): String => "server/no body"
 
   fun apply(h: TestHelper) =>
     h.long_test(5_000_000_000)
@@ -1180,7 +1312,7 @@ class \nodoc\ iso _TestBufferedNoBody is UnitTest
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
     let listener = _TestServerListener(h, port,
-      _TestBufferedBodyFactory, config,
+      _TestBodyServerFactory, config,
       {(h': TestHelper, port': String) =>
         let request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
         let client = _TestHTTPClient(h', port', request, "200 OK",
@@ -1189,12 +1321,12 @@ class \nodoc\ iso _TestBufferedNoBody is UnitTest
       })
     h.dispose_when_done(listener)
 
-class \nodoc\ iso _TestBufferedContentLengthZero is UnitTest
+class \nodoc\ iso _TestServerContentLengthZero is UnitTest
   """
-  Send a POST with Content-Length: 0. Handler uses buffered `Handler`
-  trait — verify that `body` is `None` (not an empty array).
+  Send a POST with Content-Length: 0. Verify that `request_complete` fires
+  with no prior `body_chunk` calls (same as no body).
   """
-  fun name(): String => "server/buffered content-length zero"
+  fun name(): String => "server/content-length zero"
 
   fun apply(h: TestHelper) =>
     h.long_test(5_000_000_000)
@@ -1202,7 +1334,7 @@ class \nodoc\ iso _TestBufferedContentLengthZero is UnitTest
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
     let listener = _TestServerListener(h, port,
-      _TestBufferedBodyFactory, config,
+      _TestBodyServerFactory, config,
       {(h': TestHelper, port': String) =>
         let request: String val =
           "POST / HTTP/1.1\r\nHost: localhost\r\n" +
@@ -1213,13 +1345,12 @@ class \nodoc\ iso _TestBufferedContentLengthZero is UnitTest
       })
     h.dispose_when_done(listener)
 
-class \nodoc\ iso _TestBufferedPipelinedBodies is UnitTest
+class \nodoc\ iso _TestPipelinedBodies is UnitTest
   """
-  Send two pipelined POSTs with different bodies through the buffered
-  `Handler`. Verify each request gets its own complete body — the adapter
-  resets its buffer between requests.
+  Send two pipelined POSTs with different bodies. Verify each request
+  gets its own body — the accumulator resets between requests.
   """
-  fun name(): String => "server/buffered pipelined bodies"
+  fun name(): String => "server/pipelined bodies"
 
   fun apply(h: TestHelper) =>
     h.long_test(5_000_000_000)
@@ -1227,7 +1358,7 @@ class \nodoc\ iso _TestBufferedPipelinedBodies is UnitTest
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
     let listener = _TestServerListener(h, port,
-      _TestBufferedBodyFactory, config,
+      _TestBodyServerFactory, config,
       {(h': TestHelper, port': String) =>
         let request: String val =
           "POST /1 HTTP/1.1\r\nHost: localhost\r\n" +
@@ -1238,53 +1369,6 @@ class \nodoc\ iso _TestBufferedPipelinedBodies is UnitTest
         h'.dispose_when_done(client)
       })
     h.dispose_when_done(listener)
-
-class \nodoc\ iso _TestStreamingBody is UnitTest
-  """
-  Send a POST with a body. Handler uses `StreamingHandler` trait — body
-  data arrives via `body_chunk`. Handler echoes the body in the response
-  to verify the `StreamingHandlerFactory` path through `_Connection`.
-  """
-  fun name(): String => "server/streaming body"
-
-  fun apply(h: TestHelper) =>
-    h.long_test(5_000_000_000)
-    let port = "45890"
-    let host = ifdef linux then "127.0.0.2" else "localhost" end
-    let config = ServerConfig(host, port)
-    let listener = _TestServerListener(h, port,
-      _TestStreamingBodyFactory, config,
-      {(h': TestHelper, port': String) =>
-        let request: String val =
-          "POST / HTTP/1.1\r\nHost: localhost\r\n" +
-          "Content-Length: 13\r\n\r\nHello, Body!\n"
-        let client = _TestHTTPClient(h', port', request, "200 OK",
-          "Hello, Body!\n")
-        h'.dispose_when_done(client)
-      })
-    h.dispose_when_done(listener)
-
-class \nodoc\ val _TestStreamingBodyFactory is StreamingHandlerFactory
-  fun apply(): StreamingHandler ref^ =>
-    _TestStreamingBodyHandler
-
-class \nodoc\ ref _TestStreamingBodyHandler is StreamingHandler
-  var _body: Array[U8] iso = recover iso Array[U8] end
-
-  fun ref body_chunk(data: Array[U8] val) =>
-    _body.append(data)
-
-  fun ref request_complete(responder: Responder) =>
-    let body: Array[U8] val =
-      (_body = recover iso Array[U8] end)
-    let resp_body: String val = String.from_array(body)
-    let response = ResponseBuilder(StatusOK)
-      .add_header("content-type", "text/plain")
-      .add_header("Content-Length", resp_body.size().string())
-      .finish_headers()
-      .add_chunk(resp_body)
-      .build()
-    responder.respond(response)
 
 // ---------------------------------------------------------------------------
 // Pipelined bodies client: verifies each response has the correct body
@@ -1376,34 +1460,15 @@ primitive \nodoc\ _TestSSLContext
         .> set_server_verify(false)
     end
 
-class \nodoc\ val _TestSSLListenNotify is ServerNotify
-  """
-  ServerNotify that launches a test client once the server is listening.
-  On listen failure, fails the test immediately.
-  """
-  let _h: TestHelper
-  let _start_client: {(TestHelper)} val
-
-  new val create(h: TestHelper, start_client: {(TestHelper)} val) =>
-    _h = h
-    _start_client = start_client
-
-  fun listening(server: Server tag) =>
-    _start_client(_h)
-
-  fun listen_failure(server: Server tag) =>
-    _h.fail("SSL server failed to start listening")
-    _h.complete(false)
-
 // ---------------------------------------------------------------------------
 // SSL test: basic hello world over HTTPS
 // ---------------------------------------------------------------------------
 
 class \nodoc\ iso _TestSSLHelloWorld is UnitTest
   """
-  Start a Server with SSL, connect an SSL client, send a GET request,
-  verify the handler responds with 200 OK and "Hello, World!" body.
-  Exercises the full SSL path: handshake -> request -> handler -> response.
+  Start a listener with SSL, connect an SSL client, send a GET request,
+  verify the server responds with 200 OK and "Hello, World!" body.
+  Exercises the full SSL path: handshake -> request -> response.
   """
   fun name(): String => "server/ssl hello world"
 
@@ -1419,16 +1484,16 @@ class \nodoc\ iso _TestSSLHelloWorld is UnitTest
     let port = "45900"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let notify = _TestSSLListenNotify(h,
-      {(h': TestHelper) =>
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
+      {(h': TestHelper, port': String) =>
         let request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n"
-        let client = _TestSSLHTTPClient(h', sslctx, port, request, "200 OK",
+        let client = _TestSSLHTTPClient(h', sslctx, port', request, "200 OK",
           "Hello, World!")
         h'.dispose_when_done(client)
-      })
-    let server = Server(lori.TCPListenAuth(h.env.root), _TestHelloFactory,
-      config, notify where ssl_ctx = sslctx)
-    h.dispose_when_done(server)
+      }
+      where ssl_ctx = sslctx)
+    h.dispose_when_done(listener)
 
 // ---------------------------------------------------------------------------
 // SSL test: keep-alive (two requests on same SSL connection)
@@ -1453,14 +1518,14 @@ class \nodoc\ iso _TestSSLKeepAlive is UnitTest
     let port = "45901"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let notify = _TestSSLListenNotify(h,
-      {(h': TestHelper) =>
-        let client = _TestSSLKeepAliveClient(h', sslctx, port)
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
+      {(h': TestHelper, port': String) =>
+        let client = _TestSSLKeepAliveClient(h', sslctx, port')
         h'.dispose_when_done(client)
-      })
-    let server = Server(lori.TCPListenAuth(h.env.root), _TestHelloFactory,
-      config, notify where ssl_ctx = sslctx)
-    h.dispose_when_done(server)
+      }
+      where ssl_ctx = sslctx)
+    h.dispose_when_done(listener)
 
 // ---------------------------------------------------------------------------
 // SSL test: connection close
@@ -1485,17 +1550,17 @@ class \nodoc\ iso _TestSSLConnectionClose is UnitTest
     let port = "45902"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let notify = _TestSSLListenNotify(h,
-      {(h': TestHelper) =>
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
+      {(h': TestHelper, port': String) =>
         let request =
           "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
-        let client = _TestSSLHTTPClientExpectClose(h', sslctx, port, request,
+        let client = _TestSSLHTTPClientExpectClose(h', sslctx, port', request,
           "200 OK")
         h'.dispose_when_done(client)
-      })
-    let server = Server(lori.TCPListenAuth(h.env.root), _TestHelloFactory,
-      config, notify where ssl_ctx = sslctx)
-    h.dispose_when_done(server)
+      }
+      where ssl_ctx = sslctx)
+    h.dispose_when_done(listener)
 
 // ---------------------------------------------------------------------------
 // SSL test: parse error (garbage bytes over SSL)
@@ -1520,15 +1585,15 @@ class \nodoc\ iso _TestSSLParseError is UnitTest
     let port = "45903"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let notify = _TestSSLListenNotify(h,
-      {(h': TestHelper) =>
-        let client = _TestSSLHTTPClient(h', sslctx, port,
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
+      {(h': TestHelper, port': String) =>
+        let client = _TestSSLHTTPClient(h', sslctx, port',
           "GARBAGE DATA\r\n\r\n", "400 Bad Request", None)
         h'.dispose_when_done(client)
-      })
-    let server = Server(lori.TCPListenAuth(h.env.root), _TestHelloFactory,
-      config, notify where ssl_ctx = sslctx)
-    h.dispose_when_done(server)
+      }
+      where ssl_ctx = sslctx)
+    h.dispose_when_done(listener)
 
 // ---------------------------------------------------------------------------
 // SSL test: chunked streaming response
@@ -1536,7 +1601,7 @@ class \nodoc\ iso _TestSSLParseError is UnitTest
 
 class \nodoc\ iso _TestSSLStreamingResponse is UnitTest
   """
-  Handler uses chunked transfer encoding to stream a response over SSL.
+  Server uses chunked transfer encoding to stream a response over SSL.
   Client verifies the response has Transfer-Encoding: chunked and contains
   all chunks.
   """
@@ -1554,14 +1619,14 @@ class \nodoc\ iso _TestSSLStreamingResponse is UnitTest
     let port = "45904"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let config = ServerConfig(host, port)
-    let notify = _TestSSLListenNotify(h,
-      {(h': TestHelper) =>
-        let client = _TestSSLStreamClient(h', sslctx, port)
+    let listener = _TestServerListener(h, port, _TestStreamServerFactory,
+      config,
+      {(h': TestHelper, port': String) =>
+        let client = _TestSSLStreamClient(h', sslctx, port')
         h'.dispose_when_done(client)
-      })
-    let server = Server(lori.TCPListenAuth(h.env.root), _TestStreamFactory,
-      config, notify where ssl_ctx = sslctx)
-    h.dispose_when_done(server)
+      }
+      where ssl_ctx = sslctx)
+    h.dispose_when_done(listener)
 
 // ---------------------------------------------------------------------------
 // SSL test client: sends request, verifies response

@@ -45,7 +45,7 @@ class val ServerConfig
     `max_concurrent_connections'` limits simultaneous connections (`None` for
     unlimited). `max_pending_responses'` limits the number of pipelined
     requests that can be outstanding before the connection closes — this
-    prevents unbounded memory growth from handlers that never respond.
+    prevents unbounded memory growth from actors that never respond.
     """
     host = host'
     port = port'

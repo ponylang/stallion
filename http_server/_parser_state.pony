@@ -527,7 +527,7 @@ class _ExpectChunkTrailer is _ParserState
   """
   Reading optional trailer headers after the last (zero-size) chunk.
 
-  Trailers are skipped (not delivered to the handler). The request is
+  Trailers are skipped (not delivered to the receiver). The request is
   complete when an empty line is found.
   """
   var _total_trailer_bytes: USize
