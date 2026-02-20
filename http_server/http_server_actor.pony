@@ -25,7 +25,7 @@ trait tag HTTPServerActor is
 
     fun ref _http_connection(): HTTPServer => _http
 
-    fun ref request_complete(request': Request val,
+    fun ref on_request_complete(request': Request val,
       responder: Responder)
     =>
       // build and send response using request' and responder
@@ -44,14 +44,14 @@ trait tag HTTPServerActor is
     Return the protocol instance owned by this actor.
 
     Called by default implementations of `_connection()` and
-    `_idle_timeout()`. Must return the same instance every time.
+    `_on_idle_timeout()`. Must return the same instance every time.
     """
 
   fun ref _connection(): lori.TCPConnection =>
     """Delegates to the protocol's TCP connection."""
     _http_connection()._connection()
 
-  be _idle_timeout() =>
+  be _on_idle_timeout() =>
     """
     Receives idle timeout notifications from the timer system.
 

@@ -6,7 +6,7 @@ class val Request
 
   Constructed by `HTTPServer` after parsing the request line, headers,
   and URI. Delivered to the actor via the
-  `HTTPServerLifecycleEventReceiver.request()` callback, making it easy to
+  `HTTPServerLifecycleEventReceiver.on_request()` callback, making it easy to
   pass request metadata to helper functions or store it for later use.
 
   All components are pre-validated before construction: the method is a known

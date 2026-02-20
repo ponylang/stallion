@@ -230,7 +230,7 @@ class _ExpectHeaders is _ParserState
           p.pos = crlf + 2
 
           // Check body size limit before delivering the request. The actor
-          // can now respond in request(), so rejections must precede delivery.
+          // can now respond in on_request(), so rejections must precede delivery.
           match _content_length
           | let cl: USize if cl > _config.max_body_size =>
             return BodyTooLarge

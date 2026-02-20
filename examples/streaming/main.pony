@@ -1,15 +1,15 @@
 """
 HTTP server that streams responses using chunked transfer encoding with
-flow-controlled delivery driven by `chunk_sent()` callbacks.
+flow-controlled delivery driven by `on_chunk_sent()` callbacks.
 
 Demonstrates the streaming response API: `start_chunked_response()`,
-`send_chunk()`, `finish_response()`, and `chunk_sent()`. The actor sends
-the first chunk in `request()`, then each `chunk_sent()` callback drives
-the next chunk. This ensures the OS has accepted each chunk before sending
-the next — natural backpressure without timers or manual windowing.
+`send_chunk()`, `finish_response()`, and `on_chunk_sent()`. The actor sends
+the first chunk in `on_request()`, then each `on_chunk_sent()` callback
+drives the next chunk. This ensures the OS has accepted each chunk before
+sending the next — natural backpressure without timers or manual windowing.
 
 Note: this demonstrates streaming *responses*, not streaming request
-bodies. Request body data arrives via `body_chunk()` callbacks — this
+bodies. Request body data arrives via `on_body_chunk()` callbacks — this
 example ignores request bodies.
 """
 use http_server = "../../http_server"
@@ -70,7 +70,7 @@ actor StreamServer is http_server.HTTPServerActor
 
   fun ref _http_connection(): http_server.HTTPServer => _http
 
-  fun ref request(request': http_server.Request val,
+  fun ref on_request(request': http_server.Request val,
     responder: http_server.Responder)
   =>
     let headers = recover val
@@ -83,7 +83,7 @@ actor StreamServer is http_server.HTTPServerActor
     _responder = responder
     _chunks_sent = 1
 
-  fun ref chunk_sent(token: http_server.ChunkSendToken) =>
+  fun ref on_chunk_sent(token: http_server.ChunkSendToken) =>
     match _responder
     | let r: http_server.Responder =>
       _chunks_sent = _chunks_sent + 1

@@ -41,7 +41,7 @@ actor MyServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(request': Request val,
+  fun ref on_request_complete(request': Request val,
     responder: Responder)
   =>
     let body: String val = "Hello!"
@@ -54,16 +54,16 @@ actor MyServer is HTTPServerActor
 ```
 
 For streaming responses, use chunked transfer encoding. Each
-`send_chunk()` returns a `ChunkSendToken` — override `chunk_sent()`
+`send_chunk()` returns a `ChunkSendToken` — override `on_chunk_sent()`
 to drive flow-controlled delivery:
 
 ```pony
-fun ref request_complete(request': Request val,
+fun ref on_request_complete(request': Request val,
   responder: Responder)
 =>
   responder.start_chunked_response(StatusOK)
   let token = responder.send_chunk("chunk 1")
-  // When chunk_sent(token) fires, send the next chunk...
+  // When on_chunk_sent(token) fires, send the next chunk...
   responder.send_chunk("chunk 2")
   responder.finish_response()
 ```
@@ -252,7 +252,7 @@ class HTTPServer is
 
   fun ref _on_start_failure() =>
     // Connection failed before _on_started — receiver was never activated.
-    // Don't call _receiver.closed(); just mark as closed for GC.
+    // Don't call _receiver.on_closed(); just mark as closed for GC.
     _state = _Closed
 
   fun ref _on_throttled() =>
@@ -323,7 +323,7 @@ class HTTPServer is
 
     match (_lifecycle_event_receiver, _current_responder)
     | (let r: HTTPServerLifecycleEventReceiver ref, let resp: Responder) =>
-      r.request(req, resp)
+      r.on_request(req, resp)
     else
       _Unreachable()
     end
@@ -331,7 +331,7 @@ class HTTPServer is
   fun ref body_chunk(data: Array[U8] val) =>
     match _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref =>
-      r.body_chunk(data)
+      r.on_body_chunk(data)
     | None =>
       _Unreachable()
     end
@@ -343,7 +343,7 @@ class HTTPServer is
     =>
       _current_request = None
       _current_responder = None
-      recv.request_complete(req, resp)
+      recv.on_request_complete(req, resp)
     else
       _Unreachable()
     end
@@ -414,7 +414,7 @@ class HTTPServer is
     match _queue | let q: _ResponseQueue => q.close() end
     _pending_sent_tokens.clear()
     match _lifecycle_event_receiver
-    | let r: HTTPServerLifecycleEventReceiver ref => r.closed()
+    | let r: HTTPServerLifecycleEventReceiver ref => r.on_closed()
     | None => _Unreachable()
     end
     _state = _Closed
@@ -424,7 +424,7 @@ class HTTPServer is
     _tcp_connection.mute()
     match _queue | let q: _ResponseQueue => q.throttle() end
     match _lifecycle_event_receiver
-    | let r: HTTPServerLifecycleEventReceiver ref => r.throttled()
+    | let r: HTTPServerLifecycleEventReceiver ref => r.on_throttled()
     | None => _Unreachable()
     end
 
@@ -433,7 +433,7 @@ class HTTPServer is
     _tcp_connection.unmute()
     match _queue | let q: _ResponseQueue => q.unthrottle() end
     match _lifecycle_event_receiver
-    | let r: HTTPServerLifecycleEventReceiver ref => r.unthrottled()
+    | let r: HTTPServerLifecycleEventReceiver ref => r.on_unthrottled()
     | None => _Unreachable()
     end
 
@@ -442,14 +442,14 @@ class HTTPServer is
     Correlate a lori send completion back to an HTTP-level chunk token.
 
     Pops the next entry from the FIFO. If it's a `ChunkSendToken`,
-    delivers `chunk_sent(token)` to the actor. If `None`, it was an
+    delivers `on_chunk_sent(token)` to the actor. If `None`, it was an
     internal send (headers, terminal chunk, complete response) — skip it.
     """
     try
       match _pending_sent_tokens.shift()?
       | let ct: ChunkSendToken =>
         match _lifecycle_event_receiver
-        | let r: HTTPServerLifecycleEventReceiver ref => r.chunk_sent(ct)
+        | let r: HTTPServerLifecycleEventReceiver ref => r.on_chunk_sent(ct)
         | None => _Unreachable()
         end
       end
@@ -469,7 +469,7 @@ class HTTPServer is
 
     Use this when the actor needs to force-close the connection — for
     example, after rejecting a request early (413 Payload Too Large) via
-    the `Responder` delivered in `request()`. Safe to call at any time;
+    the `Responder` delivered in `on_request()`. Safe to call at any time;
     idempotent due to the `_Active` state guard.
     """
     _close_connection()
@@ -491,7 +491,7 @@ class HTTPServer is
       _pending_sent_tokens.clear()
       _cancel_idle_timer()
       match _lifecycle_event_receiver
-      | let r: HTTPServerLifecycleEventReceiver ref => r.closed()
+      | let r: HTTPServerLifecycleEventReceiver ref => r.on_closed()
       | None => _Unreachable()
       end
       _tcp_connection.close()

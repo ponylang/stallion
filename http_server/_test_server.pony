@@ -321,7 +321,7 @@ actor \nodoc\ _TestHelloServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(request': Request val, responder: Responder) =>
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
     let resp_body: String val = "Hello, World!"
     let response = ResponseBuilder(StatusOK)
       .add_header("content-type", "text/plain")
@@ -727,7 +727,7 @@ actor \nodoc\ _TestPipelineServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(request': Request val, responder: Responder) =>
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
     _responders.push(responder)
     if _responders.size() == 3 then
       // Respond in reverse order (2, 1, 0)
@@ -781,7 +781,7 @@ actor \nodoc\ _TestStreamServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(request': Request val, responder: Responder) =>
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
     let headers = recover val
       let h = Headers
       h.set("content-type", "text/plain")
@@ -988,7 +988,7 @@ actor \nodoc\ _TestPartialRespondServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(request': Request val, responder: Responder) =>
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
     _count = _count + 1
     if _count == 1 then
       let resp_body: String val = "first-ok"
@@ -1087,7 +1087,7 @@ actor \nodoc\ _TestChunkedFallbackServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(request': Request val, responder: Responder) =>
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
     let headers = recover val
       let h = Headers
       h.set("content-type", "text/plain")
@@ -1110,11 +1110,11 @@ actor \nodoc\ _TestChunkedFallbackServer is HTTPServerActor
 
 class \nodoc\ iso _TestChunkSentCallback is UnitTest
   """
-  Server uses chunk_sent() to drive subsequent chunks. Client sends a
+  Server uses `on_chunk_sent()` to drive subsequent chunks. Client sends a
   request, reads the complete chunked response, and verifies all chunks
   arrived. This exercises the full _on_sent -> HTTPServer -> actor chain.
   """
-  fun name(): String => "server/chunk_sent callback"
+  fun name(): String => "server/on_chunk_sent callback"
 
   fun apply(h: TestHelper) =>
     h.long_test(5_000_000_000)
@@ -1130,7 +1130,7 @@ class \nodoc\ iso _TestChunkSentCallback is UnitTest
     h.dispose_when_done(listener)
 
 // ---------------------------------------------------------------------------
-// chunk_sent test server: drives chunks from chunk_sent callback
+// on_chunk_sent test server: drives chunks from on_chunk_sent callback
 // ---------------------------------------------------------------------------
 
 class \nodoc\ val _TestChunkSentServerFactory is _TestConnectionFactory
@@ -1164,7 +1164,7 @@ actor \nodoc\ _TestChunkSentServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(request': Request val, responder: Responder) =>
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
     let headers = recover val
       let h = Headers
       h.set("content-type", "text/plain")
@@ -1175,7 +1175,7 @@ actor \nodoc\ _TestChunkSentServer is HTTPServerActor
     _responder = responder
     _chunks_sent = 1
 
-  fun ref chunk_sent(token: ChunkSendToken) =>
+  fun ref on_chunk_sent(token: ChunkSendToken) =>
     match _responder
     | let r: Responder =>
       _chunks_sent = _chunks_sent + 1
@@ -1188,7 +1188,7 @@ actor \nodoc\ _TestChunkSentServer is HTTPServerActor
     end
 
 // ---------------------------------------------------------------------------
-// chunk_sent client: sends request, verifies flow-controlled chunked response
+// on_chunk_sent client: sends request, verifies flow-controlled chunked response
 // ---------------------------------------------------------------------------
 
 actor \nodoc\ _TestChunkSentClient is
@@ -1295,7 +1295,7 @@ actor \nodoc\ _TestURIParsingServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(request': Request val, responder: Responder) =>
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
     let uri_query: String val = match request'.uri.query
     | let q: String val => q
     | None => ""
@@ -1361,7 +1361,7 @@ actor \nodoc\ _TestConnectURIServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref request_complete(request': Request val, responder: Responder) =>
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
     var host: String val = ""
     var port: String val = ""
     match request'.uri.authority
@@ -1440,11 +1440,11 @@ actor \nodoc\ _TestBodyServer is HTTPServerActor
 
   fun ref _http_connection(): HTTPServer => _http
 
-  fun ref body_chunk(data: Array[U8] val) =>
+  fun ref on_body_chunk(data: Array[U8] val) =>
     _has_body = true
     _body.append(data)
 
-  fun ref request_complete(request': Request val, responder: Responder) =>
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
     let resp_body: String val =
       if _has_body then
         _has_body = false
@@ -1463,8 +1463,8 @@ actor \nodoc\ _TestBodyServer is HTTPServerActor
 
 class \nodoc\ iso _TestServerNoBody is UnitTest
   """
-  Send a GET (no body). Verify that `request_complete` fires with
-  no prior `body_chunk` calls.
+  Send a GET (no body). Verify that `on_request_complete` fires with
+  no prior `on_body_chunk` calls.
   """
   fun name(): String => "server/no body"
 
@@ -1485,8 +1485,8 @@ class \nodoc\ iso _TestServerNoBody is UnitTest
 
 class \nodoc\ iso _TestServerContentLengthZero is UnitTest
   """
-  Send a POST with Content-Length: 0. Verify that `request_complete` fires
-  with no prior `body_chunk` calls (same as no body).
+  Send a POST with Content-Length: 0. Verify that `on_request_complete` fires
+  with no prior `on_body_chunk` calls (same as no body).
   """
   fun name(): String => "server/content-length zero"
 

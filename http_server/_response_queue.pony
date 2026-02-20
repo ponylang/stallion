@@ -86,7 +86,7 @@ class ref _ResponseQueue
     Called by `Responder.send_chunk()` to mint a token before submitting
     data to the queue. The token travels alongside the data through
     buffering and flushing, ultimately reaching the actor via
-    `chunk_sent()` when the OS accepts the bytes.
+    `on_chunk_sent()` when the OS accepts the bytes.
     """
     let id = _next_chunk_token_id
     _next_chunk_token_id = _next_chunk_token_id + 1

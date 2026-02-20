@@ -6,7 +6,7 @@ Demonstrates the core API: a listener actor implements
 `_on_accept`. Also demonstrates query parameter extraction from the
 pre-parsed URI: a `?name=X` parameter customizes the greeting.
 
-Body data arrives via `body_chunk()` callbacks. This example ignores
+Body data arrives via `on_body_chunk()` callbacks. This example ignores
 request bodies — for body accumulation, see the streaming example.
 """
 use http_server = "../../http_server"
@@ -68,7 +68,7 @@ actor HelloServer is http_server.HTTPServerActor
 
   fun ref _http_connection(): http_server.HTTPServer => _http
 
-  fun ref request_complete(request': http_server.Request val,
+  fun ref on_request_complete(request': http_server.Request val,
     responder: http_server.Responder)
   =>
     // Extract a "name" query parameter if present

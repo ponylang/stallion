@@ -8,7 +8,7 @@ class _IdleTimerNotify is TimerNotify
     _server_actor = server_actor
 
   fun ref apply(timer: Timer, count: U64): Bool =>
-    _server_actor._idle_timeout()
+    _server_actor._on_idle_timeout()
     false // One-shot: don't reschedule
 
   fun ref cancel(timer: Timer) =>

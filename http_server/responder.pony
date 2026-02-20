@@ -10,8 +10,8 @@ class ref Responder
   Sends an HTTP response for a single request.
 
   Each request receives its own `Responder`, delivered via both
-  `HTTPServerLifecycleEventReceiver.request()` and
-  `request_complete()`. The Responder
+  `HTTPServerLifecycleEventReceiver.on_request()` and
+  `on_request_complete()`. The Responder
   buffers response data through the connection's response queue, which
   ensures pipelined responses are sent in request order.
 
@@ -39,7 +39,7 @@ class ref Responder
   ```
 
   Each `send_chunk()` returns a `ChunkSendToken` (or `None` if the call
-  was a no-op). A matching `chunk_sent(token)` callback fires when the
+  was a no-op). A matching `on_chunk_sent(token)` callback fires when the
   OS accepts the data, enabling flow-controlled streaming.
 
   Responders are created internally by `HTTPServer`. Application
@@ -124,7 +124,7 @@ class ref Responder
     silently ignored — use `finish_response()` to send the terminal chunk.
 
     Returns `ChunkSendToken` when the chunk was queued — a matching
-    `chunk_sent()` callback will fire when the OS accepts the data.
+    `on_chunk_sent()` callback will fire when the OS accepts the data.
     Returns `None` when the call was a no-op (wrong state, empty data,
     or HTTP/1.0 request where chunked encoding was rejected).
 
