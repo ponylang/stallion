@@ -1,6 +1,6 @@
 # Examples
 
-Each subdirectory is a self-contained Pony program demonstrating a different part of the http_server library. Ordered from simplest to most involved.
+Each subdirectory is a self-contained Pony program demonstrating a different part of the stallion library. Ordered from simplest to most involved.
 
 ## [hello](hello/)
 

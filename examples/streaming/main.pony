@@ -12,7 +12,7 @@ Note: this demonstrates streaming *responses*, not streaming request
 bodies. Request body data arrives via `on_body_chunk()` callbacks — this
 example ignores request bodies.
 """
-use http_server = "../../http_server"
+use stallion = "../../stallion"
 use lori = "lori"
 
 actor Main
@@ -23,7 +23,7 @@ actor Main
 actor Listener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _out: OutStream
-  let _config: http_server.ServerConfig
+  let _config: stallion.ServerConfig
   let _server_auth: lori.TCPServerAuth
 
   new create(
@@ -34,7 +34,7 @@ actor Listener is lori.TCPListenerActor
   =>
     _out = out
     _server_auth = lori.TCPServerAuth(auth)
-    _config = http_server.ServerConfig(host, port)
+    _config = stallion.ServerConfig(host, port)
     _tcp_listener = lori.TCPListener(auth, host, port, this)
 
   fun ref _listener(): lori.TCPListener => _tcp_listener
@@ -56,36 +56,36 @@ actor Listener is lori.TCPListenerActor
   fun ref _on_closed() =>
     _out.print("Server closed")
 
-actor StreamServer is http_server.HTTPServerActor
-  var _http: http_server.HTTPServer = http_server.HTTPServer.none()
-  var _responder: (http_server.Responder | None) = None
+actor StreamServer is stallion.HTTPServerActor
+  var _http: stallion.HTTPServer = stallion.HTTPServer.none()
+  var _responder: (stallion.Responder | None) = None
   var _chunks_sent: USize = 0
 
   new create(
     auth: lori.TCPServerAuth,
     fd: U32,
-    config: http_server.ServerConfig)
+    config: stallion.ServerConfig)
   =>
-    _http = http_server.HTTPServer(auth, fd, this, config)
+    _http = stallion.HTTPServer(auth, fd, this, config)
 
-  fun ref _http_connection(): http_server.HTTPServer => _http
+  fun ref _http_connection(): stallion.HTTPServer => _http
 
-  fun ref on_request(request': http_server.Request val,
-    responder: http_server.Responder)
+  fun ref on_request(request': stallion.Request val,
+    responder: stallion.Responder)
   =>
     let headers = recover val
-      let h = http_server.Headers
+      let h = stallion.Headers
       h.set("content-type", "text/plain")
       h
     end
-    responder.start_chunked_response(http_server.StatusOK, headers)
+    responder.start_chunked_response(stallion.StatusOK, headers)
     responder.send_chunk("chunk 1 of 5\n")
     _responder = responder
     _chunks_sent = 1
 
-  fun ref on_chunk_sent(token: http_server.ChunkSendToken) =>
+  fun ref on_chunk_sent(token: stallion.ChunkSendToken) =>
     match _responder
-    | let r: http_server.Responder =>
+    | let r: stallion.Responder =>
       _chunks_sent = _chunks_sent + 1
       if _chunks_sent <= 5 then
         r.send_chunk("chunk " + _chunks_sent.string() + " of 5\n")

@@ -12,7 +12,7 @@ primitive _IllegalState
       @pony_os_stderr(),
       ("An illegal state was encountered in %s at line %s\n" +
        "Please open an issue at " +
-       "https://github.com/ponylang/lori_http_server/issues")
+       "https://github.com/ponylang/stallion/issues")
        .cstring(),
       loc.file().cstring(),
       loc.line().string().cstring())
@@ -28,7 +28,7 @@ primitive _Unreachable
       @pony_os_stderr(),
       ("The unreachable was reached in %s at line %s\n" +
        "Please open an issue at " +
-       "https://github.com/ponylang/lori_http_server/issues")
+       "https://github.com/ponylang/stallion/issues")
        .cstring(),
       loc.file().cstring(),
       loc.line().string().cstring())

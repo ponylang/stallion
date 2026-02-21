@@ -1,19 +1,19 @@
-# How to cut a lori_http_server release
+# How to cut a stallion release
 
-This document is aimed at members of the Pony team who might be cutting a release of lori_http_server. It serves as a checklist that can take you through doing a release step-by-step.
+This document is aimed at members of the Pony team who might be cutting a release of stallion. It serves as a checklist that can take you through doing a release step-by-step.
 
 ## Prerequisites
 
-You must have commit access to the lori_http_server repository
+You must have commit access to the stallion repository
 
 ## Releasing
 
-Please note that this document was written with the assumption that you are using a clone of the `lori_http_server` repo. You have to be using a clone rather than a fork. It is advised to your do this by making a fresh clone of the `lori_http_server` repo from which you will release.
+Please note that this document was written with the assumption that you are using a clone of the `stallion` repo. You have to be using a clone rather than a fork. It is advised to your do this by making a fresh clone of the `stallion` repo from which you will release.
 
 ```bash
-git clone git@github.com:ponylang/lori_http_server.git \
-  lori_http_server-release-clean
-cd lori_http_server-release-clean
+git clone git@github.com:ponylang/stallion.git \
+  stallion-release-clean
+cd stallion-release-clean
 ```
 
 Before getting started, you will need a number for the version that you will be releasing as well as an agreed upon "golden commit" that will form the basis of the release.

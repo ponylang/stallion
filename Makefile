@@ -1,6 +1,6 @@
 config ?= release
 
-PACKAGE := http_server
+PACKAGE := stallion
 GET_DEPENDENCIES_WITH := corral fetch
 CLEAN_DEPENDENCIES_WITH := corral clean
 COMPILE_WITH := corral run -- ponyc

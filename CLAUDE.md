@@ -13,7 +13,7 @@ The `ssl` option is required because this library and lori depend on the `ssl` p
 
 ## Architecture
 
-Package: `http_server` (repo name is `lori_http_server`, but the Pony package name is `http_server`)
+Package: `stallion` (repo name is `stallion`, Pony package name is `stallion`)
 
 Built on lori (v0.8.4). Lori provides raw TCP I/O with a connection-actor model: `_on_received(data: Array[U8] iso)` for incoming data, `TCPConnection.send(data): (SendToken | SendError)` for outgoing, plus backpressure notifications, SSL support, and per-connection ASIO-level idle timers.
 
@@ -83,7 +83,7 @@ Connections close when the client sends `Connection: close`, on HTTP/1.0 request
 
 ### Implementation plan
 
-See [Discussion #2](https://github.com/ponylang/lori_http_server/discussions/2) for the phased implementation plan.
+See [Discussion #2](https://github.com/ponylang/stallion/discussions/2) for the phased implementation plan.
 
 ## Release Notes
 
@@ -91,7 +91,7 @@ No release notes until after the first release. This project is pre-1.0 and hasn
 
 ## File Layout
 
-- `http_server/` — main package source
+- `stallion/` — main package source
   - `method.pony` — HTTP method types (`Method` interface, 9 primitives, `Methods` parse/enumerate)
   - `version.pony` — HTTP version types (`HTTP10`, `HTTP11`, `Version` closed union)
   - `status.pony` — HTTP status codes (`Status` interface, 35 standard primitives)
@@ -107,7 +107,8 @@ No release notes until after the first release. This project is pre-1.0 and hasn
   - `chunk_send_token.pony` — Opaque chunk send token (`ChunkSendToken val`, `Equatable`, private constructor)
   - `http_server_lifecycle_event_receiver.pony` — HTTP callback trait (`HTTPServerLifecycleEventReceiver`: on_request, on_body_chunk, on_request_complete, on_chunk_sent, on_closed, on_throttled, on_unthrottled)
   - `http_server_actor.pony` — Server actor trait (`HTTPServerActor`: extends `TCPConnectionActor` and `HTTPServerLifecycleEventReceiver`, provides `_connection()` default)
-  - `http_server.pony` — Package docstring and protocol class (`HTTPServer`: owns TCP connection + parser + URI parsing + response queue, implements `ServerLifecycleEventReceiver` + `_RequestParserNotify` + `_ResponseQueueNotify`)
+  - `stallion.pony` — Package docstring
+  - `http_server.pony` — Protocol class (`HTTPServer`: owns TCP connection + parser + URI parsing + response queue, implements `ServerLifecycleEventReceiver` + `_RequestParserNotify` + `_ResponseQueueNotify`)
   - `_keep_alive_decision.pony` — Keep-alive logic (`_KeepAliveDecision` primitive)
   - `response_builder.pony` — Pre-serialized response construction (`ResponseBuilder` primitive, `ResponseHeadersBuilder`/`ResponseBodyBuilder` phase interfaces, `_ResponseBuilderImpl`)
   - `responder.pony` — Per-request response sender (`Responder` class, state machine, complete and streaming modes)

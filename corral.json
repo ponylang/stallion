@@ -1,14 +1,14 @@
 {
   "packages": [
-    "http_server"
+    "stallion"
   ],
   "info": {
     "description": "HTTP server for Pony",
-    "homepage": "https://github.com/ponylang/lori_http_server",
+    "homepage": "https://github.com/ponylang/stallion",
     "license": "BSD-2-Clause",
-    "documentation_url": "https://ponylang.github.io/lori_http_server/",
+    "documentation_url": "https://ponylang.github.io/stallion/",
     "version": "0.0.0",
-    "name": "lori_http_server"
+    "name": "stallion"
   },
   "deps": [
     {

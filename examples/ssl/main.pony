@@ -11,7 +11,7 @@ correctly. Test with `curl -k https://localhost:8443/`.
 """
 use "files"
 use "ssl/net"
-use http_server = "../../http_server"
+use stallion = "../../stallion"
 use lori = "lori"
 
 actor Main
@@ -40,7 +40,7 @@ actor Main
 actor Listener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _out: OutStream
-  let _config: http_server.ServerConfig
+  let _config: stallion.ServerConfig
   let _server_auth: lori.TCPServerAuth
   let _ssl_ctx: SSLContext val
 
@@ -54,7 +54,7 @@ actor Listener is lori.TCPListenerActor
     _out = out
     _ssl_ctx = ssl_ctx
     _server_auth = lori.TCPServerAuth(auth)
-    _config = http_server.ServerConfig(host, port)
+    _config = stallion.ServerConfig(host, port)
     _tcp_listener = lori.TCPListener(auth, host, port, this)
 
   fun ref _listener(): lori.TCPListener => _tcp_listener
@@ -76,24 +76,24 @@ actor Listener is lori.TCPListenerActor
   fun ref _on_closed() =>
     _out.print("Server closed")
 
-actor HelloServer is http_server.HTTPServerActor
-  var _http: http_server.HTTPServer = http_server.HTTPServer.none()
+actor HelloServer is stallion.HTTPServerActor
+  var _http: stallion.HTTPServer = stallion.HTTPServer.none()
 
   new create(
     auth: lori.TCPServerAuth,
     fd: U32,
-    config: http_server.ServerConfig,
+    config: stallion.ServerConfig,
     ssl_ctx: SSLContext val)
   =>
-    _http = http_server.HTTPServer.ssl(auth, ssl_ctx, fd, this, config)
+    _http = stallion.HTTPServer.ssl(auth, ssl_ctx, fd, this, config)
 
-  fun ref _http_connection(): http_server.HTTPServer => _http
+  fun ref _http_connection(): stallion.HTTPServer => _http
 
-  fun ref on_request_complete(request': http_server.Request val,
-    responder: http_server.Responder)
+  fun ref on_request_complete(request': stallion.Request val,
+    responder: stallion.Responder)
   =>
     let resp_body: String val = "Hello, World!"
-    let response = http_server.ResponseBuilder(http_server.StatusOK)
+    let response = stallion.ResponseBuilder(stallion.StatusOK)
       .add_header("Content-Type", "text/plain")
       .add_header("Content-Length", resp_body.size().string())
       .finish_headers()

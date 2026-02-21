@@ -1,6 +1,6 @@
 # Contributing
 
-You want to contribute to lori_http_server? Awesome.
+You want to contribute to stallion? Awesome.
 
 There are a number of ways to contribute. As this document is a little long, feel free to jump to the section that applies to you currently:
 
@@ -16,7 +16,7 @@ Additional notes regarding formatting:
 
 ## Bug report
 
-First of all please [search existing issues](https://github.com/ponylang/lori_http_server/issues) to make sure your issue hasn't already been reported. If you cannot find a suitable issue — [create a new one](https://github.com/ponylang/lori_http_server/issues/new).
+First of all please [search existing issues](https://github.com/ponylang/stallion/issues) to make sure your issue hasn't already been reported. If you cannot find a suitable issue — [create a new one](https://github.com/ponylang/stallion/issues/new).
 
 Provide the following details:
 
@@ -62,7 +62,7 @@ When opening your pull request, please make sure that the initial comment on the
 Make sure to issue 1 pull request per feature. Don't lump unrelated changes together. If you find yourself using the word "and" in your commit comment, you
 are probably doing too much for a single PR.
 
-We keep a [CHANGELOG](CHANGELOG.md) of all software changes with behavioural effects in lori_http_server. If your PR includes such changes (rather than say a documentation update), a Pony team member will do the following before merging it, so that the PR will be automatically added to the CHANGELOG:
+We keep a [CHANGELOG](CHANGELOG.md) of all software changes with behavioural effects in stallion. If your PR includes such changes (rather than say a documentation update), a Pony team member will do the following before merging it, so that the PR will be automatically added to the CHANGELOG:
 
 * Ensure that the ticket is tagged with one or more appropriate "changelog - *" labels - each label corresponds to a section of the changelog where this change will be automatically mentioned.
 * Ensure that the ticket title is appropriate - the title will be used as the summary of the change, so it should be appropriately formatted, including a ticket reference if the PR is a fix to an existing bug ticket.
