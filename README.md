@@ -18,10 +18,10 @@ You'll also need a SSL library installed on your platform. See the [net-ssl](htt
 
 ## Usage
 
-A stallion server has two actor types: a listener and one or more connection actors. The listener implements `lori.TCPListenerActor` and creates connection actors in `_on_accept`. Each connection actor implements `HTTPServerActor`, owns an `HTTPServer`, and overrides callbacks to handle requests:
+A stallion server has two actor types: a listener and one or more connection actors. The listener implements `lori.TCPListenerActor` and creates connection actors in `_on_accept`. Each connection actor implements `stallion.HTTPServerActor`, owns a `stallion.HTTPServer`, and overrides callbacks to handle requests:
 
 ```pony
-use "stallion"
+use stallion = "stallion"
 use lori = "lori"
 
 actor Main
@@ -32,11 +32,11 @@ actor Main
 actor MyListener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _server_auth: lori.TCPServerAuth
-  let _config: ServerConfig
+  let _config: stallion.ServerConfig
 
   new create(auth: lori.TCPListenAuth, host: String, port: String) =>
     _server_auth = lori.TCPServerAuth(auth)
-    _config = ServerConfig(host, port)
+    _config = stallion.ServerConfig(host, port)
     _tcp_listener = lori.TCPListener(auth, host, port, this)
 
   fun ref _listener(): lori.TCPListener => _tcp_listener
@@ -44,19 +44,21 @@ actor MyListener is lori.TCPListenerActor
   fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
     MyServer(_server_auth, fd, _config)
 
-actor MyServer is HTTPServerActor
-  var _http: HTTPServer = HTTPServer.none()
+actor MyServer is stallion.HTTPServerActor
+  var _http: stallion.HTTPServer = stallion.HTTPServer.none()
 
-  new create(auth: lori.TCPServerAuth, fd: U32, config: ServerConfig) =>
-    _http = HTTPServer(auth, fd, this, config)
+  new create(auth: lori.TCPServerAuth, fd: U32,
+    config: stallion.ServerConfig)
+  =>
+    _http = stallion.HTTPServer(auth, fd, this, config)
 
-  fun ref _http_connection(): HTTPServer => _http
+  fun ref _http_connection(): stallion.HTTPServer => _http
 
-  fun ref on_request_complete(request': Request val,
-    responder: Responder)
+  fun ref on_request_complete(request': stallion.Request val,
+    responder: stallion.Responder)
   =>
     let body: String val = "Hello!"
-    let response = ResponseBuilder(StatusOK)
+    let response = stallion.ResponseBuilder(stallion.StatusOK)
       .add_header("Content-Length", body.size().string())
       .finish_headers()
       .add_chunk(body)
@@ -64,7 +66,7 @@ actor MyServer is HTTPServerActor
     responder.respond(response)
 ```
 
-For streaming responses, use chunked transfer encoding with flow-controlled delivery via `on_chunk_sent()` callbacks. For HTTPS, use `HTTPServer.ssl` instead of `HTTPServer`. See the [examples](examples/) for complete working programs demonstrating query parameter extraction, SSL/TLS, and streaming.
+For streaming responses, use chunked transfer encoding with flow-controlled delivery via `on_chunk_sent()` callbacks. For HTTPS, use `stallion.HTTPServer.ssl` instead of `stallion.HTTPServer`. See the [examples](examples/) for complete working programs demonstrating query parameter extraction, SSL/TLS, and streaming.
 
 ## API Documentation
 

@@ -1,10 +1,11 @@
 """
-Basic HTTP server that responds to every request with "Hello, World!".
+Basic HTTP server that responds with a greeting. By default it responds
+with "Hello, World!" but a `?name=X` query parameter customizes the
+greeting (e.g., `?name=Pony` produces "Hello, Pony!").
 
 Demonstrates the core API: a listener actor implements
 `lori.TCPListenerActor` and creates `HTTPServerActor` instances in
-`_on_accept`. Also demonstrates query parameter extraction from the
-pre-parsed URI: a `?name=X` parameter customizes the greeting.
+`_on_accept`, plus query parameter extraction from the pre-parsed URI.
 
 Body data arrives via `on_body_chunk()` callbacks. This example ignores
 request bodies — for body accumulation, see the streaming example.
