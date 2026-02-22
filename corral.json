@@ -7,7 +7,7 @@
     "homepage": "https://github.com/ponylang/stallion",
     "license": "BSD-2-Clause",
     "documentation_url": "https://ponylang.github.io/stallion/",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "name": "stallion"
   },
   "deps": [
