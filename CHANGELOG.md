@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Changed
 
+- Change start_chunked_response() to return StartChunkedResponseResult ([PR #53](https://github.com/ponylang/stallion/pull/53))
 
 ## [0.1.0] - 2026-02-22
 
