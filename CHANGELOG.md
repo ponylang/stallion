@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Changed
 
+- Remove max_concurrent_connections from ServerConfig ([PR #54](https://github.com/ponylang/stallion/pull/54))
 
 ## [0.2.0] - 2026-02-23
 
