@@ -87,7 +87,7 @@ See [Discussion #2](https://github.com/ponylang/stallion/discussions/2) for the 
 
 ## Release Notes
 
-No release notes until after the first release. This project is pre-1.0 and hasn't been released yet — there are no users to notify of changes.
+Follow the standard ponylang release notes conventions. Create individual `.md` files in `.release-notes/` for each PR with user-facing changes.
 
 ## File Layout
 
