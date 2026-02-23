@@ -31,6 +31,10 @@ actor \nodoc\ Main is TestList
     test(_TestResponseBuilderKnownGood)
     test(_TestRespond)
     test(_TestRespondIgnoredAfterFirst)
+    test(_TestStartChunkedSuccess)
+    test(_TestStartChunkedHTTP10)
+    test(_TestStartChunkedAlreadyResponded)
+    test(_TestStartChunkedAlreadyStreaming)
 
     // Parser property-based tests
     test(Property1UnitTest[(String val, String val)](
