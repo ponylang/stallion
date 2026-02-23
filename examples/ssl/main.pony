@@ -35,7 +35,7 @@ actor Main
       end
 
     let auth = lori.TCPListenAuth(env.root)
-    Listener(auth, "localhost", "8443", env.out, sslctx)
+    Listener(auth, "0.0.0.0", "8443", env.out, sslctx)
 
 actor Listener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()

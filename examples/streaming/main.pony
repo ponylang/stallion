@@ -18,7 +18,7 @@ use lori = "lori"
 actor Main
   new create(env: Env) =>
     let auth = lori.TCPListenAuth(env.root)
-    Listener(auth, "localhost", "8080", env.out)
+    Listener(auth, "0.0.0.0", "8080", env.out)
 
 actor Listener is lori.TCPListenerActor
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
