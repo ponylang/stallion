@@ -40,7 +40,6 @@ class val ServerConfig
   let max_header_size: USize
   let max_chunk_header_size: USize
   let max_body_size: USize
-  let max_concurrent_connections: (U32 | None)
   let max_pending_responses: USize
   let idle_timeout: (lori.IdleTimeout | None)
 
@@ -51,7 +50,6 @@ class val ServerConfig
     max_header_size': USize = 8192,
     max_chunk_header_size': USize = 128,
     max_body_size': USize = 1_048_576,
-    max_concurrent_connections': (U32 | None) = None,
     max_pending_responses': USize = 100,
     idle_timeout': (lori.IdleTimeout | None) = DefaultIdleTimeout())
   =>
@@ -62,8 +60,7 @@ class val ServerConfig
     sensible values. `idle_timeout'` is an `IdleTimeout` (milliseconds) or
     `None` to disable idle timeout. Defaults to 60 seconds. Use
     `lori.MakeIdleTimeout(ms)` to create custom timeout values.
-    `max_concurrent_connections'` limits simultaneous connections (`None` for
-    unlimited). `max_pending_responses'` limits the number of pipelined
+    `max_pending_responses'` limits the number of pipelined
     requests that can be outstanding before the connection closes — this
     prevents unbounded memory growth from actors that never respond.
     """
@@ -73,7 +70,6 @@ class val ServerConfig
     max_header_size = max_header_size'
     max_chunk_header_size = max_chunk_header_size'
     max_body_size = max_body_size'
-    max_concurrent_connections = max_concurrent_connections'
     max_pending_responses = max_pending_responses'
     idle_timeout = idle_timeout'
 
