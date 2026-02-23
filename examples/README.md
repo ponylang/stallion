@@ -12,4 +12,4 @@ HTTPS server using SSL/TLS. Demonstrates creating an `SSLContext`, loading certi
 
 ## [streaming](streaming/)
 
-Streams responses using chunked transfer encoding with flow-controlled delivery driven by `on_chunk_sent()` callbacks. Demonstrates `start_chunked_response()`, `send_chunk()`, `finish_response()`, and `on_chunk_sent()` on `Responder` and `HTTPServerLifecycleEventReceiver`. The actor sends the first chunk in `on_request()`, then each `on_chunk_sent()` callback triggers the next chunk — natural backpressure without timers or manual windowing.
+Streams responses using chunked transfer encoding with flow-controlled delivery driven by `on_chunk_sent()` callbacks. Demonstrates matching on `StartChunkedResponseResult` from `start_chunked_response()`, then using `send_chunk()`, `finish_response()`, and `on_chunk_sent()` on `Responder` and `HTTPServerLifecycleEventReceiver`. The actor sends the first chunk in `on_request()`, then each `on_chunk_sent()` callback triggers the next chunk — natural backpressure without timers or manual windowing.

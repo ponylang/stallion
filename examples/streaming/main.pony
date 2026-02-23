@@ -78,10 +78,22 @@ actor StreamServer is stallion.HTTPServerActor
       h.set("content-type", "text/plain")
       h
     end
-    responder.start_chunked_response(stallion.StatusOK, headers)
-    responder.send_chunk("chunk 1 of 5\n")
-    _responder = responder
-    _chunks_sent = 1
+    match responder.start_chunked_response(stallion.StatusOK, headers)
+    | stallion.StreamingStarted =>
+      responder.send_chunk("chunk 1 of 5\n")
+      _responder = responder
+      _chunks_sent = 1
+    | stallion.ChunkedNotSupported =>
+      let body: String val = "Chunked encoding not supported"
+      let response = stallion.ResponseBuilder(stallion.StatusOK)
+        .add_header("content-type", "text/plain")
+        .add_header("Content-Length", body.size().string())
+        .finish_headers()
+        .add_chunk(body)
+        .build()
+      responder.respond(response)
+    | stallion.AlreadyResponded => None
+    end
 
   fun ref on_chunk_sent(token: stallion.ChunkSendToken) =>
     match _responder

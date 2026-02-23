@@ -190,3 +190,101 @@ class \nodoc\ iso _TestRespondIgnoredAfterFirst is UnitTest
       "only first response should flush")
     h.assert_eq[USize](1, notify.completions.size(),
       "only one completion should fire")
+
+class \nodoc\ iso _TestStartChunkedSuccess is UnitTest
+  """
+  Verify that start_chunked_response() on an HTTP/1.1 request returns
+  StreamingStarted and flushes headers with Transfer-Encoding: chunked.
+  """
+  fun name(): String => "responder/start_chunked_success"
+
+  fun apply(h: TestHelper) =>
+    let notify = _TestQueueNotify
+    let queue = _ResponseQueue(notify)
+    let id = queue.register(true)
+
+    let headers = recover val
+      let hd = Headers
+      hd.set("content-type", "text/plain")
+      hd
+    end
+    let responder = Responder._create(queue, id, HTTP11)
+    let result = responder.start_chunked_response(StatusOK, headers)
+
+    h.assert_is[StartChunkedResponseResult](StreamingStarted, result,
+      "HTTP/1.1 should return StreamingStarted")
+
+    // Verify headers were flushed with Transfer-Encoding: chunked
+    let flushed = notify.flushed_as_strings()
+    h.assert_eq[USize](1, flushed.size(), "expected 1 flush for headers")
+    try
+      let header_data = flushed(0)?
+      h.assert_true(header_data.contains("transfer-encoding: chunked"),
+        "flushed headers should contain transfer-encoding: chunked")
+      h.assert_true(header_data.contains("200 OK"),
+        "flushed headers should contain status line")
+    else
+      h.fail("Flush index out of bounds")
+    end
+
+class \nodoc\ iso _TestStartChunkedHTTP10 is UnitTest
+  """
+  Verify that start_chunked_response() on an HTTP/1.0 request returns
+  ChunkedNotSupported and flushes no data.
+  """
+  fun name(): String => "responder/start_chunked_http10"
+
+  fun apply(h: TestHelper) =>
+    let notify = _TestQueueNotify
+    let queue = _ResponseQueue(notify)
+    let id = queue.register(true)
+
+    let responder = Responder._create(queue, id, HTTP10)
+    let result = responder.start_chunked_response(StatusOK)
+
+    h.assert_is[StartChunkedResponseResult](ChunkedNotSupported, result,
+      "HTTP/1.0 should return ChunkedNotSupported")
+
+    // No data should have been flushed
+    h.assert_eq[USize](0, notify.flushed_data.size(),
+      "no data should be flushed for HTTP/1.0")
+
+class \nodoc\ iso _TestStartChunkedAlreadyResponded is UnitTest
+  """
+  Verify that start_chunked_response() returns AlreadyResponded after
+  respond() has already been called.
+  """
+  fun name(): String => "responder/start_chunked_already_responded"
+
+  fun apply(h: TestHelper) =>
+    let notify = _TestQueueNotify
+    let queue = _ResponseQueue(notify)
+    let id = queue.register(true)
+
+    let responder = Responder._create(queue, id, HTTP11)
+    responder.respond("HTTP/1.1 200 OK\r\n\r\nfirst")
+    let result = responder.start_chunked_response(StatusOK)
+
+    h.assert_is[StartChunkedResponseResult](AlreadyResponded, result,
+      "should return AlreadyResponded after respond()")
+
+class \nodoc\ iso _TestStartChunkedAlreadyStreaming is UnitTest
+  """
+  Verify that a second start_chunked_response() returns AlreadyResponded
+  after the first has already started streaming.
+  """
+  fun name(): String => "responder/start_chunked_already_streaming"
+
+  fun apply(h: TestHelper) =>
+    let notify = _TestQueueNotify
+    let queue = _ResponseQueue(notify)
+    let id = queue.register(true)
+
+    let responder = Responder._create(queue, id, HTTP11)
+    let first = responder.start_chunked_response(StatusOK)
+    h.assert_is[StartChunkedResponseResult](StreamingStarted, first,
+      "first call should return StreamingStarted")
+
+    let second = responder.start_chunked_response(StatusOK)
+    h.assert_is[StartChunkedResponseResult](AlreadyResponded, second,
+      "second call should return AlreadyResponded")

@@ -30,12 +30,19 @@ class ref Responder
   ```
 
   **Streaming response** — use chunked transfer encoding for large or
-  incrementally-generated bodies:
+  incrementally-generated bodies. `start_chunked_response()` returns a
+  `StartChunkedResponseResult` indicating success or the reason for failure:
   ```pony
-  responder.start_chunked_response(StatusOK, headers)
-  let token1 = responder.send_chunk("chunk 1")
-  let token2 = responder.send_chunk("chunk 2")
-  responder.finish_response()
+  match responder.start_chunked_response(StatusOK, headers)
+  | StreamingStarted =>
+    let token1 = responder.send_chunk("chunk 1")
+    let token2 = responder.send_chunk("chunk 2")
+    responder.finish_response()
+  | ChunkedNotSupported =>
+    // HTTP/1.0 — fall back to a complete response
+    responder.respond(fallback_response)
+  | AlreadyResponded => None
+  end
   ```
 
   Each `send_chunk()` returns a `ChunkSendToken` (or `None` if the call
@@ -80,6 +87,7 @@ class ref Responder
   fun ref start_chunked_response(
     status: Status,
     headers: (Headers val | None) = None)
+    : StartChunkedResponseResult
   =>
     """
     Begin a streaming response using chunked transfer encoding.
@@ -88,17 +96,15 @@ class ref Responder
     `Transfer-Encoding: chunked` added automatically). Follow with
     `send_chunk()` calls and a final `finish_response()`.
 
-    Silently ignored for HTTP/1.0 requests, which do not support chunked
-    transfer encoding. Use `respond()` with a `ResponseBuilder`-
-    constructed response instead.
-
-    Only valid when no response has been started. Subsequent calls are
-    silently ignored.
+    Returns `StreamingStarted` on success, `ChunkedNotSupported` for HTTP/1.0
+    requests (which do not support chunked transfer encoding — use `respond()`
+    with a `ResponseBuilder`-constructed response instead), or
+    `AlreadyResponded` when a response has already been started or completed.
     """
     match _state
     | _ResponderNotResponded =>
       // HTTP/1.0 does not support chunked transfer encoding
-      if _version is HTTP10 then return end
+      if _version is HTTP10 then return ChunkedNotSupported end
 
       _state = _ResponderStreaming
       let h: Headers val = recover val
@@ -114,6 +120,9 @@ class ref Responder
       end
       let response = _ResponseSerializer(status, h, None, _version)
       _queue.send_data(_id, consume response)
+      StreamingStarted
+    else
+      AlreadyResponded
     end
 
   fun ref send_chunk(data: ByteSeq): (ChunkSendToken | None) =>

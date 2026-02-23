@@ -52,19 +52,27 @@ actor MyServer is stallion.HTTPServerActor
     responder.respond(response)
 ```
 
-For streaming responses, use chunked transfer encoding. Each
-`send_chunk()` returns a `stallion.ChunkSendToken` — override `on_chunk_sent()`
-to drive flow-controlled delivery:
+For streaming responses, use chunked transfer encoding.
+`start_chunked_response()` returns a `stallion.StartChunkedResponseResult`
+indicating success or the reason for failure. Each `send_chunk()` returns a
+`stallion.ChunkSendToken` — override `on_chunk_sent()` to drive flow-controlled
+delivery:
 
 ```pony
 fun ref on_request_complete(request': stallion.Request val,
   responder: stallion.Responder)
 =>
-  responder.start_chunked_response(stallion.StatusOK)
-  let token = responder.send_chunk("chunk 1")
-  // When on_chunk_sent(token) fires, send the next chunk...
-  responder.send_chunk("chunk 2")
-  responder.finish_response()
+  match responder.start_chunked_response(stallion.StatusOK)
+  | stallion.StreamingStarted =>
+    let token = responder.send_chunk("chunk 1")
+    // When on_chunk_sent(token) fires, send the next chunk...
+    responder.send_chunk("chunk 2")
+    responder.finish_response()
+  | stallion.ChunkedNotSupported =>
+    // HTTP/1.0 — fall back to a complete response
+    responder.respond(fallback_response)
+  | stallion.AlreadyResponded => None
+  end
 ```
 
 For HTTPS, use `stallion.HTTPServer.ssl` instead of `stallion.HTTPServer`. Store

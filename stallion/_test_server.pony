@@ -1079,20 +1079,21 @@ actor \nodoc\ _TestChunkedFallbackServer is HTTPServerActor
       h.set("content-type", "text/plain")
       h
     end
-    // Try chunked encoding — silently ignored for HTTP/1.0
-    responder.start_chunked_response(StatusOK, headers)
-    responder.send_chunk("chunk1")
-    responder.finish_response()
-    // Fallback: if chunked was rejected (HTTP/1.0), respond() still works
-    // since the state is still _ResponderNotResponded
-    let fallback_body: String val = "fallback"
-    let response = ResponseBuilder(StatusOK)
-      .add_header("content-type", "text/plain")
-      .add_header("Content-Length", fallback_body.size().string())
-      .finish_headers()
-      .add_chunk(fallback_body)
-      .build()
-    responder.respond(response)
+    match responder.start_chunked_response(StatusOK, headers)
+    | StreamingStarted =>
+      responder.send_chunk("chunk1")
+      responder.finish_response()
+    | ChunkedNotSupported =>
+      let fallback_body: String val = "fallback"
+      let response = ResponseBuilder(StatusOK)
+        .add_header("content-type", "text/plain")
+        .add_header("Content-Length", fallback_body.size().string())
+        .finish_headers()
+        .add_chunk(fallback_body)
+        .build()
+      responder.respond(response)
+    | AlreadyResponded => None
+    end
 
 class \nodoc\ iso _TestChunkSentCallback is UnitTest
   """
