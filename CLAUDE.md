@@ -67,7 +67,7 @@ fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
 
 SSL handshake, encryption, and decryption are handled transparently by lori. Actors explicitly choose `HTTPServer(auth, fd, this, config)` for plain HTTP or `HTTPServer.ssl(auth, ssl_ctx, fd, this, config)` for HTTPS.
 
-Connections close when the client sends `Connection: close`, on HTTP/1.0 requests without `Connection: keep-alive`, after a parse error (with the appropriate error status code), when the idle timeout expires, or when the actor calls `HTTPServer.close()`. The `close()` method is the public API for server-initiated connection close — use it after rejecting a request early (e.g., 413 response sent in `on_request()` before body arrives). Backpressure from lori is propagated to the actor via `on_throttled()`/`on_unthrottled()` callbacks and to the response queue via `throttle()`/`unthrottle()`.
+Connections close when the client sends `Connection: close`, on HTTP/1.0 requests without `Connection: keep-alive`, after a parse error (with the appropriate error status code), when the idle timeout expires, when `max_requests_per_connection` is reached (checked in `_response_complete` via the `_requests_completed` counter), or when the actor calls `HTTPServer.close()`. The `close()` method is the public API for server-initiated connection close — use it after rejecting a request early (e.g., 413 response sent in `on_request()` before body arrives). Backpressure from lori is propagated to the actor via `on_throttled()`/`on_unthrottled()` callbacks and to the response queue via `throttle()`/`unthrottle()`.
 
 **URI parsing in the protocol layer**: The protocol layer parses the raw request-target string into a `URI val` (from the `uri` package, `ponylang/uri`) before delivering it to the actor as part of the `Request val` object. For CONNECT requests, `ParseURIAuthority` parses the authority-form target; for all other methods, `ParseURI` handles origin-form, absolute-form, and asterisk-form targets. Invalid URIs are rejected with 400 Bad Request before reaching the actor. Actors that access URI components (e.g., `request'.uri.query_params()`) need `use "uri"` in their package to name types like `QueryParams`.
 
@@ -115,7 +115,8 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `responder.pony` — Per-request response sender (`Responder` class, state machine, complete and streaming modes)
   - `_response_queue.pony` — Pipelined response ordering (`_ResponseQueue`, `_ResponseQueueNotify`, `_QueueEntry`)
   - `_chunked_encoder.pony` — Chunked transfer encoding (`_ChunkedEncoder` primitive)
-  - `server_config.pony` — Server configuration (`ServerConfig` class, `DefaultIdleTimeout` primitive)
+  - `max_requests_per_connection.pony` — Constrained type for max requests limit (`MaxRequestsPerConnection`, `MakeMaxRequestsPerConnection`, validator)
+  - `server_config.pony` — Server configuration (`ServerConfig` class with `max_requests_per_connection: (MaxRequestsPerConnection | None)`, `DefaultIdleTimeout` primitive)
   - `_error_response.pony` — Pre-built error response strings (`_ErrorResponse` primitive)
   - `_connection_state.pony` — Connection lifecycle states (`_Active`, `_Closed`; routes `on_sent` for chunk token delivery)
 - `assets/` — test assets

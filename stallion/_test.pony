@@ -82,6 +82,7 @@ actor \nodoc\ Main is TestList
     test(_TestErrorResponse431)
     test(_TestErrorResponse505)
     test(_TestIdleTimeout)
+    test(_TestMaxRequestsPerConnection)
 
     // Keep-alive decision property test
     test(Property1UnitTest[(Version, (String val | None))](
