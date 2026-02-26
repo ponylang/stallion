@@ -40,6 +40,7 @@ class HTTPServer is
   var _current_request: (Request val | None) = None
   var _current_responder: (Responder | None) = None
   var _requests_pending: USize = 0
+  var _requests_completed: USize = 0
   var _parser: (_RequestParser | None) = None
   var _idle: Bool = true
   embed _pending_sent_tokens: Array[(ChunkSendToken | None)]
@@ -258,15 +259,32 @@ class HTTPServer is
     Called when a completed response has been fully flushed from the head
     of the queue.
 
-    Decrements the pending request count and either closes the connection
-    (if keep-alive is false) or marks the connection as idle (if no more
-    requests are pending).
+    Decrements the pending request count, increments the completed count,
+    and decides whether to close the connection. The check order is:
+    keep-alive=false closes first (existing HTTP semantics), then
+    max-requests check (connection resource limit), then idle if no more
+    requests are pending. Pipelined requests already in flight still get
+    served — the connection closes after the Nth response flushes.
     """
     _requests_pending = _requests_pending - 1
+    _requests_completed = _requests_completed + 1
     if not keep_alive then
+      _close_connection()
+    elseif _max_requests_reached() then
       _close_connection()
     elseif _requests_pending == 0 then
       _idle = true
+    end
+
+  fun _max_requests_reached(): Bool =>
+    """Check whether the connection has reached its max-requests limit."""
+    match _config
+    | let c: ServerConfig =>
+      match c.max_requests_per_connection
+      | let max: MaxRequestsPerConnection => _requests_completed >= max()
+      else false
+      end
+    else false
     end
 
   //

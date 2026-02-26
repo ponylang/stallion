@@ -17,9 +17,14 @@ class val ServerConfig
   Host and port specify the listen address. Parser limits control the maximum
   size of request components. Idle timeout controls how long a keep-alive
   connection can sit without activity before being closed.
+  `max_requests_per_connection` limits how many requests a single keep-alive
+  connection can serve before the server closes it (analogous to nginx's
+  `keepalive_requests`). `None` means unlimited. Use
+  `MakeMaxRequestsPerConnection` to create validated limit values (must be
+  at least 1).
 
   ```pony
-  // All defaults (60-second idle timeout)
+  // All defaults (60-second idle timeout, unlimited requests)
   ServerConfig("localhost", "8080")
 
   // Custom timeout via MakeIdleTimeout (milliseconds)
@@ -32,6 +37,12 @@ class val ServerConfig
 
   // Disable idle timeout
   ServerConfig("0.0.0.0", "80" where idle_timeout' = None)
+
+  // Limit to 1000 requests per connection
+  match MakeMaxRequestsPerConnection(1000)
+  | let m: MaxRequestsPerConnection =>
+    ServerConfig("0.0.0.0", "80" where max_requests_per_connection' = m)
+  end
   ```
   """
   let host: String
@@ -42,6 +53,7 @@ class val ServerConfig
   let max_body_size: USize
   let max_pending_responses: USize
   let idle_timeout: (lori.IdleTimeout | None)
+  let max_requests_per_connection: (MaxRequestsPerConnection | None)
 
   new val create(
     host': String,
@@ -51,7 +63,8 @@ class val ServerConfig
     max_chunk_header_size': USize = 128,
     max_body_size': USize = 1_048_576,
     max_pending_responses': USize = 100,
-    idle_timeout': (lori.IdleTimeout | None) = DefaultIdleTimeout())
+    idle_timeout': (lori.IdleTimeout | None) = DefaultIdleTimeout(),
+    max_requests_per_connection': (MaxRequestsPerConnection | None) = None)
   =>
     """
     Create server configuration.
@@ -63,6 +76,10 @@ class val ServerConfig
     `max_pending_responses'` limits the number of pipelined
     requests that can be outstanding before the connection closes — this
     prevents unbounded memory growth from actors that never respond.
+    `max_requests_per_connection'` limits how many requests a single
+    keep-alive connection can serve before the server closes it. `None`
+    (the default) means unlimited. Use `MakeMaxRequestsPerConnection` to
+    create validated limit values (must be at least 1).
     """
     host = host'
     port = port'
@@ -72,6 +89,7 @@ class val ServerConfig
     max_body_size = max_body_size'
     max_pending_responses = max_pending_responses'
     idle_timeout = idle_timeout'
+    max_requests_per_connection = max_requests_per_connection'
 
   fun _parser_config(): _ParserConfig val =>
     """Create a parser config from the parser limit fields."""

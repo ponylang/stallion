@@ -1,3 +1,4 @@
+use "constrained_types"
 use "files"
 use "pony_check"
 use "pony_test"
@@ -205,6 +206,92 @@ class \nodoc\ iso _TestIdleTimeout is UnitTest
         h'.dispose_when_done(client)
       })
     h.dispose_when_done(listener)
+
+class \nodoc\ iso _TestMaxRequestsPerConnection is UnitTest
+  """
+  Configure `max_requests_per_connection' = 2`. Send 3 pipelined HTTP/1.1
+  requests. Verify exactly 2 responses arrive, then the connection closes.
+  """
+  fun name(): String => "server/max requests per connection"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let port = "45895"
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let max_req = match MakeMaxRequestsPerConnection(2)
+    | let m: MaxRequestsPerConnection => m
+    | let _: ValidationFailure =>
+      h.fail("Failed to create MaxRequestsPerConnection")
+      h.complete(false)
+      return
+    end
+    let config = ServerConfig(host, port where
+      max_requests_per_connection' = max_req)
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
+      {(h': TestHelper, port': String) =>
+        let client = _TestMaxRequestsClient(h', port')
+        h'.dispose_when_done(client)
+      })
+    h.dispose_when_done(listener)
+
+actor \nodoc\ _TestMaxRequestsClient is
+  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
+
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  let _h: TestHelper
+  var _response: String ref = String
+
+  new create(h: TestHelper, port: String) =>
+    _h = h
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    _tcp_connection = lori.TCPConnection.client(
+      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_connected() =>
+    // Send 3 pipelined requests in one buffer
+    _tcp_connection.send(
+      "GET /1 HTTP/1.1\r\nHost: localhost\r\n\r\n" +
+      "GET /2 HTTP/1.1\r\nHost: localhost\r\n\r\n" +
+      "GET /3 HTTP/1.1\r\nHost: localhost\r\n\r\n")
+
+  fun ref _on_received(data: Array[U8] iso) =>
+    _response.append(consume data)
+
+  fun ref _on_closed() =>
+    let r: String val = _response.clone()
+    // First "Hello, World!" must be present
+    try
+      r.find("Hello, World!")?
+    else
+      _h.fail("Expected at least one response")
+      _h.complete(false)
+      return
+    end
+    // Second "Hello, World!" must be present (nth=1)
+    try
+      r.find("Hello, World!", 0, 1)?
+    else
+      _h.fail("Expected two responses but only found one")
+      _h.complete(false)
+      return
+    end
+    // Third "Hello, World!" must NOT be present (nth=2)
+    try
+      r.find("Hello, World!", 0, 2)?
+      _h.fail("Expected only two responses but found three")
+      _h.complete(false)
+    else
+      // Good — third response absent means max-requests limit worked
+      _h.complete(true)
+    end
+
+  fun ref _on_connection_failure() =>
+    _h.fail("Client connection failed")
+    _h.complete(false)
 
 // ---------------------------------------------------------------------------
 // Property-based test: keep-alive decision
