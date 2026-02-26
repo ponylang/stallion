@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Added
 
+- Add configurable max requests per keep-alive connection ([PR #57](https://github.com/ponylang/stallion/pull/57))
 
 ### Changed
 
