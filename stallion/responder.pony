@@ -33,7 +33,7 @@ class ref Responder
   incrementally-generated bodies. `start_chunked_response()` returns a
   `StartChunkedResponseResult` indicating success or the reason for failure:
   ```pony
-  match responder.start_chunked_response(StatusOK, headers)
+  match \exhaustive\ responder.start_chunked_response(StatusOK, headers)
   | StreamingStarted =>
     let token1 = responder.send_chunk("chunk 1")
     let token2 = responder.send_chunk("chunk 2")
@@ -142,7 +142,7 @@ class ref Responder
     """
     match _state
     | _ResponderStreaming =>
-      let size: USize = match data
+      let size: USize = match \exhaustive\ data
       | let s: String val => s.size()
       | let a: Array[U8] val => a.size()
       end

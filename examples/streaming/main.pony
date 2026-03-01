@@ -78,7 +78,7 @@ actor StreamServer is stallion.HTTPServerActor
       h.set("content-type", "text/plain")
       h
     end
-    match responder.start_chunked_response(stallion.StatusOK, headers)
+    match \exhaustive\ responder.start_chunked_response(stallion.StatusOK, headers)
     | stallion.StreamingStarted =>
       responder.send_chunk("chunk 1 of 5\n")
       _responder = responder

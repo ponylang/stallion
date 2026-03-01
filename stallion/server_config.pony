@@ -28,7 +28,7 @@ class val ServerConfig
   ServerConfig("localhost", "8080")
 
   // Custom timeout via MakeIdleTimeout (milliseconds)
-  let timeout = match lori.MakeIdleTimeout(30_000)
+  let timeout = match \exhaustive\ lori.MakeIdleTimeout(30_000)
   | let t: lori.IdleTimeout => t
   end
   ServerConfig("0.0.0.0", "80" where
@@ -39,7 +39,7 @@ class val ServerConfig
   ServerConfig("0.0.0.0", "80" where idle_timeout' = None)
 
   // Limit to 1000 requests per connection
-  match MakeMaxRequestsPerConnection(1000)
+  match \exhaustive\ MakeMaxRequestsPerConnection(1000)
   | let m: MaxRequestsPerConnection =>
     ServerConfig("0.0.0.0", "80" where max_requests_per_connection' = m)
   end

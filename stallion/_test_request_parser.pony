@@ -169,7 +169,7 @@ class \nodoc\ iso _PropertyHeadersRoundtrip
         end
         if not already_seen then
           seen.push(lower)
-          match headers.get(hdr_name)
+          match \exhaustive\ headers.get(hdr_name)
           | let v: String val =>
             ph.assert_eq[String val](hdr_value, v,
               "header " + hdr_name + " mismatch")
@@ -378,7 +378,7 @@ class \nodoc\ iso _TestParserKnownGoodRequests is UnitTest
       h.assert_true(v is HTTP11, "version should be HTTP/1.1")
       h.assert_eq[String val](
         "www.example.com",
-        match hdrs.get("Host")
+        match \exhaustive\ hdrs.get("Host")
         | let s: String val => s
         else "" end,
         "Host header")

@@ -42,7 +42,7 @@ class _RequestParser
     // Parse loop: process data until we need more or hit an error
     var continue_parsing = true
     while continue_parsing do
-      match state.parse(this)
+      match \exhaustive\ state.parse(this)
       | _ParseContinue =>
         // A handler callback (triggered by state.parse) may have called
         // stop() — check before continuing to the next state transition.

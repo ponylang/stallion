@@ -118,7 +118,7 @@ class ref _ResponseBuilderImpl is (ResponseHeadersBuilder & ResponseBodyBuilder)
     this
 
   fun ref add_chunk(data: ByteSeq): ResponseBodyBuilder =>
-    match data
+    match \exhaustive\ data
     | let s: String val => _buf.append(s)
     | let a: Array[U8] val => _buf.append(a)
     end

@@ -79,7 +79,7 @@ class _ExpectRequestLine is _ParserState
     let available = p.buf.size() - p.pos
 
     // Check for CRLF marking end of request line
-    match _BufferScan.find_crlf(p.buf, p.pos)
+    match \exhaustive\ _BufferScan.find_crlf(p.buf, p.pos)
     | let crlf: USize =>
       let line_len = crlf - p.pos
       if line_len > p.config.max_request_line_size then
@@ -87,14 +87,14 @@ class _ExpectRequestLine is _ParserState
       end
 
       // Find first space: separates method from URI
-      let method_end = match _BufferScan.find_byte(p.buf, ' ', p.pos, crlf)
+      let method_end = match \exhaustive\ _BufferScan.find_byte(p.buf, ' ', p.pos, crlf)
         | let i: USize => i
         | None => return UnknownMethod
         end
 
       // Parse method
       let method_str: String val = p.extract_string(p.pos, method_end)
-      let method = match Methods.parse(method_str)
+      let method = match \exhaustive\ Methods.parse(method_str)
         | let m: Method => m
         | None => return UnknownMethod
         end
@@ -110,7 +110,7 @@ class _ExpectRequestLine is _ParserState
       end
 
       // Find second space: separates URI from version
-      let uri_end = match _BufferScan.find_byte(p.buf, ' ', uri_start, crlf)
+      let uri_end = match \exhaustive\ _BufferScan.find_byte(p.buf, ' ', uri_start, crlf)
         | let i: USize => i
         | None => return InvalidVersion
         end
@@ -223,7 +223,7 @@ class _ExpectHeaders is _ParserState
   fun ref parse(p: _RequestParser ref): _ParseResult =>
     // Loop through header lines
     while true do
-      match _BufferScan.find_crlf(p.buf, p.pos)
+      match \exhaustive\ _BufferScan.find_crlf(p.buf, p.pos)
       | let crlf: USize =>
         if crlf == p.pos then
           // Empty line: end of headers
@@ -250,7 +250,7 @@ class _ExpectHeaders is _ParserState
             return _ParseContinue
           end
 
-          match _content_length
+          match \exhaustive\ _content_length
           | let cl: USize if cl > 0 =>
             p.state = _ExpectFixedBody(cl)
             return _ParseContinue
@@ -280,7 +280,7 @@ class _ExpectHeaders is _ParserState
         end
 
         // Find colon separator
-        let colon_pos = match _BufferScan.find_byte(p.buf, ':', p.pos, crlf)
+        let colon_pos = match \exhaustive\ _BufferScan.find_byte(p.buf, ':', p.pos, crlf)
           | let i: USize => i
           | None => return MalformedHeaders
           end
@@ -322,9 +322,9 @@ class _ExpectHeaders is _ParserState
         // Detect special headers
         let lower_name: String val = name.lower()
         if lower_name == "content-length" then
-          match _parse_content_length(value)
+          match \exhaustive\ _parse_content_length(value)
           | let cl: USize =>
-            match _content_length
+            match \exhaustive\ _content_length
             | let existing: USize =>
               if existing != cl then
                 return InvalidContentLength
@@ -420,7 +420,7 @@ class _ExpectChunkHeader is _ParserState
     _config = config
 
   fun ref parse(p: _RequestParser ref): _ParseResult =>
-    match _BufferScan.find_crlf(p.buf, p.pos)
+    match \exhaustive\ _BufferScan.find_crlf(p.buf, p.pos)
     | let crlf: USize =>
       let line_len = crlf - p.pos
       if line_len > _config.max_chunk_header_size then
@@ -431,7 +431,7 @@ class _ExpectChunkHeader is _ParserState
       end
 
       // Find optional chunk extension (semicolon)
-      let size_end = match _BufferScan.find_byte(p.buf, ';', p.pos, crlf)
+      let size_end = match \exhaustive\ _BufferScan.find_byte(p.buf, ';', p.pos, crlf)
         | let i: USize => i
         | None => crlf
         end
@@ -543,7 +543,7 @@ class _ExpectChunkTrailer is _ParserState
 
   fun ref parse(p: _RequestParser ref): _ParseResult =>
     while true do
-      match _BufferScan.find_crlf(p.buf, p.pos)
+      match \exhaustive\ _BufferScan.find_crlf(p.buf, p.pos)
       | let crlf: USize =>
         if crlf == p.pos then
           // Empty line: end of chunked message
