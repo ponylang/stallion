@@ -153,7 +153,7 @@ class HTTPServer is
     // from the RFC 3986 parser (e.g., invalid authority in CONNECT targets).
     let parsed_uri: uri_pkg.URI val =
       if method is CONNECT then
-        match uri_pkg.ParseURIAuthority(raw_uri)
+        match \exhaustive\ uri_pkg.ParseURIAuthority(raw_uri)
         | let a: uri_pkg.URIAuthority val =>
           uri_pkg.URI(None, a, "", None, None)
         | let _: uri_pkg.URIParseError val =>
@@ -161,7 +161,7 @@ class HTTPServer is
           return
         end
       else
-        match uri_pkg.ParseURI(raw_uri)
+        match \exhaustive\ uri_pkg.ParseURI(raw_uri)
         | let u: uri_pkg.URI val => u
         | let _: uri_pkg.URIParseError val =>
           parse_error(InvalidURI)
@@ -183,7 +183,7 @@ class HTTPServer is
     _idle = false
 
     // Safety net: close if too many pipelined requests are pending
-    match _config
+    match \exhaustive\ _config
     | let c: ServerConfig =>
       if _requests_pending > c.max_pending_responses then
         _tcp_connection.send(_ErrorResponse.no_response())
@@ -202,7 +202,7 @@ class HTTPServer is
     end
 
   fun ref body_chunk(data: Array[U8] val) =>
-    match _lifecycle_event_receiver
+    match \exhaustive\ _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref =>
       r.on_body_chunk(data)
     | None =>
@@ -247,7 +247,7 @@ class HTTPServer is
     connection (which in turn closes the queue, making any remaining
     Responders inert).
     """
-    match _tcp_connection.send(data)
+    match \exhaustive\ _tcp_connection.send(data)
     | let _: lori.SendToken =>
       _pending_sent_tokens.push(token)
     | let _: lori.SendError =>
@@ -302,7 +302,7 @@ class HTTPServer is
     match _parser | let p: _RequestParser => p.stop() end
     match _queue | let q: _ResponseQueue => q.close() end
     _pending_sent_tokens.clear()
-    match _lifecycle_event_receiver
+    match \exhaustive\ _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref => r.on_closed()
     | None => _Unreachable()
     end
@@ -312,7 +312,7 @@ class HTTPServer is
     """Apply backpressure: mute the TCP connection and notify the receiver."""
     _tcp_connection.mute()
     match _queue | let q: _ResponseQueue => q.throttle() end
-    match _lifecycle_event_receiver
+    match \exhaustive\ _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref => r.on_throttled()
     | None => _Unreachable()
     end
@@ -321,7 +321,7 @@ class HTTPServer is
     """Release backpressure: unmute the TCP connection and notify the receiver."""
     _tcp_connection.unmute()
     match _queue | let q: _ResponseQueue => q.unthrottle() end
-    match _lifecycle_event_receiver
+    match \exhaustive\ _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref => r.on_unthrottled()
     | None => _Unreachable()
     end
@@ -337,7 +337,7 @@ class HTTPServer is
     try
       match _pending_sent_tokens.shift()?
       | let ct: ChunkSendToken =>
-        match _lifecycle_event_receiver
+        match \exhaustive\ _lifecycle_event_receiver
         | let r: HTTPServerLifecycleEventReceiver ref => r.on_chunk_sent(ct)
         | None => _Unreachable()
         end
@@ -378,7 +378,7 @@ class HTTPServer is
       match _parser | let p: _RequestParser => p.stop() end
       match _queue | let q: _ResponseQueue => q.close() end
       _pending_sent_tokens.clear()
-      match _lifecycle_event_receiver
+      match \exhaustive\ _lifecycle_event_receiver
       | let r: HTTPServerLifecycleEventReceiver ref => r.on_closed()
       | None => _Unreachable()
       end

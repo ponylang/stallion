@@ -18,7 +18,7 @@ primitive _ChunkedEncoder
     The caller must not pass empty data — use `final_chunk()` for the
     terminal chunk instead.
     """
-    let size: USize = match data
+    let size: USize = match \exhaustive\ data
     | let s: String val => s.size()
     | let a: Array[U8] val => a.size()
     end

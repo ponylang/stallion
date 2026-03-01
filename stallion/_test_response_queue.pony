@@ -29,7 +29,7 @@ class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
     flushed_data.push(data)
     flushed_tokens.push(token)
     if close_on_flush_data then
-      let s: String val = match data
+      let s: String val = match \exhaustive\ data
       | let sv: String val => sv
       | let a: Array[U8] val => String.from_array(a)
       end
@@ -52,7 +52,7 @@ class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
     """Convert all flushed data to strings for easier assertion."""
     let result = Array[String val](flushed_data.size())
     for data in flushed_data.values() do
-      match data
+      match \exhaustive\ data
       | let s: String val => result.push(s)
       | let a: Array[U8] val => result.push(String.from_array(a))
       end
@@ -467,11 +467,11 @@ class \nodoc\ iso _TestQueueTokenBufferedFlush is UnitTest
     // Verify both data items flushed: e0-data (None token), e1-data (token)
     h.assert_eq[USize](2, notify.flushed_tokens.size())
     try
-      match notify.flushed_tokens(0)?
+      match \exhaustive\ notify.flushed_tokens(0)?
       | let _: ChunkSendToken => h.fail("Head entry should have None token")
       | None => None  // expected
       end
-      match notify.flushed_tokens(1)?
+      match \exhaustive\ notify.flushed_tokens(1)?
       | let ct: ChunkSendToken =>
         h.assert_true(ct == token, "Buffered token should match")
       else

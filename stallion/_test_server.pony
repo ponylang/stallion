@@ -218,7 +218,7 @@ class \nodoc\ iso _TestMaxRequestsPerConnection is UnitTest
     h.long_test(5_000_000_000)
     let port = "45895"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
-    let max_req = match MakeMaxRequestsPerConnection(2)
+    let max_req = match \exhaustive\ MakeMaxRequestsPerConnection(2)
     | let m: MaxRequestsPerConnection => m
     | let _: ValidationFailure =>
       h.fail("Failed to create MaxRequestsPerConnection")
@@ -1166,7 +1166,7 @@ actor \nodoc\ _TestChunkedFallbackServer is HTTPServerActor
       h.set("content-type", "text/plain")
       h
     end
-    match responder.start_chunked_response(StatusOK, headers)
+    match \exhaustive\ responder.start_chunked_response(StatusOK, headers)
     | StreamingStarted =>
       responder.send_chunk("chunk1")
       responder.finish_response()
@@ -1366,7 +1366,7 @@ actor \nodoc\ _TestURIParsingServer is HTTPServerActor
   fun ref _http_connection(): HTTPServer => _http
 
   fun ref on_request_complete(request': Request val, responder: Responder) =>
-    let uri_query: String val = match request'.uri.query
+    let uri_query: String val = match \exhaustive\ request'.uri.query
     | let q: String val => q
     | None => ""
     end
@@ -1435,7 +1435,7 @@ actor \nodoc\ _TestConnectURIServer is HTTPServerActor
     match request'.uri.authority
     | let a: uri.URIAuthority val =>
       host = a.host
-      port = match a.port
+      port = match \exhaustive\ a.port
       | let p: U16 => p.string()
       | None => "none"
       end
