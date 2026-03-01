@@ -62,7 +62,7 @@ delivery:
 fun ref on_request_complete(request': stallion.Request val,
   responder: stallion.Responder)
 =>
-  match \exhaustive\ responder.start_chunked_response(stallion.StatusOK)
+  match responder.start_chunked_response(stallion.StatusOK)
   | stallion.StreamingStarted =>
     let token = responder.send_chunk("chunk 1")
     // When on_chunk_sent(token) fires, send the next chunk...

@@ -8,7 +8,7 @@ type MaxRequestsPerConnection is
   Must be at least 1. Use `MakeMaxRequestsPerConnection` to create:
 
   ```pony
-  match \exhaustive\ MakeMaxRequestsPerConnection(1000)
+  match MakeMaxRequestsPerConnection(1000)
   | let m: MaxRequestsPerConnection =>
     ServerConfig("0.0.0.0", "80" where max_requests_per_connection' = m)
   | let e: ValidationFailure =>
