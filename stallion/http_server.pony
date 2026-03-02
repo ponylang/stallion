@@ -363,6 +363,24 @@ class HTTPServer is
     """
     _close_connection()
 
+  fun ref yield_read() =>
+    """
+    Request the read loop to exit after the current callback returns,
+    giving other actors a chance to run. Reading resumes automatically
+    in the next scheduler turn — no explicit action is needed.
+
+    Call this from HTTP callbacks (`on_request`, `on_body_chunk`,
+    `on_request_complete`) to implement yield policies such as yielding
+    every N requests during pipelining storms or every N bytes of body
+    data.
+
+    Operates at the TCP level: it prevents the *next* socket read, not
+    the processing of already-buffered data. If a single receive delivers
+    a buffer containing multiple pipelined requests, all are parsed and
+    all callbacks fire before the yield takes effect.
+    """
+    _tcp_connection.yield_read()
+
   fun ref _close_connection() =>
     """
     Close the connection and clean up all resources.

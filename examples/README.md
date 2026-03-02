@@ -13,3 +13,7 @@ HTTPS server using SSL/TLS. Demonstrates creating an `SSLContext`, loading certi
 ## [streaming](streaming/)
 
 Streams responses using chunked transfer encoding with flow-controlled delivery driven by `on_chunk_sent()` callbacks. Demonstrates matching on `StartChunkedResponseResult` from `start_chunked_response()`, then using `send_chunk()`, `finish_response()`, and `on_chunk_sent()` on `Responder` and `HTTPServerLifecycleEventReceiver`. The actor sends the first chunk in `on_request()`, then each `on_chunk_sent()` callback triggers the next chunk — natural backpressure without timers or manual windowing.
+
+## [yield](yield/)
+
+Yields the read loop every N requests for scheduler fairness. Demonstrates calling `HTTPServer.yield_read()` from `on_request_complete` to implement a request-count-based yield policy. Under sustained pipelined traffic, periodic yields give other actors a chance to run. The yield is a one-shot pause — reading resumes automatically in the next scheduler turn.
