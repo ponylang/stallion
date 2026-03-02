@@ -289,7 +289,7 @@ actor \nodoc\ _TestMaxRequestsClient is
       _h.complete(true)
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
@@ -503,7 +503,7 @@ actor \nodoc\ _TestHTTPClient is
       _verify_response()
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
@@ -591,7 +591,7 @@ actor \nodoc\ _TestHTTPClientExpectClose is
       end
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
@@ -648,7 +648,7 @@ actor \nodoc\ _TestKeepAliveClient is
       _h.complete(false)
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
@@ -920,7 +920,7 @@ actor \nodoc\ _TestPipelineClient is
       end
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
@@ -974,7 +974,7 @@ actor \nodoc\ _TestPipelineCloseClient is
       end
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
@@ -1027,7 +1027,7 @@ actor \nodoc\ _TestStreamClient is
       _h.complete(true)
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
@@ -1125,7 +1125,7 @@ actor \nodoc\ _TestMaxPendingClient is
       _h.complete(false)
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
@@ -1307,7 +1307,7 @@ actor \nodoc\ _TestChunkSentClient is
       _h.complete(true)
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
@@ -1660,7 +1660,7 @@ actor \nodoc\ _TestPipelinedBodiesClient is
       _h.complete(false)
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
@@ -1898,7 +1898,7 @@ actor \nodoc\ _TestSSLHTTPClient is
       _verify_response()
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("SSL client connection failed")
     _h.complete(false)
 
@@ -1984,7 +1984,7 @@ actor \nodoc\ _TestSSLHTTPClientExpectClose is
       end
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("SSL client connection failed")
     _h.complete(false)
 
@@ -2042,7 +2042,7 @@ actor \nodoc\ _TestSSLKeepAliveClient is
       _h.complete(false)
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("SSL client connection failed")
     _h.complete(false)
 
@@ -2096,6 +2096,6 @@ actor \nodoc\ _TestSSLStreamClient is
       _h.complete(true)
     end
 
-  fun ref _on_connection_failure() =>
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("SSL client connection failed")
     _h.complete(false)

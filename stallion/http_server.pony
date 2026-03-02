@@ -121,7 +121,7 @@ class HTTPServer is
   fun ref _on_closed() =>
     _state.on_closed(this)
 
-  fun ref _on_start_failure() =>
+  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
     // Connection failed before _on_started — receiver was never activated.
     // Don't call _receiver.on_closed(); just mark as closed for GC.
     _state = _Closed
