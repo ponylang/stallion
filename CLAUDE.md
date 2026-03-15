@@ -55,7 +55,8 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `method.pony` — HTTP method types (`Method` interface, 9 primitives, `Methods` parse/enumerate)
   - `version.pony` — HTTP version types (`HTTP10`, `HTTP11`, `Version` closed union)
   - `status.pony` — HTTP status codes (`Status` interface, 35 standard primitives)
-  - `headers.pony` — Case-insensitive header collection (`Headers` class)
+  - `header.pony` — Single HTTP header name-value pair (`Header val` class)
+  - `headers.pony` — Case-insensitive header collection (`Headers` class, stores `Array[Header val]`)
   - `_response_serializer.pony` — Response wire-format serializer (package-private)
   - `_mort.pony` — Runtime enforcement primitives (`_IllegalState`, `_Unreachable`)
   - `parse_error.pony` — Parse error types (`ParseError` union, 8 error primitives)
@@ -63,7 +64,7 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `_request_parser_notify.pony` — Parser callback trait (synchronous `ref` methods)
   - `_parser_state.pony` — Parser state machine (state interface, 6 state classes, `_BufferScan`)
   - `_request_parser.pony` — Request parser class (entry point, buffer management)
-  - `request.pony` — Immutable request metadata bundle (`Request val`: method, URI, version, headers)
+  - `request.pony` — Immutable request metadata bundle (`Request val`: method, URI, version, headers, cookies)
   - `chunk_send_token.pony` — Opaque chunk send token (`ChunkSendToken val`, `Equatable`, private constructor)
   - `http_server_lifecycle_event_receiver.pony` — HTTP callback trait (`HTTPServerLifecycleEventReceiver`: on_request, on_body_chunk, on_request_complete, on_chunk_sent, on_closed, on_throttled, on_unthrottled)
   - `http_server_actor.pony` — Server actor trait (`HTTPServerActor`: extends `TCPConnectionActor` and `HTTPServerLifecycleEventReceiver`, provides `_connection()` default)
@@ -79,10 +80,20 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `server_config.pony` — Server configuration (`ServerConfig` class with `max_requests_per_connection: (MaxRequestsPerConnection | None)`, `DefaultIdleTimeout` primitive)
   - `_error_response.pony` — Pre-built error response strings (`_ErrorResponse` primitive)
   - `_connection_state.pony` — Connection lifecycle states (`_Active`, `_Closed`; routes `on_sent` for chunk token delivery)
+  - `request_cookie.pony` — Single parsed cookie name-value pair (`RequestCookie val`, private constructor)
+  - `request_cookies.pony` — Immutable collection of parsed request cookies (`RequestCookies val`, `get()`, `values()`, `size()`)
+  - `parse_cookies.pony` — Cookie parser (`ParseCookies` primitive: `from_headers()`, `apply()`, lenient RFC 6265 §5.4 parsing)
+  - `same_site.pony` — SameSite attribute types (`SameSiteStrict`, `SameSiteLax`, `SameSiteNone`, `SameSite` union)
+  - `set_cookie_build_error.pony` — Build error types (`InvalidCookieName`, `InvalidCookieValue`, `InvalidCookiePath`, `InvalidCookieDomain`, `CookiePrefixViolation`, `SameSiteRequiresSecure`, `SetCookieBuildError` union)
+  - `set_cookie.pony` — Validated, pre-serialized `Set-Cookie` header (`SetCookie val`, `header_value()`, private constructor)
+  - `set_cookie_builder.pony` — `Set-Cookie` header builder (`SetCookieBuilder ref`, secure defaults, chaining, prefix rules)
+  - `_cookie_validator.pony` — Cookie name/value/attribute validation (RFC 2616 token, RFC 6265 cookie-octet, path/domain safety)
+  - `_http_date.pony` — IMF-fixdate formatter for `Expires` attribute (`_HTTPDate` primitive)
 - `assets/` — test assets
   - `cert.pem` — Self-signed test certificate for SSL examples
   - `key.pem` — Test private key for SSL examples
 - `examples/` — example programs
+  - `cookies/main.pony` — Visit counter demonstrating `Request.cookies` and `SetCookieBuilder`
   - `hello/main.pony` — Greeting server with URI parsing and query parameter extraction
   - `ssl/main.pony` — HTTPS server using SSL/TLS
   - `streaming/main.pony` — Flow-controlled chunked transfer encoding streaming response using `on_chunk_sent()` callbacks

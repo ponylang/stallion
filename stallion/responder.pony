@@ -111,8 +111,8 @@ class ref Responder
         let new_h = Headers
         match headers
         | let existing: Headers val =>
-          for (name, value) in existing.values() do
-            new_h.set(name, value)
+          for hdr in existing.values() do
+            new_h.set(hdr.name, hdr.value)
           end
         end
         new_h.set("Transfer-Encoding", "chunked")

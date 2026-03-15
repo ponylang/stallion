@@ -6,11 +6,11 @@ class Headers
   name, or `add()` to append an additional value (appropriate for multi-value
   headers like Set-Cookie).
   """
-  embed _headers: Array[(String, String)]
+  embed _headers: Array[Header val]
 
   new create() =>
     """Create an empty header collection."""
-    _headers = Array[(String, String)]
+    _headers = Array[Header val]
 
   fun ref set(name: String, value: String) =>
     """
@@ -23,7 +23,7 @@ class Headers
     var i: USize = 0
     while i < _headers.size() do
       try
-        if _headers(i)?._1 == lower_name then
+        if _headers(i)?.name == lower_name then
           _headers.delete(i)?
         else
           i = i + 1
@@ -32,7 +32,7 @@ class Headers
         i = i + 1
       end
     end
-    _headers.push((lower_name, value))
+    _headers.push(Header(lower_name, value))
 
   fun ref add(name: String, value: String) =>
     """
@@ -41,7 +41,7 @@ class Headers
     This is appropriate for headers that can appear multiple times
     (e.g., Set-Cookie). Use `set()` when you want to replace.
     """
-    _headers.push((name.lower(), value))
+    _headers.push(Header(name.lower(), value))
 
   fun get(name: String): (String | None) =>
     """
@@ -50,8 +50,8 @@ class Headers
     Returns `None` if no header with that name exists.
     """
     let lower_name: String val = name.lower()
-    for (n, v) in _headers.values() do
-      if n == lower_name then return v end
+    for hdr in _headers.values() do
+      if hdr.name == lower_name then return hdr.value end
     end
     None
 
@@ -59,6 +59,6 @@ class Headers
     """Return the number of header entries."""
     _headers.size()
 
-  fun values(): ArrayValues[(String, String), this->Array[(String, String)]] =>
-    """Iterate over all header entries as (name, value) pairs."""
+  fun values(): ArrayValues[Header val, this->Array[Header val]] =>
+    """Iterate over all header entries as `Header val` objects."""
     _headers.values()

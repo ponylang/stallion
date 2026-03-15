@@ -63,8 +63,8 @@ class \nodoc\ iso _PropertyBuilderMatchesSerializer
     // Build with ResponseBuilder
     var builder: ResponseHeadersBuilder =
       ResponseBuilder(status where version = version)
-    for (hdr_name, hdr_value) in headers.values() do
-      builder = builder.add_header(hdr_name, hdr_value)
+    for hdr in headers.values() do
+      builder = builder.add_header(hdr.name, hdr.value)
     end
     var body_builder: ResponseBodyBuilder = builder.finish_headers()
     match body

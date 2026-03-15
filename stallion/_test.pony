@@ -132,6 +132,52 @@ actor \nodoc\ Main is TestList
     test(_TestServerContentLengthZero)
     test(_TestPipelinedBodies)
 
+    // Cookie validator tests
+    test(Property1UnitTest[String val](
+      _PropertyValidCookieNameAccepted))
+    test(Property1UnitTest[String val](
+      _PropertyInvalidCookieNameRejected))
+    test(Property1UnitTest[(String val, Bool)](
+      _PropertyCookieNameBoundary))
+    test(Property1UnitTest[String val](
+      _PropertyValidCookieValueAccepted))
+    test(Property1UnitTest[String val](
+      _PropertyInvalidCookieValueRejected))
+    test(Property1UnitTest[(String val, Bool)](
+      _PropertyCookieValueBoundary))
+
+    // Attribute value validator tests
+    test(Property1UnitTest[String val](
+      _PropertyValidAttrValueAccepted))
+    test(Property1UnitTest[String val](
+      _PropertyInvalidAttrValueRejected))
+    test(Property1UnitTest[(String val, Bool)](
+      _PropertyAttrValueBoundary))
+
+    // HTTP date tests
+    test(_TestHTTPDateKnownGood)
+    test(Property1UnitTest[I64](_PropertyHTTPDateFormat))
+
+    // Cookie parsing tests
+    test(_TestParseCookieKnownGood)
+    test(Property1UnitTest[Array[(String val, String val)] ref](
+      _PropertyCookieParseRoundtrip))
+    test(Property1UnitTest[String val](
+      _PropertyCookieParseRobustness))
+
+    // Set-Cookie builder tests
+    test(_TestSetCookieKnownGood)
+    test(_TestSetCookieErrors)
+    test(Property1UnitTest[(String val, String val)](
+      _PropertySetCookieValidBuild))
+    test(Property1UnitTest[String val](
+      _PropertySetCookieInvalidNameErrors))
+    test(Property1UnitTest[String val](
+      _PropertySetCookieInvalidValueErrors))
+
+    // Cookie integration test
+    test(_TestServerCookieParsing)
+
     // SSL integration tests
     test(_TestSSLHelloWorld)
     test(_TestSSLKeepAlive)

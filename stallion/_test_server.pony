@@ -1599,6 +1599,81 @@ class \nodoc\ iso _TestPipelinedBodies is UnitTest
     h.dispose_when_done(listener)
 
 // ---------------------------------------------------------------------------
+// Cookie parsing integration test
+// ---------------------------------------------------------------------------
+
+class \nodoc\ iso _TestServerCookieParsing is UnitTest
+  """
+  Send a request with a Cookie header, verify the server reads the cookies
+  from request'.cookies and includes the values in the response body.
+  """
+  fun name(): String => "server/cookie parsing"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let port = "45910"
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let config = ServerConfig(host, port)
+    let listener = _TestServerListener(h, port,
+      _TestCookieServerFactory, config,
+      {(h': TestHelper, port': String) =>
+        let request: String val =
+          "GET / HTTP/1.1\r\nHost: localhost\r\n" +
+          "Cookie: session=abc123; theme=dark\r\n\r\n"
+        let client = _TestHTTPClient(h', port', request, "200 OK",
+          "session=abc123,theme=dark")
+        h'.dispose_when_done(client)
+      })
+    h.dispose_when_done(listener)
+
+class \nodoc\ val _TestCookieServerFactory is _TestConnectionFactory
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None)
+  ): lori.TCPConnectionActor =>
+    _TestCookieServer(auth, fd, config, ssl_ctx)
+
+actor \nodoc\ _TestCookieServer is HTTPServerActor
+  var _http: HTTPServer = HTTPServer.none()
+
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None))
+  =>
+    _http = match ssl_ctx
+    | let ctx: ssl_net.SSLContext val =>
+      HTTPServer.ssl(auth, ctx, fd, this, config)
+    else
+      HTTPServer(auth, fd, this, config)
+    end
+
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
+    // Build response body from parsed cookies
+    let session = match request'.cookies.get("session")
+    | let s: String val => s
+    else "missing"
+    end
+    let theme = match request'.cookies.get("theme")
+    | let s: String val => s
+    else "missing"
+    end
+    let resp_body: String val =
+      "session=" + session + ",theme=" + theme
+    let response = ResponseBuilder(StatusOK)
+      .add_header("Content-Type", "text/plain")
+      .add_header("Content-Length", resp_body.size().string())
+      .finish_headers()
+      .add_chunk(resp_body)
+      .build()
+    responder.respond(response)
+
+// ---------------------------------------------------------------------------
 // Pipelined bodies client: verifies each response has the correct body
 // ---------------------------------------------------------------------------
 

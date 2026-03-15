@@ -31,10 +31,10 @@ primitive _ResponseSerializer
         .>append("\r\n")
 
       // Headers
-      for (name, value) in headers.values() do
-        buf.>append(name)
+      for hdr in headers.values() do
+        buf.>append(hdr.name)
           .>append(": ")
-          .>append(value)
+          .>append(hdr.value)
           .>append("\r\n")
       end
 

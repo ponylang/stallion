@@ -122,4 +122,39 @@ The actor explicitly chooses `stallion.HTTPServer` (plain HTTP) or
 the HTTPS example would use
 `stallion.HTTPServer.ssl(auth, ssl_ctx, fd, this, config)` instead of
 `stallion.HTTPServer(auth, fd, this, config)`.
+
+Cookies are automatically parsed from `Cookie` request headers and available
+via `request'.cookies`. Use `stallion.ParseCookies` for direct parsing, and
+`stallion.SetCookieBuilder` to construct validated `Set-Cookie` response headers
+with secure defaults:
+
+```pony
+fun ref on_request_complete(request': stallion.Request val,
+  responder: stallion.Responder)
+=>
+  // Read a cookie from the request
+  let session = match request'.cookies.get("session")
+  | let s: String val => s
+  else "anonymous"
+  end
+
+  // Build a Set-Cookie header (defaults: Secure, HttpOnly, SameSite=Lax)
+  match stallion.SetCookieBuilder("session", "new-token")
+    .with_path("/")
+    .with_max_age(3600)
+    .build()
+  | let sc: stallion.SetCookie val =>
+    let body: String val = "Hello, " + session + "!"
+    let response = stallion.ResponseBuilder(stallion.StatusOK)
+      .add_header("Content-Length", body.size().string())
+      .add_header("Set-Cookie", sc.header_value())
+      .finish_headers()
+      .add_chunk(body)
+      .build()
+    responder.respond(response)
+  | let err: stallion.SetCookieBuildError =>
+    // Handle validation error
+    None
+  end
+```
 """
