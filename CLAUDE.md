@@ -89,12 +89,20 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `set_cookie_builder.pony` — `Set-Cookie` header builder (`SetCookieBuilder ref`, secure defaults, chaining, prefix rules)
   - `_cookie_validator.pony` — Cookie name/value/attribute validation (RFC 2616 token, RFC 6265 cookie-octet, path/domain safety)
   - `_http_date.pony` — IMF-fixdate formatter for `Expires` attribute (`_HTTPDate` primitive)
+  - `media_type.pony` — HTTP media type (`MediaType val` class, `Equatable & Stringable`)
+  - `no_acceptable_type.pony` — Content negotiation failure (`NoAcceptableType` primitive)
+  - `content_negotiation_result.pony` — Result type alias (`MediaType val | NoAcceptableType`)
+  - `_quality.pony` — Constrained quality factor 0–1000 (`_Quality`, `_MakeQuality`, `_QualityValidator`)
+  - `_accept_range.pony` — Parsed Accept header media range (`_AcceptRange val`, specificity scoring)
+  - `_accept_parser.pony` — Accept header parser (`_AcceptParser` primitive, lenient, quoted-string-aware)
+  - `content_negotiation.pony` — Content negotiation (`ContentNegotiation` primitive: `from_request()`, `apply()`, RFC 7231 §5.3.2)
 - `assets/` — test assets
   - `cert.pem` — Self-signed test certificate for SSL examples
   - `key.pem` — Test private key for SSL examples
 - `examples/` — example programs
   - `cookies/main.pony` — Visit counter demonstrating `Request.cookies` and `SetCookieBuilder`
   - `hello/main.pony` — Greeting server with URI parsing and query parameter extraction
+  - `negotiate/main.pony` — Content negotiation server responding with JSON or plain text based on Accept header
   - `ssl/main.pony` — HTTPS server using SSL/TLS
   - `streaming/main.pony` — Flow-controlled chunked transfer encoding streaming response using `on_chunk_sent()` callbacks
   - `yield/main.pony` — Scheduler fairness via `HTTPServer.yield_read()` with a request-count-based yield policy

@@ -10,6 +10,10 @@ Greeting server that responds with "Hello, World!" by default, or "Hello, {name}
 
 Visit counter that reads the `visits` cookie from incoming requests, increments it, and sets it back via `Set-Cookie`. Demonstrates both `Request.cookies` for reading cookies parsed from request headers and `SetCookieBuilder` for building validated `Set-Cookie` response headers with secure defaults.
 
+## [negotiate](negotiate/)
+
+Content negotiation server that responds with JSON or plain text based on the client's `Accept` header. Returns 406 Not Acceptable when the client doesn't accept either format. Demonstrates `ContentNegotiation.from_request()` for selecting a response content type and matching on `ContentNegotiationResult`.
+
 ## [ssl](ssl/)
 
 HTTPS server using SSL/TLS. Demonstrates creating an `SSLContext`, loading certificate and key files, and passing the context to connection actors via `_on_accept`. Actors use `HTTPServer.ssl` instead of `HTTPServer` to create an HTTPS connection.

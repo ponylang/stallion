@@ -157,4 +157,41 @@ fun ref on_request_complete(request': stallion.Request val,
     None
   end
 ```
+
+For content negotiation, use `stallion.ContentNegotiation` to select a
+response content type based on the client's `Accept` header. This is opt-in —
+most endpoints serve a single content type, so automatic parsing would waste
+CPU. Call it only in handlers that support multiple formats:
+
+```pony
+fun ref on_request_complete(request': stallion.Request val,
+  responder: stallion.Responder)
+=>
+  let supported = [as stallion.MediaType val:
+    stallion.MediaType("application", "json")
+    stallion.MediaType("text", "plain")
+  ]
+  match stallion.ContentNegotiation.from_request(request', supported)
+  | let mt: stallion.MediaType val =>
+    // Respond with the negotiated content type
+    let body: String val = "Hello!"
+    let response = stallion.ResponseBuilder(stallion.StatusOK)
+      .add_header("Content-Type", mt.string())
+      .add_header("Content-Length", body.size().string())
+      .finish_headers()
+      .add_chunk(body)
+      .build()
+    responder.respond(response)
+  | stallion.NoAcceptableType =>
+    // 406 Not Acceptable
+    let body: String val = "Not Acceptable"
+    let response = stallion.ResponseBuilder(
+        stallion.StatusNotAcceptable)
+      .add_header("Content-Length", body.size().string())
+      .finish_headers()
+      .add_chunk(body)
+      .build()
+    responder.respond(response)
+  end
+```
 """

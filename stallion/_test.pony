@@ -178,6 +178,20 @@ actor \nodoc\ Main is TestList
     // Cookie integration test
     test(_TestServerCookieParsing)
 
+    // Content negotiation tests
+    test(Property1UnitTest[String val](
+      _PropertyNegotiateRobustness))
+    test(Property1UnitTest[USize](
+      _PropertyNegotiateResultFromSupported))
+    test(Property1UnitTest[USize](
+      _PropertyNegotiateQZeroExcludes))
+    test(Property1UnitTest[USize](
+      _PropertyNegotiateServerPreference))
+    test(Property1UnitTest[String val](
+      _PropertyNegotiateQualityBounds))
+    test(_TestNegotiateKnownGood)
+    test(_TestAcceptParserKnownGood)
+
     // SSL integration tests
     test(_TestSSLHelloWorld)
     test(_TestSSLKeepAlive)
