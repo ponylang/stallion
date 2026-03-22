@@ -294,6 +294,153 @@ actor \nodoc\ _TestMaxRequestsClient is
     _h.complete(false)
 
 // ---------------------------------------------------------------------------
+// Timer tests: deadline pattern with set_timer() / cancel_timer() / on_timer()
+// ---------------------------------------------------------------------------
+
+class \nodoc\ iso _TestServerTimerFires is UnitTest
+  """
+  Deadline pattern where the timer fires before the worker responds.
+  The server sets a short timer and delegates to a worker that never
+  responds, so the timer fires and the server sends 408 Request Timeout.
+  """
+  fun name(): String => "server/timer fires"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let port = "45911"
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let config = ServerConfig(host, port)
+    let worker = _TestTimerWorker(false) // never responds
+    let listener = _TestServerListener(h, port,
+      _TestTimerServerFactory(worker), config,
+      {(h': TestHelper, port': String) =>
+        let request =
+          "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+        let client = _TestHTTPClientExpectClose(h', port', request,
+          "408 Request Timeout")
+        h'.dispose_when_done(client)
+      })
+    h.dispose_when_done(listener)
+
+class \nodoc\ iso _TestServerTimerCancelled is UnitTest
+  """
+  Deadline pattern where the worker responds before the timer fires.
+  The server sets a long timer and delegates to a worker that responds
+  immediately, so the timer is cancelled and the server sends the
+  worker's result.
+  """
+  fun name(): String => "server/timer cancelled"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let port = "45912"
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let config = ServerConfig(host, port)
+    let worker = _TestTimerWorker(true) // responds immediately
+    let listener = _TestServerListener(h, port,
+      _TestTimerServerFactory(worker), config,
+      {(h': TestHelper, port': String) =>
+        let request =
+          "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
+        let client = _TestHTTPClientExpectClose(h', port', request, "200 OK")
+        h'.dispose_when_done(client)
+      })
+    h.dispose_when_done(listener)
+
+class \nodoc\ val _TestTimerServerFactory is _TestConnectionFactory
+  let _worker: _TestTimerWorker tag
+
+  new val create(worker: _TestTimerWorker tag) =>
+    _worker = worker
+
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None)
+  ): lori.TCPConnectionActor =>
+    _TestTimerServer(auth, fd, config, _worker)
+
+actor \nodoc\ _TestTimerWorker
+  """
+  Simulates async work. When `_respond` is true, calls back immediately.
+  When false, never responds — simulating a hang.
+  """
+  let _respond: Bool
+
+  new create(respond': Bool) =>
+    _respond = respond'
+
+  be process(server: _TestTimerServer tag) =>
+    if _respond then
+      server.work_complete("Hello, World!")
+    end
+
+actor \nodoc\ _TestTimerServer is HTTPServerActor
+  var _http: HTTPServer = HTTPServer.none()
+  let _worker: _TestTimerWorker tag
+  var _responder: (Responder | None) = None
+  var _timer_token: (lori.TimerToken | None) = None
+
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    worker: _TestTimerWorker tag)
+  =>
+    _worker = worker
+    _http = HTTPServer(auth, fd, this, config)
+
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
+    // 2-second deadline. The worker's behavior (respond or hang)
+    // determines which path wins — not the timer duration.
+    match lori.MakeTimerDuration(2_000)
+    | let d: lori.TimerDuration =>
+      match _http.set_timer(d)
+      | let t: lori.TimerToken =>
+        _responder = responder
+        _timer_token = t
+        _worker.process(this)
+      end
+    end
+
+  be work_complete(result: String val) =>
+    // Worker finished before the deadline — cancel timer and respond
+    match (_timer_token, _responder)
+    | (let t: lori.TimerToken, let r: Responder) =>
+      _http.cancel_timer(t)
+      _timer_token = None
+      _responder = None
+      let response = ResponseBuilder(StatusOK)
+        .add_header("Content-Type", "text/plain")
+        .add_header("Content-Length", result.size().string())
+        .add_header("Connection", "close")
+        .finish_headers()
+        .add_chunk(result)
+        .build()
+      r.respond(response)
+    end
+
+  fun ref on_timer(token: lori.TimerToken) =>
+    // Deadline expired — worker didn't finish in time
+    match (_timer_token, _responder)
+    | (let t: lori.TimerToken, let r: Responder) if t == token =>
+      _timer_token = None
+      _responder = None
+      let resp_body: String val = "Request timed out"
+      let response = ResponseBuilder(StatusRequestTimeout)
+        .add_header("Content-Type", "text/plain")
+        .add_header("Content-Length", resp_body.size().string())
+        .add_header("Connection", "close")
+        .finish_headers()
+        .add_chunk(resp_body)
+        .build()
+      r.respond(response)
+    end
+
+// ---------------------------------------------------------------------------
 // Property-based test: keep-alive decision
 // ---------------------------------------------------------------------------
 

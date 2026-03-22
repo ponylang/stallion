@@ -138,6 +138,9 @@ class HTTPServer is
   fun ref _on_idle_timeout() =>
     _state.on_idle_timeout(this)
 
+  fun ref _on_timer(token: lori.TimerToken) =>
+    _state.on_timer(this, token)
+
   //
   // _RequestParserNotify — forwarding parser events to receiver
   //
@@ -353,6 +356,13 @@ class HTTPServer is
       _close_connection()
     end
 
+  fun ref _handle_timer(token: lori.TimerToken) =>
+    """Forward one-shot timer firing to the receiver."""
+    match \exhaustive\ _lifecycle_event_receiver
+    | let r: HTTPServerLifecycleEventReceiver ref => r.on_timer(token)
+    | None => _Unreachable()
+    end
+
   fun ref close() =>
     """
     Close the connection from the server actor.
@@ -381,6 +391,36 @@ class HTTPServer is
     all callbacks fire before the yield takes effect.
     """
     _tcp_connection.yield_read()
+
+  fun ref set_timer(duration: lori.TimerDuration)
+    : (lori.TimerToken | lori.SetTimerError)
+  =>
+    """
+    Create a one-shot timer that fires `on_timer()` after the configured
+    duration. Returns a `TimerToken` on success, or a `SetTimerError` on
+    failure.
+
+    Unlike idle timeout, this timer has no I/O-reset behavior — it fires
+    unconditionally after the duration elapses, regardless of send/receive
+    activity. There is no automatic re-arming; call `set_timer()` again from
+    `on_timer()` for repetition.
+
+    Only one timer can be active at a time. Setting a timer while one is
+    already active returns `SetTimerAlreadyActive` — call `cancel_timer()`
+    first. Requires the connection to be open; returns `SetTimerNotOpen` if
+    not.
+
+    Use `lori.MakeTimerDuration(milliseconds)` to create the duration value.
+    """
+    _tcp_connection.set_timer(duration)
+
+  fun ref cancel_timer(token: lori.TimerToken) =>
+    """
+    Cancel an active timer. No-op if the token doesn't match the active timer
+    (already fired, already cancelled, wrong token). Safe to call with stale
+    tokens.
+    """
+    _tcp_connection.cancel_timer(token)
 
   fun ref _close_connection() =>
     """

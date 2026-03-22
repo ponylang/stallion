@@ -28,6 +28,9 @@ trait ref _ConnectionState
   fun ref on_idle_timeout(server: HTTPServer ref)
     """Handle connection going idle."""
 
+  fun ref on_timer(server: HTTPServer ref, token: lori.TimerToken)
+    """Handle one-shot timer firing."""
+
 class ref _Active is _ConnectionState
   """
   Connection is active — parsing requests and dispatching to the receiver.
@@ -51,6 +54,9 @@ class ref _Active is _ConnectionState
   fun ref on_idle_timeout(server: HTTPServer ref) =>
     server._handle_idle_timeout()
 
+  fun ref on_timer(server: HTTPServer ref, token: lori.TimerToken) =>
+    server._handle_timer(token)
+
 class ref _Closed is _ConnectionState
   """
   Connection is closed — all operations are no-ops.
@@ -72,4 +78,7 @@ class ref _Closed is _ConnectionState
     None
 
   fun ref on_idle_timeout(server: HTTPServer ref) =>
+    None
+
+  fun ref on_timer(server: HTTPServer ref, token: lori.TimerToken) =>
     None

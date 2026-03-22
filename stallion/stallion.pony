@@ -194,4 +194,66 @@ fun ref on_request_complete(request': stallion.Request val,
     responder.respond(response)
   end
 ```
+
+For one-shot timers (request processing deadlines, application-level timeouts),
+use `stallion.HTTPServer.set_timer()`. Unlike idle timeout, this timer fires
+unconditionally — I/O activity does not reset it. Only one timer can be active
+per connection at a time. The typical pattern is a processing deadline: set a
+timer, delegate work to another actor, and race the result against the deadline:
+
+```pony
+actor MyServer is stallion.HTTPServerActor
+  var _http: stallion.HTTPServer = stallion.HTTPServer.none()
+  let _database: Database tag
+  var _timer: (lori.TimerToken | None) = None
+  var _responder: (stallion.Responder | None) = None
+
+  // ... constructor ...
+
+  fun ref _http_connection(): stallion.HTTPServer => _http
+
+  fun ref on_request_complete(request': stallion.Request val,
+    responder: stallion.Responder)
+  =>
+    match lori.MakeTimerDuration(5_000)
+    | let d: lori.TimerDuration =>
+      match _http.set_timer(d)
+      | let t: lori.TimerToken =>
+        _timer = t
+        _responder = responder
+        _database.query(request', this)
+      | let err: lori.SetTimerError => None
+      end
+    end
+
+  be query_result(data: String val) =>
+    // Work completed before the deadline — cancel timer and respond
+    match (_timer, _responder)
+    | (let t: lori.TimerToken, let r: stallion.Responder) =>
+      _http.cancel_timer(t)
+      _timer = None
+      _responder = None
+      let response = stallion.ResponseBuilder(stallion.StatusOK)
+        .add_header("Content-Length", data.size().string())
+        .finish_headers()
+        .add_chunk(data)
+        .build()
+      r.respond(response)
+    end
+
+  fun ref on_timer(token: lori.TimerToken) =>
+    // Deadline expired — worker didn't finish in time
+    match (_timer, _responder)
+    | (let t: lori.TimerToken, let r: stallion.Responder) if t == token =>
+      _timer = None
+      _responder = None
+      let body: String val = "Request timed out"
+      let response = stallion.ResponseBuilder(stallion.StatusRequestTimeout)
+        .add_header("Content-Length", body.size().string())
+        .finish_headers()
+        .add_chunk(body)
+        .build()
+      r.respond(response)
+    end
+```
 """

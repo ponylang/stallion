@@ -66,7 +66,7 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `_request_parser.pony` — Request parser class (entry point, buffer management)
   - `request.pony` — Immutable request metadata bundle (`Request val`: method, URI, version, headers, cookies)
   - `chunk_send_token.pony` — Opaque chunk send token (`ChunkSendToken val`, `Equatable`, private constructor)
-  - `http_server_lifecycle_event_receiver.pony` — HTTP callback trait (`HTTPServerLifecycleEventReceiver`: on_request, on_body_chunk, on_request_complete, on_chunk_sent, on_closed, on_throttled, on_unthrottled)
+  - `http_server_lifecycle_event_receiver.pony` — HTTP callback trait (`HTTPServerLifecycleEventReceiver`: on_request, on_body_chunk, on_request_complete, on_chunk_sent, on_closed, on_throttled, on_unthrottled, on_timer)
   - `http_server_actor.pony` — Server actor trait (`HTTPServerActor`: extends `TCPConnectionActor` and `HTTPServerLifecycleEventReceiver`, provides `_connection()` default)
   - `stallion.pony` — Package docstring
   - `http_server.pony` — Protocol class (`HTTPServer`: owns TCP connection + parser + URI parsing + response queue, implements `ServerLifecycleEventReceiver` + `_RequestParserNotify` + `_ResponseQueueNotify`)
@@ -79,7 +79,7 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `max_requests_per_connection.pony` — Constrained type for max requests limit (`MaxRequestsPerConnection`, `MakeMaxRequestsPerConnection`, validator)
   - `server_config.pony` — Server configuration (`ServerConfig` class with `max_requests_per_connection: (MaxRequestsPerConnection | None)`, `DefaultIdleTimeout` primitive)
   - `_error_response.pony` — Pre-built error response strings (`_ErrorResponse` primitive)
-  - `_connection_state.pony` — Connection lifecycle states (`_Active`, `_Closed`; routes `on_sent` for chunk token delivery)
+  - `_connection_state.pony` — Connection lifecycle states (`_Active`, `_Closed`; dispatches lori events to server handler methods)
   - `request_cookie.pony` — Single parsed cookie name-value pair (`RequestCookie val`, private constructor)
   - `request_cookies.pony` — Immutable collection of parsed request cookies (`RequestCookies val`, `get()`, `values()`, `size()`)
   - `parse_cookies.pony` — Cookie parser (`ParseCookies` primitive: `from_headers()`, `apply()`, lenient RFC 6265 §5.4 parsing)
@@ -104,5 +104,6 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `hello/main.pony` — Greeting server with URI parsing and query parameter extraction
   - `negotiate/main.pony` — Content negotiation server responding with JSON or plain text based on Accept header
   - `ssl/main.pony` — HTTPS server using SSL/TLS
+  - `request_timeout/main.pony` — Request processing deadline using `set_timer()`/`cancel_timer()`/`on_timer()`
   - `streaming/main.pony` — Flow-controlled chunked transfer encoding streaming response using `on_chunk_sent()` callbacks
   - `yield/main.pony` — Scheduler fairness via `HTTPServer.yield_read()` with a request-count-based yield policy

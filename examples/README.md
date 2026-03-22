@@ -18,6 +18,10 @@ Content negotiation server that responds with JSON or plain text based on the cl
 
 HTTPS server using SSL/TLS. Demonstrates creating an `SSLContext`, loading certificate and key files, and passing the context to connection actors via `_on_accept`. Actors use `HTTPServer.ssl` instead of `HTTPServer` to create an HTTPS connection.
 
+## [request_timeout](request_timeout/)
+
+Request processing deadline that sets a 5-second timer then delegates to a worker actor. If the worker responds before the deadline, the timer is cancelled and the result is sent. If the deadline fires first, the server responds with 408 Request Timeout. Demonstrates `HTTPServer.set_timer()`, `HTTPServer.cancel_timer()`, and `on_timer()` on `HTTPServerLifecycleEventReceiver` in a deadline pattern.
+
 ## [streaming](streaming/)
 
 Streams responses using chunked transfer encoding with flow-controlled delivery driven by `on_chunk_sent()` callbacks. Demonstrates matching on `StartChunkedResponseResult` from `start_chunked_response()`, then using `send_chunk()`, `finish_response()`, and `on_chunk_sent()` on `Responder` and `HTTPServerLifecycleEventReceiver`. The actor sends the first chunk in `on_request()`, then each `on_chunk_sent()` callback triggers the next chunk — natural backpressure without timers or manual windowing.
