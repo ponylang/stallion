@@ -93,3 +93,7 @@ New API:
 - `HTTPServer.cancel_timer(token: lori.TimerToken)` -- cancel an active timer
 - `HTTPServerLifecycleEventReceiver.on_timer(token: lori.TimerToken)` -- callback when the timer fires
 
+## Fix crash when dispose() arrives before connection initialization
+
+Fixed a crash that could occur when `dispose()` was called on a connection actor before its internal initialization completed. The race between initialization and disposal is unlikely but was observed on macOS arm64 CI.
+
