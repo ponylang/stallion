@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a CHANGELOG](http://keepachangelog.com/).
 
-## [unreleased] - unreleased
+## [0.5.3] - 2026-03-28
 
 ### Fixed
 
@@ -11,9 +11,6 @@ All notable changes to this project will be documented in this file. This projec
 ### Added
 
 - Add one-shot timer API ([PR #89](https://github.com/ponylang/stallion/pull/89))
-
-### Changed
-
 
 ## [0.5.2] - 2026-03-22
 
