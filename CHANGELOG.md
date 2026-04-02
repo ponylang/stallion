@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Added
 
+- Add on_start_failure callback to HTTPServerLifecycleEventReceiver ([PR #93](https://github.com/ponylang/stallion/pull/93))
 
 ### Changed
 
