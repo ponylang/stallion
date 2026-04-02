@@ -2319,5 +2319,97 @@ actor \nodoc\ _TestSSLStreamClient is
     end
 
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
-    _h.fail("SSL client connection failed")
+    _h.fail("SSL stream client connection failed")
     _h.complete(false)
+
+// ---------------------------------------------------------------------------
+// SSL test: start failure (plain client connects to SSL server)
+// ---------------------------------------------------------------------------
+
+class \nodoc\ iso _TestSSLStartFailure is UnitTest
+  """
+  Connect a plain TCP client to an SSL server. The SSL handshake fails,
+  triggering `on_start_failure(StartFailedSSL)` on the server actor.
+  Verifies the callback fires instead of silently swallowing the failure.
+  """
+  fun name(): String => "server/ssl start failure"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let sslctx =
+      try _TestSSLContext(h.env.root)?
+      else
+        h.fail("Unable to set up SSL context")
+        h.complete(false)
+        return
+      end
+    let port = "45913"
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let config = ServerConfig(host, port)
+    let listener = _TestServerListener(h, port,
+      _TestStartFailureServerFactory(h), config,
+      {(h': TestHelper, port': String) =>
+        // Connect with plain TCP (no SSL) to trigger SSL handshake failure
+        let client = _TestPlainTCPClient(h', port')
+        h'.dispose_when_done(client)
+      }
+      where ssl_ctx = sslctx)
+    h.dispose_when_done(listener)
+
+class \nodoc\ val _TestStartFailureServerFactory is _TestConnectionFactory
+  let _h: TestHelper
+
+  new val create(h: TestHelper) =>
+    _h = h
+
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None)
+  ): lori.TCPConnectionActor =>
+    _TestStartFailureServer(auth, fd, config, ssl_ctx, _h)
+
+actor \nodoc\ _TestStartFailureServer is HTTPServerActor
+  var _http: HTTPServer = HTTPServer.none()
+  let _h: TestHelper
+
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None),
+    h: TestHelper)
+  =>
+    _h = h
+    _http = match ssl_ctx
+    | let ctx: ssl_net.SSLContext val =>
+      HTTPServer.ssl(auth, ctx, fd, this, config)
+    else
+      HTTPServer(auth, fd, this, config)
+    end
+
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref on_start_failure(reason: lori.StartFailureReason) =>
+    match reason
+    | lori.StartFailedSSL => _h.complete(true)
+    end
+
+actor \nodoc\ _TestPlainTCPClient is
+  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
+  """
+  Plain TCP client that sends non-SSL data to trigger a handshake
+  failure on an SSL server.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+
+  new create(h: TestHelper, port: String) =>
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    _tcp_connection = lori.TCPConnection.client(
+      lori.TCPConnectAuth(h.env.root), host, port, "", this, this)
+
+  fun ref _connection(): lori.TCPConnection => _tcp_connection
+
+  fun ref _on_connected() =>
+    _tcp_connection.send("NOT AN SSL HANDSHAKE\r\n")

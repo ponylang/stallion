@@ -200,3 +200,4 @@ actor \nodoc\ Main is TestList
     test(_TestSSLConnectionClose)
     test(_TestSSLParseError)
     test(_TestSSLStreamingResponse)
+    test(_TestSSLStartFailure)

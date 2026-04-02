@@ -122,8 +122,10 @@ class HTTPServer is
     _state.on_closed(this)
 
   fun ref _on_start_failure(reason: lori.StartFailureReason) =>
-    // Connection failed before _on_started — receiver was never activated.
-    // Don't call _receiver.on_closed(); just mark as closed for GC.
+    match \exhaustive\ _lifecycle_event_receiver
+    | let r: HTTPServerLifecycleEventReceiver ref => r.on_start_failure(reason)
+    | None => _Unreachable()
+    end
     _state = _Closed
 
   fun ref _on_throttled() =>

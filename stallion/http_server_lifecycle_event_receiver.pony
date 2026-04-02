@@ -58,7 +58,24 @@ trait ref HTTPServerLifecycleEventReceiver
     Called when the connection closes.
 
     Fires on client disconnect, server-initiated close, or any other
-    reason. Not called if the connection fails before starting.
+    reason. Not called if the connection fails before starting — see
+    `on_start_failure()` for that case.
+    """
+    None
+
+  fun ref on_start_failure(reason: lori.StartFailureReason) =>
+    """
+    Called when a connection fails before starting.
+
+    Fires when the TCP connection was accepted but never reached the
+    HTTP-ready state — for example, when an SSL handshake fails. The
+    `reason` identifies the cause (currently `lori.StartFailedSSL`).
+
+    Neither `on_request()` nor `on_closed()` will fire for this
+    connection. This is the only notification the actor receives.
+
+    Override this to log or take action on connection failures. The
+    default is a no-op.
     """
     None
 
