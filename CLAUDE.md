@@ -16,7 +16,7 @@ The `ssl` option is required because this library and lori depend on the `ssl` p
 
 Package: `stallion` (repo name is `stallion`, Pony package name is `stallion`)
 
-Built on lori (v0.13.0). Lori provides raw TCP I/O with a connection-actor model: `_on_received(data: Array[U8] iso)` for incoming data, `TCPConnection.send(data): (SendToken | SendError)` for outgoing, plus backpressure notifications, SSL support, per-connection ASIO-level idle timers, and general-purpose one-shot timers.
+Built on lori (v0.13.1). Lori provides raw TCP I/O with a connection-actor model: `_on_received(data: Array[U8] iso)` for incoming data, `TCPConnection.send(data): (SendToken | SendError)` for outgoing, plus backpressure notifications, SSL support, per-connection ASIO-level idle timers, and general-purpose one-shot timers.
 
 ### Key design decisions
 
