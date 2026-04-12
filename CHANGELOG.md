@@ -6,11 +6,14 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Fix potential connection hang when timer event subscription fails ([PR #97](https://github.com/ponylang/stallion/pull/97))
 
 ### Added
 
 
 ### Changed
+
+- Require ponyc 0.63.1 or later ([PR #97](https://github.com/ponylang/stallion/pull/97))
 
 
 ## [0.5.5] - 2026-04-07
