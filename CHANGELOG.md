@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a CHANGELOG](http://keepachangelog.com/).
 
-## [unreleased] - unreleased
+## [0.6.1] - 2026-04-14
 
 ### Fixed
 
@@ -11,9 +11,6 @@ All notable changes to this project will be documented in this file. This projec
 ### Added
 
 - Add `on_timer_failure` callback ([PR #98](https://github.com/ponylang/stallion/pull/98))
-
-### Changed
-
 
 ## [0.6.0] - 2026-04-12
 
