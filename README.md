@@ -67,7 +67,7 @@ actor MyServer is stallion.HTTPServerActor
     responder.respond(response)
 ```
 
-For streaming responses, use chunked transfer encoding with flow-controlled delivery via `on_chunk_sent()` callbacks. For HTTPS, use `stallion.HTTPServer.ssl` instead of `stallion.HTTPServer`. See the [examples](examples/) for complete working programs demonstrating query parameter extraction, SSL/TLS, and streaming.
+For streaming responses, use chunked transfer encoding with flow-controlled delivery via `on_chunk_sent()` callbacks. For HTTPS, use `stallion.HTTPServer.ssl` instead of `stallion.HTTPServer`. See the [examples](examples/) for complete working programs demonstrating query parameter extraction, HEAD handling, SSL/TLS, and streaming.
 
 ## API Documentation
 

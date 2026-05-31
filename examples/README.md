@@ -6,6 +6,10 @@ Each subdirectory is a self-contained Pony program demonstrating a different par
 
 Greeting server that responds with "Hello, World!" by default, or "Hello, {name}!" when a `?name=X` query parameter is provided. Demonstrates the core API: a listener actor implements `lori.TCPListenerActor`, creates connection actors in `_on_accept`, and each connection actor uses `HTTPServerActor`, `HTTPServer`, `Request`, `Responder`, `ResponseBuilder`, and `ServerConfig`. Start here if you're new to the library.
 
+## [head](head/)
+
+HTTP server that handles `HEAD` correctly: a `GET` gets a body, a `HEAD` gets the same headers, including `Content-Length`, with no body. Demonstrates branching on `Request.method` and building a response that omits the body chunk for `HEAD`. Stallion sends exactly what the handler builds and never rewrites a response, so suppressing the body is the handler's responsibility.
+
 ## [cookies](cookies/)
 
 Visit counter that reads the `visits` cookie from incoming requests, increments it, and sets it back via `Set-Cookie`. Demonstrates both `Request.cookies` for reading cookies parsed from request headers and `SetCookieBuilder` for building validated `Set-Cookie` response headers with secure defaults.

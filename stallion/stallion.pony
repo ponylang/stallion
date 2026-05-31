@@ -52,6 +52,29 @@ actor MyServer is stallion.HTTPServerActor
     responder.respond(response)
 ```
 
+Stallion sends exactly the bytes you build. It does not inspect your response
+and it does not rewrite it, so what you hand to `respond()` is what goes on the
+wire. That keeps method-specific rules in your hands. The most common one to
+get wrong is HEAD: a HEAD response must carry the same headers a GET would,
+including `Content-Length`, but no body. Stallion will not strip the body for
+you, so build the response without one. Set the headers, then add the body
+chunk only when the method is not HEAD:
+
+```pony
+fun ref on_request_complete(request': stallion.Request val,
+  responder: stallion.Responder)
+=>
+  let body: String val = "Hello, World!"
+  let response = stallion.ResponseBuilder(stallion.StatusOK)
+    .add_header("Content-Type", "text/plain")
+    .add_header("Content-Length", body.size().string())
+    .finish_headers()
+  if not (request'.method is stallion.HEAD) then
+    response.add_chunk(body)
+  end
+  responder.respond(response.build())
+```
+
 For streaming responses, use chunked transfer encoding.
 `start_chunked_response()` returns a `stallion.StartChunkedResponseResult`
 indicating success or the reason for failure. Each `send_chunk()` returns a
