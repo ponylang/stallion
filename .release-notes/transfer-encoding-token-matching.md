@@ -1,0 +1,5 @@
+## Reject malformed and unsupported Transfer-Encoding values
+
+Previously, Stallion decided whether a request body was chunked by checking if the `Transfer-Encoding` header value contained the substring `chunked` anywhere. A value like `x-chunked-fake` matched, with two bad outcomes: a request with such a header and no body left the connection open forever with no response, and a request that did supply a chunked-shaped body was accepted as if its (unknown) transfer coding were understood.
+
+Stallion now treats `Transfer-Encoding` as the comma-separated list of transfer codings it actually is, matching `chunked` exactly and case-insensitively. The only supported coding is `chunked`, and it must be the final coding. A value naming a coding Stallion does not implement (for example `gzip` or `x-chunked-fake`) is answered with `501 Not Implemented`. A value that cannot frame the message — empty, `chunked` listed more than once, or `chunked` applied before another coding — is answered with `400 Bad Request`. In both cases the connection is closed instead of hanging.

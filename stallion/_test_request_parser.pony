@@ -855,3 +855,252 @@ class \nodoc\ iso _TestDataAfterError is UnitTest
       "still 1 error after second parse")
     h.assert_eq[USize](0, notify.requests.size(),
       "0 requests (parser is failed)")
+
+class \nodoc\ iso _TestTransferEncodingUnknownNoBody is UnitTest
+  """
+  Unknown transfer coding (substring of "chunked") with no body →
+  UnsupportedTransferEncoding, no request delivered, no hang. Regression
+  for the substring-match DoS (issue #101).
+  """
+  fun name(): String => "parser/transfer_encoding_unknown_no_body"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Host: localhost\r\n" +
+      "Transfer-Encoding: x-chunked-fake\r\n" +
+      "Connection: close\r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "no request delivered")
+    h.assert_eq[USize](0, notify.completed, "no completion")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is UnsupportedTransferEncoding,
+        "should be UnsupportedTransferEncoding")
+    end
+
+class \nodoc\ iso _TestTransferEncodingUnknownWithChunkedBody is UnitTest
+  """
+  Unknown transfer coding with a valid chunked body → still rejected as
+  UnsupportedTransferEncoding, not accepted as 200. Regression for the
+  silent-acceptance half of issue #101.
+  """
+  fun name(): String => "parser/transfer_encoding_unknown_with_body"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Host: localhost\r\n" +
+      "Transfer-Encoding: x-chunked-fake\r\n" +
+      "Connection: close\r\n\r\n" +
+      "0\r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "no request delivered")
+    h.assert_eq[USize](0, notify.completed, "no completion")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is UnsupportedTransferEncoding,
+        "should be UnsupportedTransferEncoding")
+    end
+
+class \nodoc\ iso _TestTransferEncodingGzipChunked is UnitTest
+  """`gzip, chunked` → unimplemented coding → UnsupportedTransferEncoding."""
+  fun name(): String => "parser/transfer_encoding_gzip_chunked"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Transfer-Encoding: gzip, chunked\r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "no request delivered")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is UnsupportedTransferEncoding,
+        "should be UnsupportedTransferEncoding")
+    end
+
+class \nodoc\ iso _TestTransferEncodingChunkedNotFinal is UnitTest
+  """`chunked, gzip` → chunked not final → InvalidTransferEncoding."""
+  fun name(): String => "parser/transfer_encoding_chunked_not_final"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Transfer-Encoding: chunked, gzip\r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "no request delivered")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is InvalidTransferEncoding,
+        "should be InvalidTransferEncoding")
+    end
+
+class \nodoc\ iso _TestTransferEncodingDuplicateChunked is UnitTest
+  """`chunked, chunked` → chunked applied twice → InvalidTransferEncoding."""
+  fun name(): String => "parser/transfer_encoding_duplicate_chunked"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Transfer-Encoding: chunked, chunked\r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "no request delivered")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is InvalidTransferEncoding,
+        "should be InvalidTransferEncoding")
+    end
+
+class \nodoc\ iso _TestTransferEncodingEmpty is UnitTest
+  """Empty `Transfer-Encoding:` value → InvalidTransferEncoding."""
+  fun name(): String => "parser/transfer_encoding_empty"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Transfer-Encoding: \r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "no request delivered")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is InvalidTransferEncoding,
+        "should be InvalidTransferEncoding")
+    end
+
+class \nodoc\ iso _TestTransferEncodingUppercase is UnitTest
+  """`CHUNKED` (uppercase) is matched case-insensitively → chunked framing."""
+  fun name(): String => "parser/transfer_encoding_uppercase"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Transfer-Encoding: CHUNKED\r\n\r\n" +
+      "5\r\nHello\r\n0\r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](1, notify.requests.size(), "1 request")
+    h.assert_eq[USize](1, notify.completed, "1 completion")
+    h.assert_eq[USize](0, notify.errors.size(), "0 errors")
+    h.assert_eq[String val]("Hello", notify.collected_body_string())
+
+class \nodoc\ iso _TestTransferEncodingWithParams is UnitTest
+  """`chunked; foo=bar` → parameters stripped → chunked framing."""
+  fun name(): String => "parser/transfer_encoding_with_params"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Transfer-Encoding: chunked; foo=bar\r\n\r\n" +
+      "5\r\nHello\r\n0\r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](1, notify.requests.size(), "1 request")
+    h.assert_eq[USize](1, notify.completed, "1 completion")
+    h.assert_eq[USize](0, notify.errors.size(), "0 errors")
+    h.assert_eq[String val]("Hello", notify.collected_body_string())
+
+class \nodoc\ iso _TestTransferEncodingTrailingComma is UnitTest
+  """`chunked,` → empty element ignored → chunked framing."""
+  fun name(): String => "parser/transfer_encoding_trailing_comma"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Transfer-Encoding: chunked,\r\n\r\n" +
+      "5\r\nHello\r\n0\r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](1, notify.requests.size(), "1 request")
+    h.assert_eq[USize](1, notify.completed, "1 completion")
+    h.assert_eq[USize](0, notify.errors.size(), "0 errors")
+    h.assert_eq[String val]("Hello", notify.collected_body_string())
+
+class \nodoc\ iso _TestTransferEncodingEvaluate is UnitTest
+  """
+  Direct coverage of the `_TransferEncoding` tokenizer + decision tree,
+  including cases awkward to express through header lines.
+  """
+  fun name(): String => "parser/transfer_encoding_evaluate"
+
+  fun apply(h: TestHelper) =>
+    _check(h, "chunked", "chunked")
+    _check(h, "CHUNKED", "chunked")
+    _check(h, "  chunked  ", "chunked")
+    _check(h, "chunked; q=1", "chunked")
+    _check(h, "chunked,", "chunked")
+    _check(h, ",chunked", "chunked")
+    _check(h, "gzip, chunked", "unsupported")
+    _check(h, "gzip", "unsupported")
+    _check(h, "x-chunked-fake", "unsupported")
+    _check(h, "chunkedfake", "unsupported")
+    _check(h, "chunked, gzip", "invalid")
+    _check(h, "chunked, chunked", "invalid")
+    _check(h, "", "invalid")
+    _check(h, " , ", "invalid")
+    // Only SP and HTAB are OWS; a coding wrapped in other control bytes
+    // (here a vertical tab) must not normalize to the `chunked` token.
+    let vtab: String val = recover val
+      String.>push(0x0b).>append("chunked").>push(0x0b)
+    end
+    _check(h, vtab, "unsupported")
+
+  fun _check(h: TestHelper, value: String val, expected: String) =>
+    let tokens = Array[String]
+    _TransferEncoding.append_codings(value, tokens)
+    let actual =
+      match \exhaustive\ _TransferEncoding.evaluate(tokens)
+      | _ChunkedFraming => "chunked"
+      | UnsupportedTransferEncoding => "unsupported"
+      | InvalidTransferEncoding => "invalid"
+      end
+    h.assert_eq[String](expected, actual,
+      "value=\"" + value + "\"")
+
+class \nodoc\ iso _TestTransferEncodingMultiLine is UnitTest
+  """
+  Codings spread across multiple `Transfer-Encoding` header lines are
+  combined in order (RFC 9112 §6.1): `gzip` then `chunked` →
+  `chunked` is final but `gzip` is unimplemented → UnsupportedTransferEncoding.
+  """
+  fun name(): String => "parser/transfer_encoding_multi_line"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Transfer-Encoding: gzip\r\n" +
+      "Transfer-Encoding: chunked\r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "no request delivered")
+    h.assert_eq[USize](0, notify.completed, "no completion")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is UnsupportedTransferEncoding,
+        "should be UnsupportedTransferEncoding")
+    end

@@ -206,7 +206,8 @@ class _ExpectHeaders is _ParserState
   let _config: _ParserConfig
   var _headers: Headers iso = recover iso Headers end
   var _content_length: (USize | None) = None
-  var _chunked: Bool = false
+  var _has_transfer_encoding: Bool = false
+  embed _te_codings: Array[String] = Array[String]
   var _total_header_bytes: USize = 0
 
   new create(
@@ -236,6 +237,20 @@ class _ExpectHeaders is _ParserState
             return BodyTooLarge
           end
 
+          // Evaluate Transfer-Encoding before delivering the request, so
+          // unsupported (501) or invalid (400) codings are rejected without
+          // firing on_request. Only `chunked`, as the final coding, frames a
+          // body (RFC 9112 §6.1/§6.3).
+          let use_chunked: Bool =
+            if _has_transfer_encoding then
+              match \exhaustive\ _TransferEncoding.evaluate(_te_codings)
+              | _ChunkedFraming => true
+              | let e: ParseError => return e
+              end
+            else
+              false
+            end
+
           // Destructive read: swap out headers as val, replace with empty
           let headers: Headers val =
             (_headers = recover iso Headers end)
@@ -244,8 +259,8 @@ class _ExpectHeaders is _ParserState
           p.handler.request_received(_method, _uri, _version, headers)
 
           // Determine body handling: Transfer-Encoding takes precedence
-          // over Content-Length per RFC 7230 §3.3.3
-          if _chunked then
+          // over Content-Length per RFC 9112 §6.3
+          if use_chunked then
             p.state = _ExpectChunkHeader(0, _config)
             return _ParseContinue
           end
@@ -335,9 +350,8 @@ class _ExpectHeaders is _ParserState
           | InvalidContentLength => return InvalidContentLength
           end
         elseif lower_name == "transfer-encoding" then
-          if value.lower().contains("chunked") then
-            _chunked = true
-          end
+          _has_transfer_encoding = true
+          _TransferEncoding.append_codings(value, _te_codings)
         end
 
         _headers.add(name, value)

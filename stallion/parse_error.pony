@@ -36,7 +36,27 @@ primitive BodyTooLarge
   """Request body exceeds the configured maximum body size."""
   fun string(): String iso^ => "BodyTooLarge".clone()
 
+primitive InvalidTransferEncoding
+  """
+  Transfer-Encoding is syntactically valid but cannot frame the message.
+
+  Raised when the field is empty, lists `chunked` more than once, or
+  applies `chunked` before the final coding (RFC 9112 §6.1/§6.3). The
+  message length is undeterminable, so the request is rejected.
+  """
+  fun string(): String iso^ => "InvalidTransferEncoding".clone()
+
+primitive UnsupportedTransferEncoding
+  """
+  Transfer-Encoding names a transfer coding the server does not implement.
+
+  Stallion only understands `chunked`. Any other coding (e.g. `gzip`),
+  alone or alongside `chunked`, is rejected per RFC 9112 §6.3.
+  """
+  fun string(): String iso^ => "UnsupportedTransferEncoding".clone()
+
 type ParseError is
   (TooLarge | UnknownMethod | InvalidURI | InvalidVersion | MalformedHeaders
-  | InvalidContentLength | InvalidChunk | BodyTooLarge)
+  | InvalidContentLength | InvalidChunk | BodyTooLarge
+  | InvalidTransferEncoding | UnsupportedTransferEncoding)
   """Parse error encountered during HTTP request parsing."""

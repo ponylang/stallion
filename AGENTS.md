@@ -81,9 +81,10 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `headers.pony` — Case-insensitive header collection (`Headers` class, stores `Array[Header val]`)
   - `_response_serializer.pony` — Response wire-format serializer (package-private)
   - `_mort.pony` — Runtime enforcement primitives (`_IllegalState`, `_Unreachable`)
-  - `parse_error.pony` — Parse error types (`ParseError` union, 8 error primitives)
+  - `parse_error.pony` — Parse error types (`ParseError` union, 10 error primitives)
   - `_parser_config.pony` — Parser size limit configuration
   - `_request_parser_notify.pony` — Parser callback trait (synchronous `ref` methods)
+  - `_transfer_encoding.pony` — Transfer-Encoding tokenizer and RFC 9112 §6.1/§6.3 coding decision (`_TransferEncoding` primitive, `_ChunkedFraming` sentinel)
   - `_parser_state.pony` — Parser state machine (state interface, 6 state classes, `_BufferScan`)
   - `_request_parser.pony` — Request parser class (entry point, buffer management)
   - `request.pony` — Immutable request metadata bundle (`Request val`: method, URI, version, headers, cookies)
