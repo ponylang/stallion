@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Fixed
 
 - Reject malformed and unsupported Transfer-Encoding values ([PR #115](https://github.com/ponylang/stallion/pull/115))
+- Fix Connection: close handling ([PR #118](https://github.com/ponylang/stallion/pull/118))
 
 ### Added
 
