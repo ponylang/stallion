@@ -466,8 +466,25 @@ class \nodoc\ iso _PropertyKeepAliveDecision
           None; "close"; "Close"; "CLOSE"
           "keep-alive"; "Keep-Alive"; "KEEP-ALIVE"])
 
+    // Single-token unrecognized values. The oracle below does not tokenize,
+    // so a generated value must be a single token (no comma) that the
+    // implementation also treats as unrecognized. The implementation
+    // normalizes each token by stripping OWS (" \t") and lowercasing before
+    // matching, and `ascii_printable` can emit SP/HTAB, so we exclude any
+    // value whose normalized form is "close"/"keep-alive" — otherwise the
+    // implementation recognizes it while the oracle does not. Multi-token and
+    // close-precedence behavior is covered by _PropertyKeepAliveCloseAlwaysWins
+    // and _TestKeepAliveMultiToken, which exercise the tokenizer.
     let random_gen: Generator[(String val | None)] =
       Generators.ascii_printable(1, 20)
+        .filter(
+          {(s: String val): (String val, Bool) =>
+            let normalized = s.clone()
+            normalized.strip(" \t")
+            let nlower = normalized.lower()
+            (s, (not s.contains(","))
+              and (nlower != "close")
+              and (nlower != "keep-alive"))})
         .map[(String val | None)](
           {(s: String val): (String val | None) => s})
 
@@ -507,6 +524,104 @@ class \nodoc\ iso _PropertyKeepAliveDecision
       ph.assert_true(result, "HTTP/1.1 default should be keep-alive")
     else
       ph.assert_false(result, "HTTP/1.0 default should be close")
+    end
+
+class \nodoc\ iso _PropertyKeepAliveCloseAlwaysWins
+  is Property1[(String val, Array[String val] ref, USize, Version)]
+  """
+  A `close` token anywhere in the Connection list closes the connection,
+  regardless of HTTP version, token position, case, surrounding whitespace,
+  or the presence of `keep-alive` (RFC 9112 §9.6 close precedence).
+
+  Each sample builds a comma-separated list that always contains one `close`
+  token (case/OWS varied) inserted at a varied position among filler tokens
+  that may include `keep-alive`. The oracle is the constant `false` — it does
+  not reimplement the tokenizer, so it cannot mirror an implementation bug.
+  """
+  fun name(): String => "keep-alive/close_always_wins"
+
+  fun gen(): Generator[(String val, Array[String val] ref, USize, Version)] =>
+    // `close` with varied case and surrounding optional whitespace (SP/HTAB).
+    let close_gen = Generators.one_of[String val](
+      [as String val:
+        "close"; "Close"; "CLOSE"; "cLoSe"
+        " close "; "close "; "  close"; "\tclose\t"])
+    // Filler tokens that are never `close`; `keep-alive` is included so the
+    // property exercises close winning over a keep-alive token.
+    let filler_gen = Generators.array_of[String val](
+      Generators.one_of[String val](
+        [as String val: "keep-alive"; "Keep-Alive"; "Upgrade"; "te"; "x-foo"]),
+      0, 4)
+    // Insertion position for the close token (mod size+1 in the property).
+    let pos_gen = Generators.usize(0, 8)
+    let version_gen = Generators.one_of[Version](
+      [as Version: HTTP10; HTTP11])
+    Generators.zip4[String val, Array[String val] ref, USize, Version](
+      close_gen, filler_gen, pos_gen, version_gen)
+
+  fun ref property(
+    arg1: (String val, Array[String val] ref, USize, Version),
+    ph: PropertyHelper)
+  =>
+    (let close_tok, let fillers, let raw_pos, let version) = arg1
+    let pos = raw_pos % (fillers.size() + 1)
+    let tokens = Array[String val]
+    var i: USize = 0
+    for f in fillers.values() do
+      if i == pos then tokens.push(close_tok) end
+      tokens.push(f)
+      i = i + 1
+    end
+    if pos == fillers.size() then tokens.push(close_tok) end
+
+    let connection: String val = ",".join(tokens.values())
+    ph.assert_false(_KeepAliveDecision(version, connection),
+      "close anywhere must close; value was: " + connection)
+
+class \nodoc\ iso _TestKeepAliveMultiToken is UnitTest
+  """
+  Multi-token and degenerate Connection values, decided by
+  `_KeepAliveDecision`. Covers close precedence in both orders, real-world
+  multi-token values, exact-token (never substring) matching, OWS and case
+  handling, degenerate forms, and the version default — including the `None`
+  (no header) case.
+  """
+  fun name(): String => "keep-alive/multi_token"
+
+  fun apply(h: TestHelper) =>
+    // (version, connection, expected keep-alive)
+    let cases: Array[(Version, (String val | None), Bool)] =
+      [ (HTTP11, None, true); (HTTP10, None, false)
+        // close precedence, both orders, both versions
+        (HTTP11, "keep-alive, close", false)
+        (HTTP11, "close, keep-alive", false)
+        (HTTP10, "keep-alive, close", false)
+        (HTTP10, "close, keep-alive", false)
+        // values from issue #105
+        (HTTP11, "close, x-fake-option", false)
+        (HTTP11, "x-fake-option, close", false)
+        // real-world multi-token values
+        (HTTP11, "keep-alive, Upgrade", true)
+        (HTTP10, "keep-alive, Upgrade", true)
+        (HTTP11, "close, TE", false)
+        // exact-token matching, never substring -> version default
+        (HTTP11, "closed", true)
+        (HTTP11, "x-close", true)
+        (HTTP10, "keep-alive-ish", false)
+        // degenerate -> version default
+        (HTTP11, "", true); (HTTP11, ",", true); (HTTP11, "   ", true)
+        // leading/trailing comma around close
+        (HTTP11, "close,", false); (HTTP11, ",close", false)
+        // OWS and case
+        (HTTP11, "  close  ", false); (HTTP11, "CLOSE", false)
+        (HTTP11, "keep-alive , close", false)
+        // all-unknown -> version default, both versions
+        (HTTP10, "foo, bar", false); (HTTP11, "foo, bar", true) ]
+    for (version, connection, expected) in cases.values() do
+      let result = _KeepAliveDecision(version, connection)
+      let shown = match connection | let s: String val => s | None => "None" end
+      h.assert_eq[Bool](expected, result,
+        "version=" + version.string() + " connection=" + shown)
     end
 
 // ---------------------------------------------------------------------------
