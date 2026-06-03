@@ -19,6 +19,16 @@ actor \nodoc\ Main is TestList
       _PropertyHeadersSetReplaces))
     test(Property1UnitTest[(String val, String val, String val)](
       _PropertyHeadersAddPreserves))
+    test(Property1UnitTest[(String val, Array[String val] ref)](
+      _PropertyGetCombinesListField))
+    test(Property1UnitTest[(String val, Array[String val] ref)](
+      _PropertyGetFirstValueNonListField))
+    test(_TestHeadersListNoMatchNone)
+    test(_TestHeadersDeniedNotCombined)
+    test(_TestHeadersCombineSeparatorEdges)
+    test(_TestKeepAliveMultiLineViaGet)
+    test(_TestListValuedHeadersAllowlist)
+    test(_TestListValuedHeadersDenyDisjoint)
 
     // Response serializer tests
     test(Property1UnitTest[_ResponseInput](
@@ -97,9 +107,12 @@ actor \nodoc\ Main is TestList
     test(_TestServerTimerFires)
     test(_TestServerTimerCancelled)
 
-    // Keep-alive decision property test
+    // Keep-alive decision tests
     test(Property1UnitTest[(Version, (String val | None))](
       _PropertyKeepAliveDecision))
+    test(Property1UnitTest[(String val, Array[String val] ref, USize, Version)](
+      _PropertyKeepAliveCloseAlwaysWins))
+    test(_TestKeepAliveMultiToken)
 
     // Chunked encoder tests
     test(Property1UnitTest[Array[U8] val](

@@ -45,15 +45,40 @@ class Headers
 
   fun get(name: String): (String | None) =>
     """
-    Get the first value for the given header name (case-insensitive).
+    Get the value for the given header name (case-insensitive).
 
+    A known set of comma-separated list fields — such as `Connection`,
+    `Accept`, `Cache-Control`, and the other standard request list fields —
+    are treated specially: the values of all lines with this name are
+    combined into one value, joined by commas in the order they appeared, per
+    RFC 9110 §5.3. For every other field, the first value is returned. A field
+    not in the known set always returns its first value, so combine such a
+    field's repeated lines yourself (via `values()`) if you need them.
     Returns `None` if no header with that name exists.
+
+    The combined value is safe to split on commas for simple-token list
+    fields like `Connection`. Complex list fields whose elements can contain
+    quoted commas (e.g. `Accept`) need a quoted-string-aware tokenizer to
+    split correctly — combining here does not change that.
     """
     let lower_name: String val = name.lower()
-    for hdr in _headers.values() do
-      if hdr.name == lower_name then return hdr.value end
+    if _ListValuedHeaders(lower_name) then
+      let combined: String iso = recover iso String end
+      var found = false
+      for hdr in _headers.values() do
+        if hdr.name == lower_name then
+          if found then combined.append(",") end
+          combined.append(hdr.value)
+          found = true
+        end
+      end
+      if found then consume combined else None end
+    else
+      for hdr in _headers.values() do
+        if hdr.name == lower_name then return hdr.value end
+      end
+      None
     end
-    None
 
   fun size(): USize =>
     """Return the number of header entries."""

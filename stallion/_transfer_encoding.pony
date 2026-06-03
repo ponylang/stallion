@@ -38,6 +38,16 @@ primitive _TransferEncoding
   fun _normalize(raw: String box): String iso^ =>
     """
     Strip parameters and OWS from a single coding, then lowercase it.
+
+    Stallion combines repeated list-valued header lines in three places,
+    each for its own reason: this parser path (Transfer-Encoding must be
+    resolved during parsing, before the body, so it accumulates per line and
+    cannot wait for a complete `Headers`), `ContentNegotiation.from_request`
+    (Accept), and `Headers.get` (everything in `_ListValuedHeaders`,
+    including Connection). Unifying them is tracked in issue #117; until
+    then, this normalizer stays local. `_KeepAliveDecision._normalize` is the
+    near-identical sibling (it omits the `;`-parameter cut, as connection
+    options have none).
     """
     let cut_at: ISize = try raw.find(";")? else raw.size().isize() end
     let coding: String ref = raw.substring(0, cut_at)
