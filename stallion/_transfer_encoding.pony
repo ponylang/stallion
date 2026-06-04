@@ -19,9 +19,10 @@ primitive _TransferEncoding
   fun append_codings(value: String val, tokens: Array[String] ref): Bool =>
     """
     Tokenize one Transfer-Encoding field value and append each normalized
-    coding name to `tokens`. Returns `false` if the value was malformed
-    (an unterminated quoted-string), in which case the caller must treat the
-    whole Transfer-Encoding as invalid rather than trust the tokens.
+    coding name to `tokens`. Returns `false` if the value was malformed — an
+    unterminated quoted-string, or a coding name that is not a valid token — in
+    which case the caller must treat the whole Transfer-Encoding as invalid
+    rather than trust the tokens.
 
     The value is split on `,` with `_QuotedSplit`, which respects quoted
     strings so a comma inside a `quoted-string` transfer-parameter value
@@ -33,13 +34,21 @@ primitive _TransferEncoding
     Transfer-Encoding header lines.
     """
     (let parts, let unterminated) = _QuotedSplit(value, ',')
+    var well_formed = not unterminated
     for raw in parts.values() do
       let coding: String = _normalize(raw)
       if coding.size() > 0 then
-        tokens.push(coding)
+        // A transfer-coding name is a token (RFC 9112 §6.1). A non-token
+        // coding (e.g. an obfuscated `\x0bchunked`) is a syntax error, not an
+        // unimplemented coding, so the value is malformed rather than 501.
+        if _Token.valid(coding) then
+          tokens.push(coding)
+        else
+          well_formed = false
+        end
       end
     end
-    not unterminated
+    well_formed
 
   fun _normalize(raw: String box): String iso^ =>
     """

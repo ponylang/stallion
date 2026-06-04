@@ -70,8 +70,31 @@ class _RequestParser
     """
     _failed = true
 
+  fun box failed(): Bool =>
+    """
+    Whether the parser has stopped (a parse error fired, or a handler called
+    `stop()` during a callback). A state that invokes a handler callback which
+    may reject the request (e.g. delivering a request whose Host the protocol
+    layer rejects) must check this before firing further callbacks.
+    """
+    _failed
+
+  fun ref scanned_line(line: _Line): _ScannedLine =>
+    """
+    Extract a `_LineScan` line's content as a `_ScannedLine` token — the only
+    intended way to produce one. Requiring a `_Line` ties the token to the line
+    policy, so the gates that consume it cannot be fed un-scanned bytes.
+    """
+    _ScannedLine(extract_string(line.content_start, line.content_end))
+
   fun ref extract_bytes(from: USize, to: USize): Array[U8] iso^ =>
-    """Copy bytes from buf[from..to) into a new iso array."""
+    """
+    Copy bytes from buf[from..to) into a new iso array.
+
+    Must COPY, not view: callers (the parser states) may hold the result across
+    `parse()` calls, and `parse()` compacts `buf` via `trim_in_place(pos)`. A
+    zero-copy view into `buf` would dangle after compaction.
+    """
     let len = to - from
     let out = recover Array[U8].create(len) end
     var i = from

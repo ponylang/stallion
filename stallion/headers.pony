@@ -43,6 +43,17 @@ class Headers
     """
     _headers.push(Header(name.lower(), value))
 
+  fun ref _add_lowered(name: String val, value: String val) =>
+    """
+    Add a header entry whose name is ALREADY lowercased, skipping the redundant
+    `lower()` that `add` performs.
+
+    Precondition: `name` must already be lowercase — the parser's field-line
+    gate normalizes it. Passing a mixed-case name here breaks case-insensitive
+    `get()`/`set()` lookup, so external callers should use `add` instead.
+    """
+    _headers.push(Header(name, value))
+
   fun get(name: String): (String | None) =>
     """
     Get the value for the given header name (case-insensitive).

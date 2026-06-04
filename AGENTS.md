@@ -34,6 +34,14 @@ make clean           # clean build artifacts
 
 The `ssl` option is required because this library and lori depend on the `ssl` package.
 
+## RFC conformance
+
+Stallion conforms to the HTTP RFCs. We reject what the RFCs say to reject and accept what they say to accept — and we stop there. We do not add non-conformant behavior to compensate for an intermediary that mishandles a *conformant* message.
+
+The distinction matters for request-smuggling defenses. A malformed message the RFCs themselves say to reject — `Content-Length` together with `Transfer-Encoding` (RFC 9112 §6.3), an invalid field name (RFC 9110 §5.6.2, RFC 9112 §5.1), or a field value containing CR, LF, or NUL (RFC 9110 §5.5) — we reject, because rejecting it *is* conformance. But a conformant message that some intermediary might still mishandle is not ours to pre-empt: refusing it would break conformant clients to chase a misbehaving party we cannot fix.
+
+Concretely: a field name containing `_` is a valid RFC 9110 §5.6.2 token, so we accept it — even though an upstream that rewrites `_` to `-` could confuse `X_Forwarded_For` with `X-Forwarded-For`. That rewrite is the upstream's bug, not ours, and refusing a valid token to defend against it would be the wrong trade.
+
 ## Architecture
 
 Package: `stallion` (repo name is `stallion`, Pony package name is `stallion`)
@@ -83,12 +91,19 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `_response_serializer.pony` — Response wire-format serializer (package-private)
   - `_mort.pony` — Runtime enforcement primitives (`_IllegalState`, `_Unreachable`)
   - `_ows.pony` — RFC 9110 §5.6.3 optional whitespace (SP/HTAB) — single source for the OWS predicate, zero-copy trim, and strip charset (`_OWS` primitive)
+  - `_token.pony` — RFC 9110 §5.6.2 token (`tchar`) — single source for the token-character predicate and whole-string validity (`_Token` primitive); used to validate HTTP field names (RFC 9112 §5.1) and cookie names
+  - `_field_value.pony` — RFC 9110 §5.5 field-value validity (`_FieldValue` primitive) — rejects the MUST-reject set (CR, LF, NUL) inside a header value
   - `_quoted_split.pony` — RFC 9110 §5.6.4 quoted-string-aware delimiter split (`_QuotedSplit` primitive) — shared by the Transfer-Encoding and Accept parsers so a delimiter inside a quoted parameter value (including `quoted-pair` escapes) does not split an element; returns `(segments, unterminated)` so the framing path can reject a malformed (unterminated-quote) value while Accept ignores it
-  - `parse_error.pony` — Parse error types (`ParseError` union, 10 error primitives)
+  - `parse_error.pony` — Parse error types (`ParseError` union, 18 error primitives; grammar-aligned per the conformant-by-construction parser. The old overloaded `MalformedHeaders` was retired and removed)
   - `_parser_config.pony` — Parser size limit configuration
   - `_request_parser_notify.pony` — Parser callback trait (synchronous `ref` methods)
-  - `_transfer_encoding.pony` — Transfer-Encoding tokenizer and RFC 9112 §6.1/§6.3 coding decision (`_TransferEncoding` primitive, `_ChunkedFraming` sentinel)
-  - `_parser_state.pony` — Parser state machine (state interface, 6 state classes, `_BufferScan`)
+  - `_transfer_encoding.pony` — Transfer-Encoding tokenizer and RFC 9112 §6.1/§6.3 coding decision (`_TransferEncoding` primitive, `_ChunkedFraming` sentinel); validates each coding is a `token` so an obfuscated coding name is a 400, not a 501
+  - `_line_scan.pony` — RFC 9112 §2.2 line policy (`_LineScan` primitive, `_Line` + `_ScannedLine` classes) — THE single place CR/LF is interpreted, for every line type; rejects bare CR/LF (`BareCRLF`), treats a CR at the buffer edge as need-more (resumability). Replaces the old `find_crlf`, the root cause of the smuggling-bug class. `_ScannedLine` is the typed token (built only via `_RequestParser.scanned_line` from a `_Line`) that the gates require, so a caller cannot feed them un-scanned bytes
+  - `_field_line.pony` — RFC 9112 §5 field-line gate (`_FieldLine` primitive, `_Field` class) — THE single field-line grammar gate (token name, OWS, NUL-in-value, obs-fold), shared verbatim by the header and trailer states so a fix reaches both by construction
+  - `_request_line.pony` — RFC 9112 §3 request line (`_RequestLine` primitive) — exactly-one-SP framing (`InvalidRequestLine`), method/version parse, request-target byte gate (non-empty, VCHAR-only → `InvalidURI`); target delivered raw for the protocol layer to parse into a URI
+  - `_chunk_header.pony` — RFC 9112 §7.1 chunk header (`_ChunkHeader` primitive) — strict `1*HEXDIG` chunk-size (`InvalidChunk`) and validated chunk-ext (token names, token/quoted-string values → `InvalidChunkExtension`), the previously-unvalidated chunk position
+  - `_forbidden_trailers.pony` — RFC 9110 §6.5.1 trailer denylist (`_ForbiddenTrailers` primitive) — framing/routing/control/auth field names rejected in a trailer section (`ForbiddenTrailer`)
+  - `_parser_state.pony` — Parser state machine (state interface, 6 thin state classes that drive `_LineScan`/`_FieldLine`/the gates; no state interprets CR/LF or field-line grammar itself)
   - `_request_parser.pony` — Request parser class (entry point, buffer management)
   - `request.pony` — Immutable request metadata bundle (`Request val`: method, URI, version, headers, cookies)
   - `chunk_send_token.pony` — Opaque chunk send token (`ChunkSendToken val`, `Equatable`, private constructor)
@@ -113,7 +128,7 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `set_cookie_build_error.pony` — Build error types (`InvalidCookieName`, `InvalidCookieValue`, `InvalidCookiePath`, `InvalidCookieDomain`, `CookiePrefixViolation`, `SameSiteRequiresSecure`, `SetCookieBuildError` union)
   - `set_cookie.pony` — Validated, pre-serialized `Set-Cookie` header (`SetCookie val`, `header_value()`, private constructor)
   - `set_cookie_builder.pony` — `Set-Cookie` header builder (`SetCookieBuilder ref`, secure defaults, chaining, prefix rules)
-  - `_cookie_validator.pony` — Cookie name/value/attribute validation (RFC 2616 token, RFC 6265 cookie-octet, path/domain safety)
+  - `_cookie_validator.pony` — Cookie name/value/attribute validation (cookie names via `_Token`, RFC 6265 cookie-octet, path/domain safety)
   - `_http_date.pony` — IMF-fixdate formatter for `Expires` attribute (`_HTTPDate` primitive)
   - `media_type.pony` — HTTP media type (`MediaType val` class, `Equatable & Stringable`)
   - `no_acceptable_type.pony` — Content negotiation failure (`NoAcceptableType` primitive)

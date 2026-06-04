@@ -763,8 +763,9 @@ class \nodoc\ iso _TestContentLengthZero is UnitTest
 
 class \nodoc\ iso _TestContentLengthAndChunked is UnitTest
   """
-  Both Content-Length and Transfer-Encoding: chunked → chunked takes
-  precedence per RFC 7230 §3.3.3.
+  Both Content-Length and Transfer-Encoding present → reject with
+  ContentLengthWithTransferEncoding (RFC 9112 §6.3, request-smuggling vector).
+  A recipient must not silently pick a framing. Closes #114.
   """
   fun name(): String => "parser/content_length_and_chunked"
 
@@ -779,12 +780,11 @@ class \nodoc\ iso _TestContentLengthAndChunked is UnitTest
     let parser = _RequestParser(notify)
     parser.parse(recover raw.array().clone() end)
 
-    h.assert_eq[USize](1, notify.requests.size(), "1 request")
-    h.assert_eq[USize](1, notify.completed, "1 completion")
-    h.assert_eq[USize](0, notify.errors.size(), "0 errors")
-    // Body is 5 bytes (chunked), not 100 (Content-Length)
-    h.assert_eq[String val](
-      "Hello", notify.collected_body_string())
+    h.assert_eq[USize](1, notify.errors.size(), "should have 1 error")
+    try
+      h.assert_true(notify.errors(0)? is ContentLengthWithTransferEncoding,
+        "should be ContentLengthWithTransferEncoding")
+    end
 
 class \nodoc\ iso _TestDuplicateContentLength is UnitTest
   """Two Content-Length headers with differing values → InvalidContentLength."""
@@ -1105,12 +1105,13 @@ class \nodoc\ iso _TestTransferEncodingEvaluate is UnitTest
     _check(h, "chunked, chunked", "invalid")
     _check(h, "", "invalid")
     _check(h, " , ", "invalid")
-    // Only SP and HTAB are OWS; a coding wrapped in other control bytes
-    // (here a vertical tab) must not normalize to the `chunked` token.
+    // Only SP and HTAB are OWS; a coding name wrapped in other control bytes
+    // (here vertical tabs) is not a valid `token`, so the Transfer-Encoding is
+    // malformed (400) rather than an unimplemented coding (501).
     let vtab: String val = recover val
       String.>push(0x0b).>append("chunked").>push(0x0b)
     end
-    _check(h, vtab, "unsupported")
+    _check(h, vtab, "invalid")
     // A comma inside a quoted transfer-parameter value (RFC 9112 §7) must
     // not split the coding. Before the quoted-string-aware tokenizer these
     // were torn in half and rejected as invalid/unsupported.
