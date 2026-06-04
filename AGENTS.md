@@ -83,6 +83,7 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `_response_serializer.pony` — Response wire-format serializer (package-private)
   - `_mort.pony` — Runtime enforcement primitives (`_IllegalState`, `_Unreachable`)
   - `_ows.pony` — RFC 9110 §5.6.3 optional whitespace (SP/HTAB) — single source for the OWS predicate, zero-copy trim, and strip charset (`_OWS` primitive)
+  - `_quoted_split.pony` — RFC 9110 §5.6.4 quoted-string-aware delimiter split (`_QuotedSplit` primitive) — shared by the Transfer-Encoding and Accept parsers so a delimiter inside a quoted parameter value (including `quoted-pair` escapes) does not split an element; returns `(segments, unterminated)` so the framing path can reject a malformed (unterminated-quote) value while Accept ignores it
   - `parse_error.pony` — Parse error types (`ParseError` union, 10 error primitives)
   - `_parser_config.pony` — Parser size limit configuration
   - `_request_parser_notify.pony` — Parser callback trait (synchronous `ref` methods)

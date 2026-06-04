@@ -1021,6 +1021,50 @@ class \nodoc\ iso _TestTransferEncodingWithParams is UnitTest
     h.assert_eq[USize](0, notify.errors.size(), "0 errors")
     h.assert_eq[String val]("Hello", notify.collected_body_string())
 
+class \nodoc\ iso _TestTransferEncodingQuotedComma is UnitTest
+  """
+  `chunked;ext="a,b"` → comma inside the quoted parameter value does not
+  split the coding (RFC 9112 §7) → chunked framing, body parsed.
+  """
+  fun name(): String => "parser/transfer_encoding_quoted_comma"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Transfer-Encoding: chunked;ext=\"a,b\"\r\n\r\n" +
+      "5\r\nHello\r\n0\r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](1, notify.requests.size(), "1 request")
+    h.assert_eq[USize](1, notify.completed, "1 completion")
+    h.assert_eq[USize](0, notify.errors.size(), "0 errors")
+    h.assert_eq[String val]("Hello", notify.collected_body_string())
+
+class \nodoc\ iso _TestTransferEncodingUnterminatedQuote is UnitTest
+  """
+  `chunked;x=",identity` → unterminated quoted-string parameter value is
+  malformed → rejected as InvalidTransferEncoding (400), not framed as chunked.
+  """
+  fun name(): String => "parser/transfer_encoding_unterminated_quote"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Transfer-Encoding: chunked;x=\",identity\r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "no request delivered")
+    h.assert_eq[USize](0, notify.completed, "no completion")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is InvalidTransferEncoding,
+        "should be InvalidTransferEncoding")
+    end
+
 class \nodoc\ iso _TestTransferEncodingTrailingComma is UnitTest
   """`chunked,` → empty element ignored → chunked framing."""
   fun name(): String => "parser/transfer_encoding_trailing_comma"
@@ -1067,12 +1111,27 @@ class \nodoc\ iso _TestTransferEncodingEvaluate is UnitTest
       String.>push(0x0b).>append("chunked").>push(0x0b)
     end
     _check(h, vtab, "unsupported")
+    // A comma inside a quoted transfer-parameter value (RFC 9112 §7) must
+    // not split the coding. Before the quoted-string-aware tokenizer these
+    // were torn in half and rejected as invalid/unsupported.
+    _check(h, "chunked;ext=\"a,b\"", "chunked")
+    _check(h, "chunked; ext=\"a, b\"", "chunked")
+    // quoted-pair: the escaped quote keeps the comma inside the still-open
+    // (then closed) quoted string, so it remains a single `chunked` coding.
+    _check(h, "chunked;ext=\"a\\\",b\"", "chunked")
+    // An unterminated quoted-string is malformed: the value cannot be parsed
+    // into a reliable coding list, so it is rejected (400) rather than framed
+    // on a guess — regardless of whether the swallowed tail contains a comma.
+    _check(h, "chunked;ext=\"a", "invalid")
+    _check(h, "chunked;x=\",identity", "invalid")
+    _check(h, "chunked;x=\",gzip", "invalid")
+    _check(h, "chunked;x=\"", "invalid")
 
   fun _check(h: TestHelper, value: String val, expected: String) =>
     let tokens = Array[String]
-    _TransferEncoding.append_codings(value, tokens)
+    let well_formed = _TransferEncoding.append_codings(value, tokens)
     let actual =
-      match \exhaustive\ _TransferEncoding.evaluate(tokens)
+      match \exhaustive\ _TransferEncoding.evaluate(tokens, well_formed)
       | _ChunkedFraming => "chunked"
       | UnsupportedTransferEncoding => "unsupported"
       | InvalidTransferEncoding => "invalid"
