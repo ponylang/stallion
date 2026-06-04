@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file. This projec
 - Reject malformed and unsupported Transfer-Encoding values ([PR #115](https://github.com/ponylang/stallion/pull/115))
 - Fix Connection: close handling ([PR #118](https://github.com/ponylang/stallion/pull/118))
 - Fix parsing of quoted parameter values in Transfer-Encoding and Accept headers ([PR #121](https://github.com/ponylang/stallion/pull/121))
+- Reject HTTP request smuggling vectors and tighten request conformance ([PR #125](https://github.com/ponylang/stallion/pull/125))
 
 ### Added
 
