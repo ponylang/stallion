@@ -11,11 +11,7 @@ primitive _CookieValidator
 
   fun valid_name(name: String box): Bool =>
     """Return true if `name` is a valid cookie name (RFC 2616 token)."""
-    if name.size() == 0 then return false end
-    for byte in name.values() do
-      if not _is_token_char(byte) then return false end
-    end
-    true
+    _Token.valid(name)
 
   fun valid_value(value: String box): Bool =>
     """Return true if `value` contains only valid cookie-octets."""
@@ -23,23 +19,6 @@ primitive _CookieValidator
       if not _is_cookie_octet(byte) then return false end
     end
     true
-
-  fun _is_token_char(b: U8): Bool =>
-    """
-    RFC 2616 token character: ASCII 33–126 minus separators.
-
-    Separators: ( ) < > @ , ; : \\ " / [ ] ? = { }
-    """
-    if (b < 33) or (b > 126) then return false end
-    // Check separators
-    match b
-    | '(' | ')' | '<' | '>' | '@'
-    | ',' | ';' | ':' | '\\' | '"'
-    | '/' | '[' | ']' | '?' | '='
-    | '{' | '}' => false
-    else
-      true
-    end
 
   fun _is_cookie_octet(b: U8): Bool =>
     """

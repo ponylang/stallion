@@ -11,385 +11,182 @@ interface ref _ParserState
   """
   A state in the HTTP request parser state machine.
 
-  Each state is a class that owns its per-state data (buffers,
-  accumulators). State transitions are explicit assignments to
-  `p.state`. Per-state data is automatically cleaned up when
-  the state transitions out.
+  Each state is a thin driver: it obtains protocol lines from `_LineScan` (the
+  single CR/LF policy) and field-lines from `_FieldLine` (the single field-line
+  gate), then transitions. No state interprets CR/LF or re-implements field-line
+  grammar itself — that is what makes every grammar rule enforced in exactly one
+  place. Per-state data (accumulators, counters) is owned by the state object and
+  released automatically on transition.
   """
   fun ref parse(p: _RequestParser ref): _ParseResult
 
 // ---------------------------------------------------------------------------
-// Buffer scanning utilities
-// ---------------------------------------------------------------------------
-
-primitive _BufferScan
-  """Byte-level scanning utilities for the parser buffer."""
-
-  fun find_crlf(buf: Array[U8] box, from: USize = 0): (USize | None) =>
-    """
-    Find the position of \\r\\n in buf starting from `from`.
-    Returns the index of \\r, or None if not found.
-    """
-    if buf.size() < (from + 2) then return None end
-    var i = from
-    let limit = buf.size() - 1
-    try
-      while i < limit do
-        if (buf(i)? == '\r') and (buf(i + 1)? == '\n') then
-          return i
-        end
-        i = i + 1
-      end
-    else
-      _Unreachable()
-    end
-    None
-
-  fun find_byte(
-    buf: Array[U8] box,
-    byte: U8,
-    from: USize,
-    to: USize = USize.max_value())
-    : (USize | None)
-  =>
-    """Find the first occurrence of `byte` in buf[from, to)."""
-    var i = from
-    let limit = to.min(buf.size())
-    try
-      while i < limit do
-        if buf(i)? == byte then return i end
-        i = i + 1
-      end
-    else
-      _Unreachable()
-    end
-    None
-
-// ---------------------------------------------------------------------------
-// Parser states
+// Request line
 // ---------------------------------------------------------------------------
 
 class _ExpectRequestLine is _ParserState
-  """
-  Initial state: waiting for a complete HTTP request line.
-
-  Format: METHOD SP request-target SP HTTP-version CRLF
-  """
+  """Initial state: waiting for a complete request line."""
   fun ref parse(p: _RequestParser ref): _ParseResult =>
-    let available = p.buf.size() - p.pos
-
-    // Check for CRLF marking end of request line
-    match \exhaustive\ _BufferScan.find_crlf(p.buf, p.pos)
-    | let crlf: USize =>
-      let line_len = crlf - p.pos
-      if line_len > p.config.max_request_line_size then
-        return TooLarge
+    match _LineScan.next(p.buf, p.pos, p.config.max_request_line_size)
+    | let line: _Line =>
+      match _RequestLine.parse(
+        p.scanned_line(line))
+      | (let m: Method, let target: String val, let v: Version) =>
+        p.pos = line.next_pos()
+        p.state = _ExpectHeaders(m, target, v, p.config)
+        _ParseContinue
+      | let e: ParseError => e
       end
-
-      // Find first space: separates method from URI
-      let method_end = match \exhaustive\ _BufferScan.find_byte(p.buf, ' ', p.pos, crlf)
-        | let i: USize => i
-        | None => return UnknownMethod
-        end
-
-      // Parse method
-      let method_str: String val = p.extract_string(p.pos, method_end)
-      let method = match \exhaustive\ Methods.parse(method_str)
-        | let m: Method => m
-        | None => return UnknownMethod
-        end
-
-      // Skip space(s) after method
-      var uri_start = method_end + 1
-      try
-        while (uri_start < crlf) and (p.buf(uri_start)? == ' ') do
-          uri_start = uri_start + 1
-        end
-      else
-        _Unreachable()
-      end
-
-      // Find second space: separates URI from version
-      let uri_end = match \exhaustive\ _BufferScan.find_byte(p.buf, ' ', uri_start, crlf)
-        | let i: USize => i
-        | None => return InvalidVersion
-        end
-
-      // Extract and validate URI
-      if uri_end == uri_start then
-        return InvalidURI
-      end
-
-      let uri: String val = p.extract_string(uri_start, uri_end)
-
-      // Validate URI: no control characters (< 0x21 or > 0x7E)
-      try
-        var i: USize = 0
-        while i < uri.size() do
-          let ch = uri(i)?
-          if (ch < 0x21) or (ch > 0x7E) then
-            return InvalidURI
-          end
-          i = i + 1
-        end
-      else
-        _Unreachable()
-      end
-
-      // Skip space(s) before version
-      var ver_start = uri_end + 1
-      try
-        while (ver_start < crlf) and (p.buf(ver_start)? == ' ') do
-          ver_start = ver_start + 1
-        end
-      else
-        _Unreachable()
-      end
-
-      // Parse version: must be exactly "HTTP/1.0" or "HTTP/1.1"
-      let ver_len = crlf - ver_start
-      if ver_len != 8 then
-        return InvalidVersion
-      end
-
-      let version = try
-        if (p.buf(ver_start)? == 'H')
-          and (p.buf(ver_start + 1)? == 'T')
-          and (p.buf(ver_start + 2)? == 'T')
-          and (p.buf(ver_start + 3)? == 'P')
-          and (p.buf(ver_start + 4)? == '/')
-          and (p.buf(ver_start + 5)? == '1')
-          and (p.buf(ver_start + 6)? == '.')
-        then
-          let minor = p.buf(ver_start + 7)?
-          if minor == '1' then
-            HTTP11
-          elseif minor == '0' then
-            HTTP10
-          else
-            return InvalidVersion
-          end
-        else
-          return InvalidVersion
-        end
-      else
-        _Unreachable()
-        return InvalidVersion
-      end
-
-      // Advance past the request line (including CRLF)
-      p.pos = crlf + 2
-
-      // Transition to header parsing
-      p.state = _ExpectHeaders(method, uri, version, p.config)
-      _ParseContinue
-
-    | None =>
-      // No complete line yet — check size limit
-      if available > p.config.max_request_line_size then
-        TooLarge
-      else
-        _ParseNeedMore
-      end
+    | BareCRLF => BareCRLF
+    | _LineTooLong => TooLarge
+    | _LineNeedMore => _ParseNeedMore
     end
+
+// ---------------------------------------------------------------------------
+// Headers
+// ---------------------------------------------------------------------------
 
 class _ExpectHeaders is _ParserState
   """
-  Parsing HTTP headers after the request line.
+  Parsing header field-lines until the empty line ends the header section.
 
-  Loops through header lines until an empty line (CRLF) marks the end
-  of headers. Tracks Content-Length and Transfer-Encoding for body handling.
+  Tracks Content-Length and Transfer-Encoding so the body framing can be
+  resolved once, at the blank line, before the request is delivered.
   """
   let _method: Method
-  let _uri: String val
+  let _target: String val
   let _version: Version
   let _config: _ParserConfig
   var _headers: Headers iso = recover iso Headers end
   var _content_length: (USize | None) = None
   var _has_transfer_encoding: Bool = false
   embed _te_codings: Array[String] = Array[String]
-  // Conjunction of every `append_codings` result; false once any
-  // Transfer-Encoding line is malformed (an unterminated quoted-string).
   var _te_well_formed: Bool = true
-  var _total_header_bytes: USize = 0
+  var _header_bytes_used: USize = 0
 
   new create(
-    method: Method,
-    uri: String val,
-    version: Version,
+    method': Method,
+    target': String val,
+    version': Version,
     config: _ParserConfig)
   =>
-    _method = method
-    _uri = uri
-    _version = version
+    _method = method'
+    _target = target'
+    _version = version'
     _config = config
 
   fun ref parse(p: _RequestParser ref): _ParseResult =>
-    // Loop through header lines
     while true do
-      match \exhaustive\ _BufferScan.find_crlf(p.buf, p.pos)
-      | let crlf: USize =>
-        if crlf == p.pos then
-          // Empty line: end of headers
-          p.pos = crlf + 2
-
-          // Check body size limit before delivering the request. The actor
-          // can now respond in on_request(), so rejections must precede delivery.
-          match _content_length
-          | let cl: USize if cl > _config.max_body_size =>
-            return BodyTooLarge
-          end
-
-          // Evaluate Transfer-Encoding before delivering the request, so
-          // unsupported (501) or invalid (400) codings are rejected without
-          // firing on_request. Only `chunked`, as the final coding, frames a
-          // body (RFC 9112 §6.1/§6.3).
-          let use_chunked: Bool =
-            if _has_transfer_encoding then
-              match \exhaustive\
-                _TransferEncoding.evaluate(_te_codings, _te_well_formed)
-              | _ChunkedFraming => true
-              | let e: ParseError => return e
-              end
-            else
-              false
-            end
-
-          // Destructive read: swap out headers as val, replace with empty
-          let headers: Headers val =
-            (_headers = recover iso Headers end)
-
-          // Deliver the request metadata
-          p.handler.request_received(_method, _uri, _version, headers)
-
-          // Determine body handling: Transfer-Encoding takes precedence
-          // over Content-Length per RFC 9112 §6.3
-          if use_chunked then
-            p.state = _ExpectChunkHeader(0, _config)
-            return _ParseContinue
-          end
-
-          match \exhaustive\ _content_length
-          | let cl: USize if cl > 0 =>
-            p.state = _ExpectFixedBody(cl)
-            return _ParseContinue
-          else
-            // No body (no Content-Length, Content-Length: 0, or None)
-            p.handler.request_complete()
-            p.state = _ExpectRequestLine
-            return _ParseContinue
-          end
+      match _LineScan.next(p.buf, p.pos, _config.max_header_size)
+      | let line: _Line =>
+        if line.is_blank() then
+          p.pos = line.next_pos()
+          return _finish(p)
         end
 
-        // Track header size
-        let line_len = (crlf - p.pos) + 2
-        _total_header_bytes = _total_header_bytes + line_len
-        if _total_header_bytes > _config.max_header_size then
+        let line_len = (line.content_end - line.content_start) + 2
+        _header_bytes_used = _header_bytes_used + line_len
+        if _header_bytes_used > _config.max_header_size then
           return TooLarge
         end
 
-        // Check for obs-fold (continuation line): reject per RFC 7230
-        try
-          let first_byte = p.buf(p.pos)?
-          if _OWS(first_byte) then
-            return MalformedHeaders
+        match _FieldLine.parse(
+          p.scanned_line(line))
+        | let f: _Field =>
+          match _track(f)
+          | let e: ParseError => return e
           end
-        else
-          _Unreachable()
+          // `_FieldLine` already lowercased the name; skip Headers' re-lower.
+          _headers._add_lowered(f.name, f.value)
+        | let e: ParseError => return e
         end
 
-        // Find colon separator
-        let colon_pos = match \exhaustive\ _BufferScan.find_byte(p.buf, ':', p.pos, crlf)
-          | let i: USize => i
-          | None => return MalformedHeaders
-          end
-
-        // Header name must not be empty
-        if colon_pos == p.pos then
-          return MalformedHeaders
-        end
-
-        // Extract header name (lowercasing happens in Headers.add)
-        let name: String val = p.extract_string(p.pos, colon_pos)
-
-        // Extract header value, skipping optional whitespace (OWS)
-        var val_start = colon_pos + 1
-        try
-          while val_start < crlf do
-            let ch = p.buf(val_start)?
-            if not _OWS(ch) then break end
-            val_start = val_start + 1
-          end
-        else
-          _Unreachable()
-        end
-
-        // Trim trailing OWS from value
-        var val_end = crlf
-        try
-          while val_end > val_start do
-            let ch = p.buf(val_end - 1)?
-            if not _OWS(ch) then break end
-            val_end = val_end - 1
-          end
-        else
-          _Unreachable()
-        end
-
-        let value: String val = p.extract_string(val_start, val_end)
-
-        // Detect special headers
-        let lower_name: String val = name.lower()
-        if lower_name == "content-length" then
-          match \exhaustive\ _parse_content_length(value)
-          | let cl: USize =>
-            match \exhaustive\ _content_length
-            | let existing: USize =>
-              if existing != cl then
-                return InvalidContentLength
-              end
-            | None =>
-              _content_length = cl
-            end
-          | InvalidContentLength => return InvalidContentLength
-          end
-        elseif lower_name == "transfer-encoding" then
-          _has_transfer_encoding = true
-          _te_well_formed =
-            _TransferEncoding.append_codings(value, _te_codings)
-              and _te_well_formed
-        end
-
-        _headers.add(name, value)
-
-        // Advance past this header line
-        p.pos = crlf + 2
-      | None =>
-        // No complete line yet — check size limit
-        let pending = p.buf.size() - p.pos
-        if (pending + _total_header_bytes) > _config.max_header_size then
-          return TooLarge
-        end
-        return _ParseNeedMore
+        p.pos = line.next_pos()
+      | BareCRLF => return BareCRLF
+      | _LineTooLong => return TooLarge
+      | _LineNeedMore => return _ParseNeedMore
       end
     end
     _Unreachable()
     _ParseNeedMore
 
+  fun ref _track(f: _Field): (None | ParseError) =>
+    """Record Content-Length / Transfer-Encoding from a recognized field."""
+    if f.name == "content-length" then
+      match _parse_content_length(f.value)
+      | let cl: USize =>
+        match _content_length
+        | let existing: USize =>
+          if existing != cl then return InvalidContentLength end
+        | None =>
+          _content_length = cl
+        end
+      | InvalidContentLength => return InvalidContentLength
+      end
+    elseif f.name == "transfer-encoding" then
+      _has_transfer_encoding = true
+      _te_well_formed =
+        _TransferEncoding.append_codings(f.value, _te_codings) and _te_well_formed
+    end
+    None
+
+  fun ref _finish(p: _RequestParser ref): _ParseResult =>
+    // RFC 9112 §6.3: Content-Length together with Transfer-Encoding is a
+    // request-smuggling vector — reject rather than pick a framing (#114).
+    if _has_transfer_encoding and (_content_length isnt None) then
+      return ContentLengthWithTransferEncoding
+    end
+
+    // Body size limit (Content-Length) before delivery — the actor may respond
+    // in on_request(), so a rejection must precede delivery.
+    match _content_length
+    | let cl: USize if cl > _config.max_body_size => return BodyTooLarge
+    end
+
+    // Resolve Transfer-Encoding framing (501/400 rejected before delivery).
+    let use_chunked: Bool =
+      if _has_transfer_encoding then
+        match _TransferEncoding.evaluate(_te_codings, _te_well_formed)
+        | _ChunkedFraming => true
+        | let e: ParseError => return e
+        end
+      else
+        false
+      end
+
+    let headers: Headers val = (_headers = recover iso Headers end)
+    p.handler.request_received(_method, _target, _version, headers)
+
+    // The protocol layer may reject the request inside request_received (a Host
+    // or URI failure calls parse_error → stop()). If so, do not transition to a
+    // body state or fire request_complete — the request was never delivered.
+    if p.failed() then return _ParseContinue end
+
+    if use_chunked then
+      p.state = _ExpectChunkHeader(0, _config)
+      return _ParseContinue
+    end
+
+    match _content_length
+    | let cl: USize if cl > 0 =>
+      p.state = _ExpectFixedBody(cl)
+      _ParseContinue
+    else
+      p.handler.request_complete()
+      p.state = _ExpectRequestLine
+      _ParseContinue
+    end
+
   fun _parse_content_length(value: String val)
     : (USize | InvalidContentLength)
   =>
-    """Parse a Content-Length value as a non-negative integer."""
-    if value.size() == 0 then
-      return InvalidContentLength
-    end
+    """Parse a Content-Length value as a non-negative `1*DIGIT` integer."""
+    if value.size() == 0 then return InvalidContentLength end
     try
       var i: USize = 0
       while i < value.size() do
         let ch = value(i)?
-        if (ch < '0') or (ch > '9') then
-          return InvalidContentLength
-        end
+        if (ch < '0') or (ch > '9') then return InvalidContentLength end
         i = i + 1
       end
       value.read_int[USize]()?._1
@@ -397,12 +194,12 @@ class _ExpectHeaders is _ParserState
       InvalidContentLength
     end
 
-class _ExpectFixedBody is _ParserState
-  """
-  Reading a fixed-length request body (Content-Length).
+// ---------------------------------------------------------------------------
+// Fixed-length body
+// ---------------------------------------------------------------------------
 
-  Delivers body data incrementally as it becomes available in the buffer.
-  """
+class _ExpectFixedBody is _ParserState
+  """Reading a fixed-length body (Content-Length), delivered incrementally."""
   var _remaining: USize
 
   new create(remaining: USize) =>
@@ -411,9 +208,7 @@ class _ExpectFixedBody is _ParserState
   fun ref parse(p: _RequestParser ref): _ParseResult =>
     let available = (p.buf.size() - p.pos).min(_remaining)
     if available > 0 then
-      let chunk: Array[U8] val =
-        p.extract_bytes(p.pos, p.pos + available)
-      p.handler.body_chunk(chunk)
+      p.handler.body_chunk(p.extract_bytes(p.pos, p.pos + available))
       p.pos = p.pos + available
       _remaining = _remaining - available
     end
@@ -426,12 +221,12 @@ class _ExpectFixedBody is _ParserState
       _ParseNeedMore
     end
 
-class _ExpectChunkHeader is _ParserState
-  """
-  Expecting a chunk size line in chunked transfer encoding.
+// ---------------------------------------------------------------------------
+// Chunked transfer encoding
+// ---------------------------------------------------------------------------
 
-  Format: chunk-size [ chunk-ext ] CRLF
-  """
+class _ExpectChunkHeader is _ParserState
+  """Expecting a chunk-size line: `chunk-size [ chunk-ext ] CRLF`."""
   var _total_body_received: USize
   let _config: _ParserConfig
 
@@ -440,64 +235,43 @@ class _ExpectChunkHeader is _ParserState
     _config = config
 
   fun ref parse(p: _RequestParser ref): _ParseResult =>
-    match \exhaustive\ _BufferScan.find_crlf(p.buf, p.pos)
-    | let crlf: USize =>
-      let line_len = crlf - p.pos
-      if line_len > _config.max_chunk_header_size then
-        return InvalidChunk
-      end
-      if line_len == 0 then
-        return InvalidChunk
-      end
-
-      // Find optional chunk extension (semicolon)
-      let size_end = match \exhaustive\ _BufferScan.find_byte(p.buf, ';', p.pos, crlf)
-        | let i: USize => i
-        | None => crlf
+    match _LineScan.next(p.buf, p.pos, _config.max_chunk_header_size)
+    | let line: _Line =>
+      if line.is_blank() then return InvalidChunk end
+      match _ChunkHeader.parse(
+        p.scanned_line(line))
+      | let chunk_size: USize =>
+        p.pos = line.next_pos()
+        if chunk_size == 0 then
+          p.state = _ExpectChunkTrailer(0, _config)
+          _ParseContinue
+        else
+          // Checked addition: a chunk-size near USize.max (a 16-HEXDIG line,
+          // which fits within max_chunk_header_size) would wrap the body-size
+          // limit with plain `+`, silently defeating max_body_size. Fail closed
+          // on overflow.
+          (let total, let overflow) = _total_body_received.addc(chunk_size)
+          if overflow or (total > _config.max_body_size) then
+            return BodyTooLarge
+          end
+          p.state =
+            _ExpectChunkData(chunk_size, _total_body_received, _config)
+          _ParseContinue
         end
-
-      // Parse hex chunk size — must consume entire string
-      let size_str: String val = p.extract_string(p.pos, size_end)
-      let chunk_size = try
-        (let cs, let consumed) = size_str.read_int[USize](0, 16)?
-        if consumed.usize() != size_str.size() then
-          return InvalidChunk
-        end
-        cs
-      else
-        return InvalidChunk
+      | let e: ParseError => e
       end
-
-      p.pos = crlf + 2
-
-      if chunk_size == 0 then
-        // Last chunk — expect trailers or final CRLF
-        p.state = _ExpectChunkTrailer(0, _config)
-        _ParseContinue
-      else
-        // Check body size limit
-        if (_total_body_received + chunk_size) > _config.max_body_size then
-          return BodyTooLarge
-        end
-        p.state = _ExpectChunkData(
-          chunk_size, _total_body_received, _config)
-        _ParseContinue
-      end
-    | None =>
-      // No complete line — check size limit
-      let pending = p.buf.size() - p.pos
-      if pending > _config.max_chunk_header_size then
-        InvalidChunk
-      else
-        _ParseNeedMore
-      end
+    | BareCRLF => BareCRLF
+    | _LineTooLong => InvalidChunk
+    | _LineNeedMore => _ParseNeedMore
     end
 
 class _ExpectChunkData is _ParserState
   """
-  Reading chunk data in chunked transfer encoding.
+  Reading chunk data, delivered incrementally, then the mandatory CRLF.
 
-  Delivers data incrementally, then expects CRLF after the chunk data.
+  The post-data terminator must be exactly CRLF (RFC 9112 §7.1) — it is not a
+  general line, so it is checked directly rather than via `_LineScan`; any other
+  bytes are `InvalidChunk`.
   """
   var _remaining: USize
   var _total_body_received: USize
@@ -516,9 +290,7 @@ class _ExpectChunkData is _ParserState
     if _remaining > 0 then
       let available = (p.buf.size() - p.pos).min(_remaining)
       if available > 0 then
-        let chunk: Array[U8] val =
-          p.extract_bytes(p.pos, p.pos + available)
-        p.handler.body_chunk(chunk)
+        p.handler.body_chunk(p.extract_bytes(p.pos, p.pos + available))
         p.pos = p.pos + available
         _remaining = _remaining - available
         _total_body_received = _total_body_received + available
@@ -528,9 +300,7 @@ class _ExpectChunkData is _ParserState
       end
     end
 
-    // Chunk data consumed — expect CRLF
-    let bytes_available = p.buf.size() - p.pos
-    if bytes_available < 2 then
+    if (p.buf.size() - p.pos) < 2 then
       return _ParseNeedMore
     end
 
@@ -549,46 +319,49 @@ class _ExpectChunkData is _ParserState
 
 class _ExpectChunkTrailer is _ParserState
   """
-  Reading optional trailer headers after the last (zero-size) chunk.
+  Reading the optional trailer section after the last chunk.
 
-  Trailers are skipped (not delivered to the receiver). The request is
-  complete when an empty line is found.
+  Trailer field-lines pass through the SAME `_FieldLine` gate as headers, plus
+  the forbidden-trailer rule (RFC 9110 §6.5.1). Trailers are validated but not
+  delivered (the callback contract has no trailer event). The request completes
+  at the empty line.
   """
-  var _total_trailer_bytes: USize
+  var _trailer_bytes_used: USize
   let _config: _ParserConfig
 
-  new create(total_trailer_bytes: USize, config: _ParserConfig) =>
-    _total_trailer_bytes = total_trailer_bytes
+  new create(trailer_bytes_used: USize, config: _ParserConfig) =>
+    _trailer_bytes_used = trailer_bytes_used
     _config = config
 
   fun ref parse(p: _RequestParser ref): _ParseResult =>
     while true do
-      match \exhaustive\ _BufferScan.find_crlf(p.buf, p.pos)
-      | let crlf: USize =>
-        if crlf == p.pos then
-          // Empty line: end of chunked message
-          p.pos = crlf + 2
+      match _LineScan.next(p.buf, p.pos, _config.max_header_size)
+      | let line: _Line =>
+        if line.is_blank() then
+          p.pos = line.next_pos()
           p.handler.request_complete()
           p.state = _ExpectRequestLine
           return _ParseContinue
         end
 
-        // Skip this trailer header line
-        let line_len = (crlf - p.pos) + 2
-        _total_trailer_bytes = _total_trailer_bytes + line_len
-        if _total_trailer_bytes > _config.max_header_size then
+        let line_len = (line.content_end - line.content_start) + 2
+        _trailer_bytes_used = _trailer_bytes_used + line_len
+        if _trailer_bytes_used > _config.max_header_size then
           return TooLarge
         end
 
-        p.pos = crlf + 2
-      | None =>
-        let pending = p.buf.size() - p.pos
-        if (pending + _total_trailer_bytes) > _config.max_header_size then
-          return TooLarge
+        match _FieldLine.parse(
+          p.scanned_line(line))
+        | let f: _Field =>
+          if _ForbiddenTrailers(f.name) then return ForbiddenTrailer end
+        | let e: ParseError => return e
         end
-        return _ParseNeedMore
+
+        p.pos = line.next_pos()
+      | BareCRLF => return BareCRLF
+      | _LineTooLong => return TooLarge
+      | _LineNeedMore => return _ParseNeedMore
       end
     end
     _Unreachable()
     _ParseNeedMore
-

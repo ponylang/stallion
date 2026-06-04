@@ -15,6 +15,21 @@ actor \nodoc\ Main is TestList
     // OWS tests
     test(_TestOWS)
 
+    // Token tests
+    test(_TestToken)
+
+    // Field value tests
+    test(_TestFieldValue)
+
+    // Request conformance corpus (table-driven)
+    test(_TestRequestConformance)
+    test(_TestRequestParity)
+    test(_TestBareCRLFInjection)
+    test(_TestParseSplitInvariance)
+    test(_TestCompletionPoints)
+    test(_TestSizeLimitChunkHeader)
+    test(_TestSizeLimitHeadersCumulative)
+
     // Quoted-split tokenizer tests
     test(_TestQuotedSplit)
 
@@ -104,6 +119,12 @@ actor \nodoc\ Main is TestList
     // Server integration tests
     test(_TestServerHelloWorld)
     test(_TestServerParseError)
+    test(_TestServerMissingHost)
+    test(_TestServerDuplicateHost)
+    test(_TestServerConnectOk)
+    test(_TestServerUnknownMethod)
+    test(_TestServerDuplicateHostHTTP10)
+    test(_TestServerDuplicateHostWithBody)
     test(_TestKeepAlive)
     test(_TestConnectionClose)
     test(_TestHTTP10Close)

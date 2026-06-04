@@ -159,6 +159,23 @@ class HTTPServer is
     version: Version,
     headers: Headers val)
   =>
+    // RFC 9110 §7.2 / RFC 9112 §3.2: an HTTP/1.1 request must carry exactly one
+    // Host field — reject (400) a missing Host on HTTP/1.1. We additionally
+    // reject a DUPLICATE Host on ANY version: a second Host line is request-
+    // smuggling surface regardless of protocol version (security over strict
+    // conformance). This needs the assembled headers, so it lives here, not in
+    // the parser. Count Host field-LINES via values(), not get(): get() combines
+    // repeated list-valued fields into one value, which would hide a duplicate
+    // Host behind a single combined result.
+    var host_count: USize = 0
+    for hdr in headers.values() do
+      if hdr.name == "host" then host_count = host_count + 1 end
+    end
+    if (host_count > 1) or ((host_count == 0) and (version is HTTP11)) then
+      parse_error(BadHostHeader)
+      return
+    end
+
     // Parse raw URI string into structured form. The parser already validated
     // basic syntax (no control characters); this catches structural failures
     // from the RFC 3986 parser (e.g., invalid authority in CONNECT targets).
@@ -230,14 +247,24 @@ class HTTPServer is
       _current_responder = None
       recv.on_request_complete(req, resp)
     else
+      // request_complete only fires for a delivered request: the parser's
+      // `_finish` returns early (checking `failed()`) when request_received
+      // rejected, so this branch is unreachable.
       _Unreachable()
     end
 
   fun ref parse_error(err: ParseError) =>
     // Send error directly to TCP (bypassing queue) then close.
     // Discarding pending pipelined responses is acceptable per HTTP spec
-    // since parse errors indicate a corrupt data stream.
+    // since parse errors indicate a corrupt data stream. Stop the parser so it
+    // delivers no further callbacks — parse_error may be called by the parser
+    // itself or internally here (Host/URI rejection in request_received), and
+    // in the latter case the parser is otherwise unaware the request was
+    // rejected and would keep parsing.
     _tcp_connection.send(_ErrorResponse.for_error(err))
+    match _parser
+    | let p: _RequestParser => p.stop()
+    end
     _close_connection()
 
   //
