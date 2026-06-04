@@ -12,7 +12,7 @@ primitive _AcceptParser
   fun apply(header_value: String val): Array[_AcceptRange val] val =>
     """Parse a single Accept header value string."""
     let ranges = recover iso Array[_AcceptRange val] end
-    let segments = _split_on_comma(header_value)
+    (let segments, _) = _QuotedSplit(header_value, ',')
     for segment in segments.values() do
       let trimmed = _OWS.trim(segment)
       if trimmed.size() > 0 then
@@ -22,34 +22,6 @@ primitive _AcceptParser
       end
     end
     consume ranges
-
-  fun _split_on_comma(s: String val): Array[String val] val =>
-    """
-    Split on commas, respecting quoted strings.
-
-    Commas inside double-quoted parameter values are not treated as
-    separators.
-    """
-    let result = recover iso Array[String val] end
-    var start: USize = 0
-    var i: USize = 0
-    var in_quotes: Bool = false
-    let size = s.size()
-
-    while i < size do
-      try
-        let b = s(i)?
-        if b == '"' then
-          in_quotes = not in_quotes
-        elseif (b == ',') and (not in_quotes) then
-          result.push(s.trim(start, i))
-          start = i + 1
-        end
-      end
-      i = i + 1
-    end
-    result.push(s.trim(start, size))
-    consume result
 
   fun _parse_range(segment: String val): (_AcceptRange val | None) =>
     """
@@ -107,7 +79,7 @@ primitive _AcceptParser
 
     if semi < size then
       let param_str = segment.trim(semi + 1)
-      let param_parts = _split_params(param_str)
+      (let param_parts, _) = _QuotedSplit(param_str, ';')
       for part in param_parts.values() do
         let trimmed = _OWS.trim(part)
         if trimmed.size() == 0 then continue end
@@ -147,29 +119,6 @@ primitive _AcceptParser
       // Quality out of range — skip this entry
       None
     end
-
-  fun _split_params(s: String val): Array[String val] val =>
-    """Split parameter string on semicolons, respecting quoted strings."""
-    let result = recover iso Array[String val] end
-    var start: USize = 0
-    var i: USize = 0
-    var in_quotes: Bool = false
-    let size = s.size()
-
-    while i < size do
-      try
-        let b = s(i)?
-        if b == '"' then
-          in_quotes = not in_quotes
-        elseif (b == ';') and (not in_quotes) then
-          result.push(s.trim(start, i))
-          start = i + 1
-        end
-      end
-      i = i + 1
-    end
-    result.push(s.trim(start, size))
-    consume result
 
   fun _parse_quality(s: String val): U16 =>
     """

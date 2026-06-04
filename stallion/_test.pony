@@ -15,6 +15,9 @@ actor \nodoc\ Main is TestList
     // OWS tests
     test(_TestOWS)
 
+    // Quoted-split tokenizer tests
+    test(_TestQuotedSplit)
+
     // Headers tests
     test(Property1UnitTest[(String val, String val)](
       _PropertyHeadersCaseInsensitive))
@@ -89,6 +92,8 @@ actor \nodoc\ Main is TestList
     test(_TestTransferEncodingEmpty)
     test(_TestTransferEncodingUppercase)
     test(_TestTransferEncodingWithParams)
+    test(_TestTransferEncodingQuotedComma)
+    test(_TestTransferEncodingUnterminatedQuote)
     test(_TestTransferEncodingTrailingComma)
     test(_TestTransferEncodingMultiLine)
     test(_TestTransferEncodingEvaluate)

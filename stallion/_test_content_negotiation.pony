@@ -573,6 +573,8 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
     _test_malformed_skipped(h)
     _test_empty_string(h)
     _test_quoted_comma_not_split(h)
+    _test_quoted_pair_comma_not_split(h)
+    _test_quoted_semicolon_not_split(h)
     _test_wildcard_subtype_only_skipped(h)
     _test_accept_extension_not_in_params(h)
     _test_duplicate_range_first_wins(h)
@@ -671,10 +673,12 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
     h.assert_eq[USize](0, ranges.size(), "empty: count")
 
   fun _test_quoted_comma_not_split(h: TestHelper) =>
-    // Comma inside a quoted parameter value must not split entries.
-    // Without quote awareness, "a,b" would split into two entries.
+    // Comma inside a quoted parameter value must not split entries. The
+    // quoted value embeds a slash so that a mis-split would not just mangle
+    // the entry but produce a spurious extra range (`x/y"`), making the
+    // count assertion discriminating.
     let ranges = _AcceptParser(
-      "text/html;param=\"a,b\", application/json")
+      "text/html;param=\"a,x/y\", application/json")
     h.assert_eq[USize](2, ranges.size(), "quoted comma: count")
     try
       h.assert_eq[String val]("text", ranges(0)?.type_name,
@@ -687,6 +691,43 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
         "quoted comma: 1 subtype")
     else
       h.fail("quoted comma: index error")
+    end
+
+  fun _test_quoted_pair_comma_not_split(h: TestHelper) =>
+    // An escaped quote inside a quoted parameter value must not be mistaken
+    // for the closing quote, so the comma that follows still belongs to the
+    // first entry. Without quoted-pair handling the entry is torn apart and
+    // the second range parses with a garbage type name.
+    let ranges = _AcceptParser(
+      "text/html;param=\"a\\\",b\", application/json")
+    h.assert_eq[USize](2, ranges.size(), "quoted pair: count")
+    try
+      h.assert_eq[String val]("text", ranges(0)?.type_name,
+        "quoted pair: 0 type")
+      h.assert_eq[String val]("html", ranges(0)?.subtype,
+        "quoted pair: 0 subtype")
+      h.assert_eq[String val]("application", ranges(1)?.type_name,
+        "quoted pair: 1 type")
+      h.assert_eq[String val]("json", ranges(1)?.subtype,
+        "quoted pair: 1 subtype")
+    else
+      h.fail("quoted pair: index error")
+    end
+
+  fun _test_quoted_semicolon_not_split(h: TestHelper) =>
+    // A semicolon inside a quoted parameter value must not split parameters.
+    // The quoted value here hides a decoy `q=0.1`; if the `;` split ignored
+    // quotes, that decoy would be read as the quality (100) instead of the
+    // real `q=0.5` (500) that follows the quoted value.
+    let ranges = _AcceptParser("text/html;param=\"x;q=0.1\";q=0.5")
+    h.assert_eq[USize](1, ranges.size(), "quoted semicolon: count")
+    try
+      h.assert_eq[String val]("text", ranges(0)?.type_name,
+        "quoted semicolon: type")
+      h.assert_eq[U16](500, ranges(0)?.quality(),
+        "quoted semicolon: quality")
+    else
+      h.fail("quoted semicolon: index error")
     end
 
   fun _test_wildcard_subtype_only_skipped(h: TestHelper) =>

@@ -208,6 +208,9 @@ class _ExpectHeaders is _ParserState
   var _content_length: (USize | None) = None
   var _has_transfer_encoding: Bool = false
   embed _te_codings: Array[String] = Array[String]
+  // Conjunction of every `append_codings` result; false once any
+  // Transfer-Encoding line is malformed (an unterminated quoted-string).
+  var _te_well_formed: Bool = true
   var _total_header_bytes: USize = 0
 
   new create(
@@ -243,7 +246,8 @@ class _ExpectHeaders is _ParserState
           // body (RFC 9112 §6.1/§6.3).
           let use_chunked: Bool =
             if _has_transfer_encoding then
-              match \exhaustive\ _TransferEncoding.evaluate(_te_codings)
+              match \exhaustive\
+                _TransferEncoding.evaluate(_te_codings, _te_well_formed)
               | _ChunkedFraming => true
               | let e: ParseError => return e
               end
@@ -351,7 +355,9 @@ class _ExpectHeaders is _ParserState
           end
         elseif lower_name == "transfer-encoding" then
           _has_transfer_encoding = true
-          _TransferEncoding.append_codings(value, _te_codings)
+          _te_well_formed =
+            _TransferEncoding.append_codings(value, _te_codings)
+              and _te_well_formed
         end
 
         _headers.add(name, value)
