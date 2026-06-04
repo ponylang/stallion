@@ -12,3 +12,7 @@ Stallion now reads `Connection` as the comma-separated list it is and honors a `
 
 As part of this, `Headers.get` now combines repeated lines of a comma-separated list header — such as `Connection`, `Accept`, or `Cache-Control` — into one value, joined by commas in the order the lines appeared, matching how those fields are defined. Headers that are not comma-separated lists, such as `Set-Cookie`, are unaffected and still return their first value.
 
+## Fix parsing of quoted parameter values in Transfer-Encoding and Accept headers
+
+Fixed several bugs in how quoted parameter values are parsed in `Transfer-Encoding` and `Accept` header fields.
+
