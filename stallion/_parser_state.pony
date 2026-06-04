@@ -287,7 +287,7 @@ class _ExpectHeaders is _ParserState
         // Check for obs-fold (continuation line): reject per RFC 7230
         try
           let first_byte = p.buf(p.pos)?
-          if (first_byte == ' ') or (first_byte == '\t') then
+          if _OWS(first_byte) then
             return MalformedHeaders
           end
         else
@@ -313,7 +313,7 @@ class _ExpectHeaders is _ParserState
         try
           while val_start < crlf do
             let ch = p.buf(val_start)?
-            if (ch != ' ') and (ch != '\t') then break end
+            if not _OWS(ch) then break end
             val_start = val_start + 1
           end
         else
@@ -325,7 +325,7 @@ class _ExpectHeaders is _ParserState
         try
           while val_end > val_start do
             let ch = p.buf(val_end - 1)?
-            if (ch != ' ') and (ch != '\t') then break end
+            if not _OWS(ch) then break end
             val_end = val_end - 1
           end
         else

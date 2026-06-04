@@ -51,7 +51,7 @@ primitive _TransferEncoding
     """
     let cut_at: ISize = try raw.find(";")? else raw.size().isize() end
     let coding: String ref = raw.substring(0, cut_at)
-    coding.strip(" \t") // RFC 9110 OWS is only SP and HTAB
+    coding.strip(_OWS.chars())
     coding.lower()
 
   fun evaluate(tokens: Array[String] box)

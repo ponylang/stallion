@@ -36,11 +36,10 @@ primitive _KeepAliveDecision
 
   fun _normalize(raw: String box): String iso^ =>
     """
-    Strip optional whitespace from one connection option, then lowercase
-    it. RFC 9110 OWS is only SP and HTAB. Mirrors
-    `_TransferEncoding._normalize`; see the comment there on why two
+    Strip surrounding OWS from one connection option, then lowercase it.
+    Mirrors `_TransferEncoding._normalize`; see the comment there on why two
     near-identical normalizers exist.
     """
     let token: String ref = raw.clone()
-    token.strip(" \t")
+    token.strip(_OWS.chars())
     token.lower()

@@ -12,6 +12,9 @@ actor \nodoc\ Main is TestList
     test(Property1UnitTest[(String val, Bool)](
       _PropertyMethodParseBoundary))
 
+    // OWS tests
+    test(_TestOWS)
+
     // Headers tests
     test(Property1UnitTest[(String val, String val)](
       _PropertyHeadersCaseInsensitive))
