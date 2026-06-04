@@ -82,6 +82,7 @@ Follow the standard ponylang release notes conventions. Create individual `.md` 
   - `_list_valued_headers.pony` — Allowlist of comma-separated list header fields and documented deny list (`_ListValuedHeaders` primitive)
   - `_response_serializer.pony` — Response wire-format serializer (package-private)
   - `_mort.pony` — Runtime enforcement primitives (`_IllegalState`, `_Unreachable`)
+  - `_ows.pony` — RFC 9110 §5.6.3 optional whitespace (SP/HTAB) — single source for the OWS predicate, zero-copy trim, and strip charset (`_OWS` primitive)
   - `parse_error.pony` — Parse error types (`ParseError` union, 10 error primitives)
   - `_parser_config.pony` — Parser size limit configuration
   - `_request_parser_notify.pony` — Parser callback trait (synchronous `ref` methods)

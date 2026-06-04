@@ -14,7 +14,7 @@ primitive _AcceptParser
     let ranges = recover iso Array[_AcceptRange val] end
     let segments = _split_on_comma(header_value)
     for segment in segments.values() do
-      let trimmed = _trim_whitespace(segment)
+      let trimmed = _OWS.trim(segment)
       if trimmed.size() > 0 then
         match _parse_range(trimmed)
         | let r: _AcceptRange val => ranges.push(r)
@@ -70,7 +70,7 @@ primitive _AcceptParser
       semi = semi + 1
     end
 
-    let media_part = _trim_whitespace(segment.trim(0, semi))
+    let media_part = _OWS.trim(segment.trim(0, semi))
 
     // Find the slash in type/subtype
     var slash: USize = 0
@@ -87,9 +87,9 @@ primitive _AcceptParser
     end
 
     let type_name: String val =
-      _trim_whitespace(media_part.trim(0, slash)).lower()
+      _OWS.trim(media_part.trim(0, slash)).lower()
     let subtype: String val =
-      _trim_whitespace(media_part.trim(slash + 1)).lower()
+      _OWS.trim(media_part.trim(slash + 1)).lower()
 
     if (type_name.size() == 0) or (subtype.size() == 0) then
       return None
@@ -109,7 +109,7 @@ primitive _AcceptParser
       let param_str = segment.trim(semi + 1)
       let param_parts = _split_params(param_str)
       for part in param_parts.values() do
-        let trimmed = _trim_whitespace(part)
+        let trimmed = _OWS.trim(part)
         if trimmed.size() == 0 then continue end
 
         // Find the = in param
@@ -123,8 +123,8 @@ primitive _AcceptParser
 
         if eq < psize then
           let pname: String val =
-            _trim_whitespace(trimmed.trim(0, eq)).lower()
-          let pval = _trim_whitespace(trimmed.trim(eq + 1))
+            _OWS.trim(trimmed.trim(0, eq)).lower()
+          let pval = _OWS.trim(trimmed.trim(eq + 1))
 
           if (pname == "q") and (not found_q) then
             found_q = true
@@ -254,25 +254,3 @@ primitive _AcceptParser
     else
       s
     end
-
-  fun _trim_whitespace(s: String val): String val =>
-    """Trim leading and trailing spaces and tabs."""
-    var first: USize = 0
-    var last: USize = s.size()
-    while (first < last) and
-      try
-        let b = s(first)?
-        (b == ' ') or (b == '\t')
-      else false end
-    do
-      first = first + 1
-    end
-    while (last > first) and
-      try
-        let b = s(last - 1)?
-        (b == ' ') or (b == '\t')
-      else false end
-    do
-      last = last - 1
-    end
-    s.trim(first, last)

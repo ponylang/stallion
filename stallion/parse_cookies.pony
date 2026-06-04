@@ -61,7 +61,7 @@ primitive ParseCookies
 
       // Extract the segment and trim whitespace
       let segment = header_value.trim(start, semi)
-      let trimmed = _trim_whitespace(segment)
+      let trimmed = _OWS.trim(segment)
 
       if trimmed.size() > 0 then
         // Find first "="
@@ -74,8 +74,8 @@ primitive ParseCookies
         end
 
         if eq < tsize then
-          let name = _trim_whitespace(trimmed.trim(0, eq))
-          var value = _trim_whitespace(trimmed.trim(eq + 1))
+          let name = _OWS.trim(trimmed.trim(0, eq))
+          var value = _OWS.trim(trimmed.trim(eq + 1))
 
           // Strip surrounding double quotes
           if (value.size() >= 2) and
@@ -94,25 +94,3 @@ primitive ParseCookies
 
       start = semi + 1
     end
-
-  fun _trim_whitespace(s: String val): String val =>
-    """Trim leading and trailing spaces and tabs."""
-    var first: USize = 0
-    var last: USize = s.size()
-    while (first < last) and
-      try
-        let b = s(first)?
-        (b == ' ') or (b == '\t')
-      else false end
-    do
-      first = first + 1
-    end
-    while (last > first) and
-      try
-        let b = s(last - 1)?
-        (b == ' ') or (b == '\t')
-      else false end
-    do
-      last = last - 1
-    end
-    s.trim(first, last)
