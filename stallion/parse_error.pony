@@ -21,7 +21,10 @@ primitive InvalidVersion
   fun string(): String iso^ => "InvalidVersion".clone()
 
 primitive MalformedHeaders
-  """Header syntax is invalid (missing colon, obs-fold continuation line)."""
+  """
+  Header syntax is invalid: missing colon, an obs-fold continuation line, or
+  whitespace between a field name and its colon (RFC 9112 §5.1).
+  """
   fun string(): String iso^ => "MalformedHeaders".clone()
 
 primitive InvalidContentLength
@@ -55,8 +58,23 @@ primitive UnsupportedTransferEncoding
   """
   fun string(): String iso^ => "UnsupportedTransferEncoding".clone()
 
+primitive ContentLengthWithTransferEncoding
+  """
+  A request carries both Content-Length and Transfer-Encoding header fields.
+
+  RFC 9112 §6.3 forbids this combination ("A sender MUST NOT send a
+  Content-Length header field in any message that contains a
+  Transfer-Encoding header field") because it is a request-smuggling vector:
+  an intermediary that honors one header while Stallion honors the other can
+  be desynchronized, letting a smuggled request slip past. Rather than pick a
+  framing, Stallion rejects the message — the presence of both headers is
+  itself the fault, regardless of what either header's value resolves to.
+  """
+  fun string(): String iso^ => "ContentLengthWithTransferEncoding".clone()
+
 type ParseError is
   (TooLarge | UnknownMethod | InvalidURI | InvalidVersion | MalformedHeaders
   | InvalidContentLength | InvalidChunk | BodyTooLarge
-  | InvalidTransferEncoding | UnsupportedTransferEncoding)
+  | InvalidTransferEncoding | UnsupportedTransferEncoding
+  | ContentLengthWithTransferEncoding)
   """Parse error encountered during HTTP request parsing."""

@@ -763,8 +763,8 @@ class \nodoc\ iso _TestContentLengthZero is UnitTest
 
 class \nodoc\ iso _TestContentLengthAndChunked is UnitTest
   """
-  Both Content-Length and Transfer-Encoding: chunked → chunked takes
-  precedence per RFC 7230 §3.3.3.
+  Both Content-Length and Transfer-Encoding present → rejected as a
+  request-smuggling vector (RFC 9112 §6.3), before any request is delivered.
   """
   fun name(): String => "parser/content_length_and_chunked"
 
@@ -779,12 +779,169 @@ class \nodoc\ iso _TestContentLengthAndChunked is UnitTest
     let parser = _RequestParser(notify)
     parser.parse(recover raw.array().clone() end)
 
-    h.assert_eq[USize](1, notify.requests.size(), "1 request")
-    h.assert_eq[USize](1, notify.completed, "1 completion")
-    h.assert_eq[USize](0, notify.errors.size(), "0 errors")
-    // Body is 5 bytes (chunked), not 100 (Content-Length)
-    h.assert_eq[String val](
-      "Hello", notify.collected_body_string())
+    h.assert_eq[USize](0, notify.requests.size(), "0 requests")
+    h.assert_eq[USize](0, notify.completed, "0 completions")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is ContentLengthWithTransferEncoding,
+        "should be ContentLengthWithTransferEncoding")
+    end
+
+class \nodoc\ iso _TestContentLengthAndUnsupportedTE is UnitTest
+  """
+  Content-Length with an unsupported Transfer-Encoding coding → rejected as a
+  smuggling vector (ContentLengthWithTransferEncoding), not as an unsupported
+  coding (UnsupportedTransferEncoding/501). The presence of both headers is
+  checked before the Transfer-Encoding value is evaluated, so the smuggling
+  rejection takes precedence (RFC 9112 §6.3).
+  """
+  fun name(): String => "parser/content_length_and_unsupported_te"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Content-Length: 100\r\n" +
+      "Transfer-Encoding: gzip\r\n" +
+      "\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "0 requests")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is ContentLengthWithTransferEncoding,
+        "should be ContentLengthWithTransferEncoding, not 501")
+    end
+
+class \nodoc\ iso _TestZeroContentLengthAndChunked is UnitTest
+  """
+  Content-Length: 0 with Transfer-Encoding → still rejected. RFC 9112 §6.3
+  forbids Content-Length in any message with Transfer-Encoding, regardless of
+  the Content-Length value.
+  """
+  fun name(): String => "parser/zero_content_length_and_chunked"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Content-Length: 0\r\n" +
+      "Transfer-Encoding: chunked\r\n" +
+      "\r\n" +
+      "0\r\n\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "0 requests")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is ContentLengthWithTransferEncoding,
+        "should be ContentLengthWithTransferEncoding")
+    end
+
+class \nodoc\ iso _TestWhitespaceBeforeColon is UnitTest
+  """
+  A header line with whitespace between the field name and the colon
+  ("Host : value") is rejected with MalformedHeaders per RFC 9112 §5.1.
+  """
+  fun name(): String => "parser/whitespace_before_colon"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "GET / HTTP/1.1\r\n" +
+      "Host : example.com\r\n" +
+      "\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "0 requests")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is MalformedHeaders,
+        "should be MalformedHeaders")
+    end
+
+class \nodoc\ iso _TestWhitespaceBeforeColonSmuggling is UnitTest
+  """
+  "Content-Length : 100" (whitespace before the colon) alongside
+  Transfer-Encoding must not be accepted as a Transfer-Encoding-only request.
+  An intermediary that trims the optional whitespace would see both framing
+  headers, desynchronizing the two — a request-smuggling vector. The line is
+  rejected with MalformedHeaders per RFC 9112 §5.1, so the both-headers
+  combination never reaches the framing decision.
+  """
+  fun name(): String => "parser/whitespace_before_colon_smuggling"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Content-Length : 100\r\n" +
+      "Transfer-Encoding: chunked\r\n" +
+      "\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "0 requests")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is MalformedHeaders,
+        "should be MalformedHeaders")
+    end
+
+class \nodoc\ iso _TestInteriorWhitespaceInNameSmuggling is UnitTest
+  """
+  "Content -Length: 100" (whitespace inside the field name) alongside
+  Transfer-Encoding must not be accepted as a Transfer-Encoding-only request.
+  An intermediary that normalizes the name to "Content-Length" would see both
+  framing headers, desynchronizing the two — the same request-smuggling vector
+  as whitespace before the colon, but defeating a check that only inspected
+  the byte adjacent to the colon. Rejecting non-token field names per RFC 9110
+  §5.6.2 closes it, so the request never reaches the framing decision.
+  """
+  fun name(): String => "parser/interior_whitespace_in_name_smuggling"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "POST / HTTP/1.1\r\n" +
+      "Content -Length: 100\r\n" +
+      "Transfer-Encoding: chunked\r\n" +
+      "\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "0 requests")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is MalformedHeaders,
+        "should be MalformedHeaders")
+    end
+
+class \nodoc\ iso _TestNonTokenHeaderName is UnitTest
+  """
+  A field name containing a non-token byte (here the delimiter "@") is
+  rejected with MalformedHeaders per RFC 9110 §5.6.2.
+  """
+  fun name(): String => "parser/non_token_header_name"
+
+  fun apply(h: TestHelper) =>
+    let raw: String val =
+      "GET / HTTP/1.1\r\n" +
+      "Foo@Bar: value\r\n" +
+      "\r\n"
+    let notify: _TestParserNotify ref = _TestParserNotify
+    let parser = _RequestParser(notify)
+    parser.parse(recover raw.array().clone() end)
+
+    h.assert_eq[USize](0, notify.requests.size(), "0 requests")
+    h.assert_eq[USize](1, notify.errors.size(), "1 error")
+    try
+      h.assert_true(notify.errors(0)? is MalformedHeaders,
+        "should be MalformedHeaders")
+    end
 
 class \nodoc\ iso _TestDuplicateContentLength is UnitTest
   """Two Content-Length headers with differing values → InvalidContentLength."""

@@ -150,7 +150,7 @@ primitive \nodoc\ _CookieTestGenerators
       let s = String
       var b: U8 = 33
       while b <= 126 do
-        if _CookieValidator._is_token_char(b) then s.push(b) end
+        if _Token(b) then s.push(b) end
         b = b + 1
       end
       s

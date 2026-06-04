@@ -233,6 +233,16 @@ class _ExpectHeaders is _ParserState
           // Empty line: end of headers
           p.pos = crlf + 2
 
+          // A request carrying both Content-Length and Transfer-Encoding is a
+          // request-smuggling vector (RFC 9112 §6.3). Reject it before any
+          // other framing decision: a smuggled request turns precisely on the
+          // Content-Length value being untrustworthy, so we neither trust it
+          // for framing (chunked/fixed) nor report it as too large (413) —
+          // the presence of both headers is itself the fault, so 400.
+          if _has_transfer_encoding and (_content_length isnt None) then
+            return ContentLengthWithTransferEncoding
+          end
+
           // Check body size limit before delivering the request. The actor
           // can now respond in on_request(), so rejections must precede delivery.
           match _content_length
@@ -262,8 +272,10 @@ class _ExpectHeaders is _ParserState
           // Deliver the request metadata
           p.handler.request_received(_method, _uri, _version, headers)
 
-          // Determine body handling: Transfer-Encoding takes precedence
-          // over Content-Length per RFC 9112 §6.3
+          // Determine body handling. Content-Length and Transfer-Encoding are
+          // mutually exclusive here — the both-present case was rejected above
+          // (RFC 9112 §6.3) — so chunked framing and a fixed Content-Length
+          // body can never both apply.
           if use_chunked then
             p.state = _ExpectChunkHeader(0, _config)
             return _ParseContinue
@@ -304,13 +316,18 @@ class _ExpectHeaders is _ParserState
           | None => return MalformedHeaders
           end
 
-        // Header name must not be empty
-        if colon_pos == p.pos then
+        // Extract the field name (lowercasing happens in Headers.add) and
+        // require it to be a valid RFC 9110 §5.6.2 token. This rejects an
+        // empty name, whitespace before the colon (RFC 9112 §5.1), interior
+        // whitespace ("Content -Length"), control bytes, and other delimiters.
+        // Rejecting non-token names closes a request-smuggling vector: an
+        // intermediary that normalizes such a name would recognize a framing
+        // header (Content-Length / Transfer-Encoding) that Stallion does not,
+        // desynchronizing the two about how the message is framed.
+        let name: String val = p.extract_string(p.pos, colon_pos)
+        if not _Token.valid(name) then
           return MalformedHeaders
         end
-
-        // Extract header name (lowercasing happens in Headers.add)
-        let name: String val = p.extract_string(p.pos, colon_pos)
 
         // Extract header value, skipping optional whitespace (OWS)
         var val_start = colon_pos + 1

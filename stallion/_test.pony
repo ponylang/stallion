@@ -15,6 +15,9 @@ actor \nodoc\ Main is TestList
     // OWS tests
     test(_TestOWS)
 
+    // Token tests
+    test(_TestToken)
+
     // Quoted-split tokenizer tests
     test(_TestQuotedSplit)
 
@@ -84,6 +87,12 @@ actor \nodoc\ Main is TestList
     test(_TestNoBody)
     test(_TestContentLengthZero)
     test(_TestContentLengthAndChunked)
+    test(_TestContentLengthAndUnsupportedTE)
+    test(_TestZeroContentLengthAndChunked)
+    test(_TestWhitespaceBeforeColon)
+    test(_TestWhitespaceBeforeColonSmuggling)
+    test(_TestInteriorWhitespaceInNameSmuggling)
+    test(_TestNonTokenHeaderName)
     test(_TestTransferEncodingUnknownNoBody)
     test(_TestTransferEncodingUnknownWithChunkedBody)
     test(_TestTransferEncodingGzipChunked)
