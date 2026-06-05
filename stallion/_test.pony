@@ -21,6 +21,9 @@ actor \nodoc\ Main is TestList
     // Field value tests
     test(_TestFieldValue)
 
+    // Host value tests
+    test(_TestHostValue)
+
     // Request conformance corpus (table-driven)
     test(_TestRequestConformance)
     test(_TestRequestParity)
@@ -121,6 +124,10 @@ actor \nodoc\ Main is TestList
     test(_TestServerParseError)
     test(_TestServerMissingHost)
     test(_TestServerDuplicateHost)
+    test(_TestServerInvalidHostValue)
+    test(_TestServerHostPortOutOfRange)
+    test(_TestServerEmptyHostValue)
+    test(_TestServerIPv6HostValue)
     test(_TestServerConnectOk)
     test(_TestServerUnknownMethod)
     test(_TestServerDuplicateHostHTTP10)

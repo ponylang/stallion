@@ -118,6 +118,94 @@ class \nodoc\ iso _TestServerDuplicateHostHTTP10 is UnitTest
       })
     h.dispose_when_done(listener)
 
+class \nodoc\ iso _TestServerInvalidHostValue is UnitTest
+  """
+  An HTTP/1.1 request whose Host value is not a well-formed host → 400. `a, b`
+  is one field line (so the uniqueness check passes), but the space makes it an
+  invalid uri-host (RFC 9110 §7.2 / RFC 9112 §3.2).
+  """
+  fun name(): String => "server/invalid host value"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let port = "45926"
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let config = ServerConfig(host, port)
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
+      {(h': TestHelper, port': String) =>
+        let client = _TestHTTPClient(h', port',
+          "GET / HTTP/1.1\r\nHost: a, b\r\n\r\n",
+          "400 Bad Request", None)
+        h'.dispose_when_done(client)
+      })
+    h.dispose_when_done(listener)
+
+class \nodoc\ iso _TestServerHostPortOutOfRange is UnitTest
+  """
+  An HTTP/1.1 request whose Host port exceeds 65535 → 400. Pins the port range
+  check end-to-end (this gate is the only place the Host header's port is
+  validated).
+  """
+  fun name(): String => "server/host port out of range"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let port = "45929"
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let config = ServerConfig(host, port)
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
+      {(h': TestHelper, port': String) =>
+        let client = _TestHTTPClient(h', port',
+          "GET / HTTP/1.1\r\nHost: example.com:99999\r\n\r\n",
+          "400 Bad Request", None)
+        h'.dispose_when_done(client)
+      })
+    h.dispose_when_done(listener)
+
+class \nodoc\ iso _TestServerEmptyHostValue is UnitTest
+  """
+  An HTTP/1.1 request with a present-but-empty Host value is accepted: an empty
+  reg-name is valid grammar, so the value gate does not reject it (pins the
+  accept-empty decision).
+  """
+  fun name(): String => "server/empty host value"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let port = "45927"
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let config = ServerConfig(host, port)
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
+      {(h': TestHelper, port': String) =>
+        let client = _TestHTTPClient(h', port',
+          "GET / HTTP/1.1\r\nHost:\r\n\r\n",
+          "200 OK", None)
+        h'.dispose_when_done(client)
+      })
+    h.dispose_when_done(listener)
+
+class \nodoc\ iso _TestServerIPv6HostValue is UnitTest
+  """An IPv6-literal Host value (`[::1]`) is accepted."""
+  fun name(): String => "server/ipv6 host value"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let port = "45928"
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let config = ServerConfig(host, port)
+    let listener = _TestServerListener(h, port, _TestHelloServerFactory,
+      config,
+      {(h': TestHelper, port': String) =>
+        let client = _TestHTTPClient(h', port',
+          "GET / HTTP/1.1\r\nHost: [::1]\r\n\r\n",
+          "200 OK", None)
+        h'.dispose_when_done(client)
+      })
+    h.dispose_when_done(listener)
+
 class \nodoc\ iso _TestServerUnknownMethod is UnitTest
   """A valid-token but unimplemented method → 501 Not Implemented."""
   fun name(): String => "server/unknown method"

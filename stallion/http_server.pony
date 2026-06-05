@@ -168,12 +168,31 @@ class HTTPServer is
     // repeated list-valued fields into one value, which would hide a duplicate
     // Host behind a single combined result.
     var host_count: USize = 0
+    var host_value: (String val | None) = None
     for hdr in headers.values() do
-      if hdr.name == "host" then host_count = host_count + 1 end
+      if hdr.name == "host" then
+        host_count = host_count + 1
+        // Capturing the last Host line's value is safe only because the
+        // host_count > 1 check below rejects before host_value is ever used, so
+        // a request that reaches the value gate has exactly one Host line.
+        host_value = hdr.value
+      end
     end
     if (host_count > 1) or ((host_count == 0) and (version is HTTP11)) then
       parse_error(BadHostHeader)
       return
+    end
+
+    // RFC 9110 §7.2 / RFC 9112 §3.2: when a Host is present, its value must be
+    // a well-formed uri-host [ ":" port ]. The count check above only enforces
+    // presence/uniqueness. Runs for every request-target form; syntax only — no
+    // cross-check against an absolute-form/CONNECT authority.
+    match host_value
+    | let h: String val =>
+      if not _HostValue.valid(h) then
+        parse_error(InvalidHostValue)
+        return
+      end
     end
 
     // Parse raw URI string into structured form. The parser already validated
