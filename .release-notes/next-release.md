@@ -35,3 +35,9 @@ Trailer fields are now held to the same standard as header fields.
 
 The parser is also stricter about request conformance. An HTTP/1.1 request must carry exactly one `Host` header field: a request missing `Host`, or carrying more than one `Host` line (on any HTTP version), is rejected with `400 Bad Request`. A request whose method is well-formed but not one Stallion implements now receives `501 Not Implemented` instead of `400 Bad Request`.
 
+## Reject requests with a malformed Host header value
+
+Stallion now rejects, with a 400 Bad Request, any request whose `Host` header value is not a well-formed host. A `Host` value must be a host name, IPv4 address, or bracketed IP-literal, optionally followed by a port in the range 0–65535.
+
+Previously, only the presence and uniqueness of the `Host` field were checked — its value was accepted unconditionally. That let through values that are not valid hosts, such as `Host: a, b` (which is a single header line, so it passed the uniqueness check) or a port outside the valid range. These are now rejected, closing a request-routing ambiguity.
+
