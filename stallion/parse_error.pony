@@ -149,6 +149,20 @@ primitive BadHostHeader
   """
   fun string(): String iso^ => "BadHostHeader".clone()
 
+primitive InvalidHostValue
+  """
+  A request's Host header field value is not a well-formed host.
+
+  RFC 9110 §7.2 / RFC 9112 §3.2 require the Host value to be a `uri-host
+  [ ":" port ]` (uri-host per RFC 3986 §3.2.2: an IP-literal, IPv4address, or
+  reg-name, plus an optional `*DIGIT` port). A value that violates that
+  grammar — for example `a, b` (the space is not a reg-name character) or a port
+  that is non-numeric or greater than 65535 — is a 400. Distinct from
+  `BadHostHeader`, which covers a missing or duplicated Host field rather than a
+  malformed value. Enforced at the protocol layer (where the headers are known).
+  """
+  fun string(): String iso^ => "InvalidHostValue".clone()
+
 primitive ContentLengthWithTransferEncoding
   """
   A request carries both Content-Length and Transfer-Encoding header fields.
@@ -169,5 +183,5 @@ type ParseError is
   | InvalidRequestLine | InvalidContentLength | InvalidChunk
   | InvalidChunkExtension | BodyTooLarge | InvalidTransferEncoding
   | UnsupportedTransferEncoding | ContentLengthWithTransferEncoding
-  | ForbiddenTrailer | BadHostHeader)
+  | ForbiddenTrailer | BadHostHeader | InvalidHostValue)
   """Parse error encountered during HTTP request parsing."""
