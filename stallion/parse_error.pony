@@ -163,6 +163,56 @@ primitive InvalidHostValue
   """
   fun string(): String iso^ => "InvalidHostValue".clone()
 
+primitive MismatchedHost
+  """
+  A request's Host header field value disagrees with the request-target
+  authority.
+
+  When the request-target carries its own authority (absolute-form, or the
+  authority-form used by CONNECT), RFC 9110 §7.2 requires the client to send a
+  Host value identical to that authority (excluding userinfo). A request that
+  presents two disagreeing host identities is a routing-confusion /
+  request-smuggling vector ("Host of Troubles"): a front-end and an origin can
+  route or authorize on different identities and be desynchronized. No
+  conformant client sends a disagreeing pair, so Stallion answers 400 — a
+  security-over-conformance choice, sibling to the duplicate-Host rule.
+  Comparison is case-insensitive with default-port normalization (see
+  `_HostAuthorityMatch`). Distinct from `BadHostHeader` (presence/uniqueness)
+  and `InvalidHostValue` (value syntax): here the value is well-formed but
+  contradicts the target. Enforced at the protocol layer (where the target and
+  headers are both known).
+  """
+  fun string(): String iso^ => "MismatchedHost".clone()
+
+primitive MissingConnectPort
+  """
+  A CONNECT request-target lacks the required port.
+
+  RFC 9112 §3.2 defines `authority-form = uri-host ":" port`, and RFC 9110 §9.3.6
+  requires a CONNECT request-target to carry the host *and* port of the tunnel
+  destination. A target with no port — whether the colon is absent
+  (`example.com`) or the port is empty (`example.com:`) — does not satisfy the
+  grammar and is a 400. Distinct from `InvalidURI`, which covers RFC 3986
+  *structural* parse failure: a portless authority parses fine under RFC 3986
+  and fails only the HTTP authority-form requirement.
+  """
+  fun string(): String iso^ => "MissingConnectPort".clone()
+
+primitive UserinfoInTarget
+  """
+  A request-target authority carries a userinfo subcomponent.
+
+  RFC 9110 §4.2.4 deprecates userinfo in `http`/`https` URIs: a client MUST NOT
+  send it, and a recipient should treat its presence as an error, since it
+  obscures the true authority (a phishing aid) and lets parties that split the
+  authority on a different `@` derive different hosts — a routing-confusion /
+  request-smuggling surface. The CONNECT authority-form grammar (RFC 9112
+  §3.2.3, `uri-host ":" port`) has no userinfo at all. Stallion rejects any
+  userinfo in the request-target authority with 400, for every request-target
+  form, independent of the Host header.
+  """
+  fun string(): String iso^ => "UserinfoInTarget".clone()
+
 primitive ContentLengthWithTransferEncoding
   """
   A request carries both Content-Length and Transfer-Encoding header fields.
@@ -183,5 +233,6 @@ type ParseError is
   | InvalidRequestLine | InvalidContentLength | InvalidChunk
   | InvalidChunkExtension | BodyTooLarge | InvalidTransferEncoding
   | UnsupportedTransferEncoding | ContentLengthWithTransferEncoding
-  | ForbiddenTrailer | BadHostHeader | InvalidHostValue)
+  | ForbiddenTrailer | BadHostHeader | InvalidHostValue
+  | MismatchedHost | MissingConnectPort | UserinfoInTarget)
   """Parse error encountered during HTTP request parsing."""
