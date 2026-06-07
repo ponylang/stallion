@@ -36,9 +36,9 @@ The `ssl` option is required because this library and lori depend on the `ssl` p
 
 ## RFC conformance
 
-Stallion conforms to the HTTP RFCs. We reject what the RFCs say to reject and accept what they say to accept — and we stop there. We do not add non-conformant behavior to compensate for an intermediary that mishandles a *conformant* message.
+Stallion conforms to the HTTP RFCs: we reject what they say to reject and accept what they say to accept. We will also reject more than the RFCs strictly require when doing so closes a security hole and the message is one no conformant client would send — that hardening costs conformant traffic nothing. What we will not do is the reverse: refuse a conformant message, or add non-conformant behavior, to compensate for some other party we cannot fix.
 
-The distinction matters for request-smuggling defenses. A malformed message the RFCs themselves say to reject — `Content-Length` together with `Transfer-Encoding` (RFC 9112 §6.3), an invalid field name (RFC 9110 §5.6.2, RFC 9112 §5.1), or a field value containing CR, LF, or NUL (RFC 9110 §5.5) — we reject, because rejecting it *is* conformance. But a conformant message that some intermediary might still mishandle is not ours to pre-empt: refusing it would break conformant clients to chase a misbehaving party we cannot fix.
+The line is who would be harmed. We reject a malformed message the RFCs themselves say to reject — `Content-Length` together with `Transfer-Encoding` (RFC 9112 §6.3), an invalid field name (RFC 9110 §5.6.2, RFC 9112 §5.1), or a field value containing CR, LF, or NUL (RFC 9110 §5.5) — and we likewise reject a message only a broken or hostile client would send, even where the RFCs would tolerate it. But a conformant message that some intermediary might still mishandle is not ours to pre-empt: refusing it would break conformant clients to chase a misbehaving party we cannot fix.
 
 Concretely: a field name containing `_` is a valid RFC 9110 §5.6.2 token, so we accept it — even though an upstream that rewrites `_` to `-` could confuse `X_Forwarded_For` with `X-Forwarded-For`. That rewrite is the upstream's bug, not ours, and refusing a valid token to defend against it would be the wrong trade.
 
