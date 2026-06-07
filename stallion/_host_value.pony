@@ -18,7 +18,7 @@ primitive _HostValue
   value". The protocol layer (`HTTPServer.request_received`) calls it after the
   Host presence/uniqueness check and rejects a malformed value with 400. It does
   NOT cross-check the value against an absolute-form or CONNECT authority in the
-  request-target; that is a separate concern.
+  request-target; that is a separate concern, handled by `_HostAuthorityMatch`.
 
   `IPv4address` is a character-subset of `reg-name` (DIGIT and `.`, both
   unreserved), so a syntactically valid IPv4 passes the reg-name check and needs

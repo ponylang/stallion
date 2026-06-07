@@ -185,8 +185,9 @@ class HTTPServer is
 
     // RFC 9110 §7.2 / RFC 9112 §3.2: when a Host is present, its value must be
     // a well-formed uri-host [ ":" port ]. The count check above only enforces
-    // presence/uniqueness. Runs for every request-target form; syntax only — no
-    // cross-check against an absolute-form/CONNECT authority.
+    // presence/uniqueness. This is the syntax gate; agreement with an
+    // absolute-form/CONNECT target authority is checked below, once the target
+    // is parsed.
     match host_value
     | let h: String val =>
       if not _HostValue.valid(h) then
@@ -202,6 +203,13 @@ class HTTPServer is
       if method is CONNECT then
         match \exhaustive\ uri_pkg.ParseURIAuthority(raw_uri)
         | let a: uri_pkg.URIAuthority val =>
+          // RFC 9112 §3.2 / RFC 9110 §9.3.6: a CONNECT target is
+          // `uri-host ":" port` — the port is mandatory. A missing colon or an
+          // empty port both parse to a `None` port and are rejected.
+          if a.port is None then
+            parse_error(MissingConnectPort)
+            return
+          end
           uri_pkg.URI(None, a, "", None, None)
         | let _: uri_pkg.URIParseError val =>
           parse_error(InvalidURI)
@@ -215,6 +223,38 @@ class HTTPServer is
           return
         end
       end
+
+    // RFC 9110 §4.2.4: userinfo is deprecated in http(s) target URIs (a client
+    // MUST NOT send it) and a recipient should treat its presence as an error —
+    // it obscures the true authority (phishing) and lets parties that split the
+    // authority on a different "@" derive different hosts. The authority-form
+    // grammar (RFC 9112 §3.2.3) has no userinfo at all. Reject any userinfo in
+    // the target authority, for every form, independent of the Host header.
+    match parsed_uri.authority
+    | let a: uri_pkg.URIAuthority val =>
+      if a.userinfo isnt None then
+        parse_error(UserinfoInTarget)
+        return
+      end
+    end
+
+    // RFC 9110 §7.2: when the request-target carries an authority (absolute-form
+    // or CONNECT) and a Host is present, the two must name the same host. A
+    // disagreement is a routing-confusion / request-smuggling vector, so reject
+    // it with 400 even though the message is otherwise well-formed (security
+    // over strict conformance, sibling to the duplicate-Host rule). Origin-form
+    // and asterisk-form carry no authority and skip this; an absent Host
+    // (HTTP/1.0) has nothing to compare. For CONNECT, `scheme` is None (no
+    // default port), so the ports must match exactly. Userinfo was already
+    // rejected above, so the comparator's own userinfo exclusion is defensive
+    // here.
+    match (host_value, parsed_uri.authority)
+    | (let h: String val, let a: uri_pkg.URIAuthority val) =>
+      if not _HostAuthorityMatch.valid(h, a, parsed_uri.scheme) then
+        parse_error(MismatchedHost)
+        return
+      end
+    end
 
     let keep_alive = _KeepAliveDecision(version, headers.get("connection"))
     let cookies = ParseCookies.from_headers(headers)
