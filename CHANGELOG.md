@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a CHANGELOG](http://keepachangelog.com/).
 
-## [unreleased] - unreleased
+## [0.7.1] - 2026-06-07
 
 ### Fixed
 
@@ -12,12 +12,6 @@ All notable changes to this project will be documented in this file. This projec
 - Reject HTTP request smuggling vectors and tighten request conformance ([PR #125](https://github.com/ponylang/stallion/pull/125))
 - Reject requests with a malformed Host header value ([PR #127](https://github.com/ponylang/stallion/pull/127))
 - Reject requests with a contradictory Host or an incomplete CONNECT target ([PR #128](https://github.com/ponylang/stallion/pull/128))
-
-### Added
-
-
-### Changed
-
 
 ## [0.7.0] - 2026-05-28
 
