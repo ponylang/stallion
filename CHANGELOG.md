@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file. This projec
 - Fix parsing of quoted parameter values in Transfer-Encoding and Accept headers ([PR #121](https://github.com/ponylang/stallion/pull/121))
 - Reject HTTP request smuggling vectors and tighten request conformance ([PR #125](https://github.com/ponylang/stallion/pull/125))
 - Reject requests with a malformed Host header value ([PR #127](https://github.com/ponylang/stallion/pull/127))
+- Reject requests with a contradictory Host or an incomplete CONNECT target ([PR #128](https://github.com/ponylang/stallion/pull/128))
 
 ### Added
 
