@@ -59,12 +59,16 @@ class ref _ResponseQueue
   callback (unless throttled). For non-head entries, data is buffered until
   the entry becomes the head.
 
-  **Re-entrancy contract**: `close()` may be called from within either
-  callback — `_response_complete` (e.g., keep-alive=false triggers
-  connection close) or `_flush_data` (e.g., TCP send error triggers
-  connection close). The flush methods check `_closed` before each
-  `_flush_data` call and before cascading into `_advance_head()`,
-  stopping the cascade safely.
+  **Re-entrancy contract**: both `close()` and `throttle()` may be called
+  from within `_flush_data`. `_flush_data` calls `TCPConnection.send()`,
+  which synchronously fires `_on_throttled` (on a partial write) — that
+  re-enters as `throttle()` — or, on a send error, closes the connection,
+  which re-enters as `close()`. `_response_complete` may likewise re-enter
+  as `close()` (e.g., keep-alive=false). `_pump_head` is the single place
+  head data is flushed: it re-checks both `_closed` and `_throttled` after
+  every `_flush_data` and in its outer loop, so a re-throttle leaves the
+  unsent chunks buffered for the next `unthrottle()` and a close stops the
+  cascade safely.
   """
   let _notify: _ResponseQueueNotify ref
   var _head_id: U64 = 0
@@ -133,24 +137,21 @@ class ref _ResponseQueue
     """
     Mark a request's response as complete.
 
-    If the request is the head of the queue, notifies the connection via
-    `_response_complete` and advances to the next entry, flushing any
-    buffered data for entries that are already complete (cascading flush).
-
-    The cascading flush checks `_closed` before each entry to handle
-    `close()` being called from within a callback (see re-entrancy
-    contract on the class docstring).
+    Marks the entry finished. If it is the head, drives `_pump_head`, which
+    flushes any remaining buffered data and — once the head is fully drained
+    and not throttled — advances, cascading through already-complete
+    pipelined entries behind it. A throttled head with buffered data is
+    deferred: it stays at the head and advances on the next `unthrottle()`,
+    so its data is never dropped. A non-head entry is flushed when it
+    becomes the head.
     """
     if _closed then return end
     let index = (id - _head_id).usize()
     try
       let entry = _entries(index)?
+      entry.finished = true
       if id == _head_id then
-        // Head entry — advance
-        _advance_head()
-      else
-        // Non-head — mark finished, will flush when it becomes head
-        entry.finished = true
+        _pump_head()
       end
     else
       _Unreachable()
@@ -168,7 +169,7 @@ class ref _ResponseQueue
     """
     _throttled = false
     if _closed then return end
-    _flush_head_buffered()
+    _pump_head()
 
   fun ref close() =>
     """
@@ -186,67 +187,62 @@ class ref _ResponseQueue
 
   fun ref _advance_head() =>
     """
-    Remove the current head entry and advance to the next.
+    Remove the current head entry and notify completion.
 
-    Notifies the connection that the head response is complete, then checks
-    if the new head has buffered data to flush.
+    Precondition: the caller has fully drained the head's buffered data and
+    is not throttled. `_pump_head` is the only caller and guarantees both.
+    Does NOT flush the new head — `_pump_head`'s loop re-pumps after this
+    returns, so the cascade through already-complete pipelined entries
+    happens in one place.
     """
     try
       let entry = _entries.shift()?
       _head_id = _head_id + 1
-      let keep_alive = entry.keep_alive
-      _notify._response_complete(keep_alive)
-      // Check closed flag — _response_complete may have triggered close
-      if _closed then return end
-      _flush_new_head()
+      _notify._response_complete(entry.keep_alive)
     else
       _Unreachable()
     end
 
-  fun ref _flush_new_head() =>
+  fun ref _pump_head() =>
     """
-    Flush buffered data for the new head entry and cascade if complete.
-    """
-    if _closed then return end
-    try
-      let entry = _entries(0)?
-      // Send all buffered data for the new head (data and tokens in lockstep)
-      var i: USize = 0
-      while i < entry.data.size() do
-        if _closed then return end
-        try
-          _notify._flush_data(entry.data(i)?, entry.tokens(i)?)
-        else
-          _Unreachable()
-        end
-        i = i + 1
-      end
-      entry.data.clear()
-      entry.tokens.clear()
-      if entry.finished and (not _closed) then
-        _advance_head()
-      end
-    end
+    Drive the head entry forward: flush its buffered data in order, and when
+    the entry is fully drained and finished, advance to the next head and
+    repeat (cascading flush for already-complete pipelined entries).
 
-  fun ref _flush_head_buffered() =>
+    THE single place head data is flushed. Stops early on:
+
+    - close (`_closed`) — the connection is gone, nothing more to send;
+    - re-throttle (`_throttled`) — `TCPConnection.send()`, called inside
+      `_flush_data`, synchronously fires `_on_throttled` on a partial write
+      / EWOULDBLOCK, which re-enters as `throttle()` and re-sets `_throttled`
+      mid-loop. The remaining chunks stay buffered in `entry.data` for the
+      next `unthrottle()` to resume — never dropped.
+
+    Chunks are shifted off one at a time so survivors remain on a re-throttle
+    or close. `_advance_head` is only reached here, only when the buffer is
+    empty and we are not throttled.
     """
-    Flush buffered data for the current head entry (after unthrottle).
-    """
-    try
-      let entry = _entries(0)?
-      var i: USize = 0
-      while i < entry.data.size() do
-        if _closed then return end
-        try
-          _notify._flush_data(entry.data(i)?, entry.tokens(i)?)
-        else
-          _Unreachable()
+    while (not _closed) and (not _throttled) and (_entries.size() > 0) do
+      try
+        let entry = _entries(0)?
+        // Flush buffered data (data and tokens in lockstep) until drained,
+        // closed, or re-throttled.
+        while entry.data.size() > 0 do
+          try
+            _notify._flush_data(entry.data.shift()?, entry.tokens.shift()?)
+          else
+            _Unreachable()
+          end
+          if _closed or _throttled then return end
         end
-        i = i + 1
-      end
-      entry.data.clear()
-      entry.tokens.clear()
-      if entry.finished and (not _closed) then
-        _advance_head()
+        // Buffer drained. Advance if finished; otherwise wait for more
+        // send_data/finish on this head.
+        if entry.finished then
+          _advance_head()
+        else
+          return
+        end
+      else
+        _Unreachable()
       end
     end

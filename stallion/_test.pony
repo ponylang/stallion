@@ -183,6 +183,15 @@ actor \nodoc\ Main is TestList
     test(_TestQueueThrottleUnthrottle)
     test(_TestQueueCloseOnFlushData)
 
+    // Mid-flush re-throttle tests (issue #132)
+    test(_TestQueueRethrottleMidFlushResumes)
+    test(_TestQueueFinishWhileThrottledKeepsData)
+    test(_TestQueueRethrottleMidFlushNewHead)
+    test(_TestQueueRethrottleOnLastChunk)
+    test(_TestQueueCloseDuringRethrottle)
+    test(Property1UnitTest[(USize, USize)](
+      _PropertyQueueRethrottleDelivery))
+
     // Response queue token tests
     test(Property1UnitTest[Array[USize] val](
       _PropertyQueueTokenOrder))
