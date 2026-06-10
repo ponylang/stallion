@@ -13,6 +13,16 @@ class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
   var close_on_flush_data: Bool = false
   var flush_data_close_trigger: String val = ""
 
+  // One-shot re-throttle hook: when the cumulative flush count reaches
+  // `throttle_after`, call throttle() once and clear the hook. Simulates lori
+  // re-applying backpressure synchronously inside send() (a partial write
+  // fires _on_throttled re-entrantly mid-flush). Cleared before firing so it
+  // re-throttles exactly once per arming. The count is cumulative over this
+  // notify's lifetime, so arm it once against a fresh notify (or with a value
+  // above the current flush count) — re-arming with a value already passed
+  // will never fire.
+  var throttle_after: (USize | None) = None
+
   // Set by test to trigger close() on _response_complete (when keep_alive
   // is false) or on _flush_data (when data matches the trigger string),
   // simulating the connection closing due to send errors.
@@ -28,6 +38,15 @@ class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
   =>
     flushed_data.push(data)
     flushed_tokens.push(token)
+    match throttle_after
+    | let n: USize =>
+      if flushed_data.size() == n then
+        throttle_after = None
+        match queue
+        | let q: _ResponseQueue => q.throttle()
+        end
+      end
+    end
     if close_on_flush_data then
       let s: String val = match \exhaustive\ data
       | let sv: String val => sv
@@ -366,9 +385,10 @@ class \nodoc\ iso _TestQueueThrottleUnthrottle is UnitTest
 class \nodoc\ iso _TestQueueCloseOnFlushData is UnitTest
   """
   Register 2 entries. Finish entry 1 (non-head, buffers). Finish entry 0
-  (head). During the cascade flush, _flush_data sees entry 1's data and
-  triggers close(). Verify the cascade stops cleanly instead of crashing
-  at _Unreachable() in _advance_head().
+  (head). As _pump_head advances past entry 0 and cascades into entry 1,
+  _flush_data sees entry 1's data and triggers close(). Verify the cascade
+  stops cleanly: close() clears _entries, and _pump_head's guards exit
+  instead of crashing at _Unreachable() on the now-empty queue.
   """
   fun name(): String => "response-queue/close on flush data"
 
@@ -386,10 +406,10 @@ class \nodoc\ iso _TestQueueCloseOnFlushData is UnitTest
     queue.send_data(id1, "e1-data")
     queue.finish(id1)
 
-    // Entry 0 (head): send data and finish — triggers cascade
-    // _advance_head removes entry 0, then _flush_new_head flushes entry 1's
-    // buffered data. _flush_data("e1-data") triggers close(). Without the
-    // fix, _advance_head() would crash on the empty _entries array.
+    // Entry 0 (head): send data and finish — triggers cascade.
+    // _pump_head advances past entry 0, then flushes entry 1's buffered
+    // data. _flush_data("e1-data") triggers close(). Without the close
+    // guards, the cascade would crash on the cleared _entries array.
     queue.send_data(id0, "e0-data")
     queue.finish(id0)
 
@@ -577,6 +597,329 @@ class \nodoc\ iso _TestQueueTokenClose is UnitTest
     // Nothing should have flushed — queue was closed
     h.assert_eq[USize](0, notify.flushed_tokens.size())
     h.assert_eq[USize](0, notify.flushed_data.size())
+
+// ---------------------------------------------------------------------------
+// Mid-flush re-throttle tests (issue #132)
+//
+// lori re-applies TCP backpressure synchronously inside send() (a partial
+// write fires _on_throttled, which re-enters the queue as throttle()). These
+// tests simulate that with _TestQueueNotify.throttle_after, which calls
+// throttle() once from inside _flush_data when the flush count reaches it.
+// ---------------------------------------------------------------------------
+
+class \nodoc\ iso _TestQueueRethrottleMidFlushResumes is UnitTest
+  """
+  Defect 1 (the #132 regression). A finished head with several buffered
+  chunks re-throttles partway through the unthrottle flush. The unsent
+  chunks must stay buffered and flush — in order, with completion — on the
+  next unthrottle, not be dropped. Each chunk carries a token, so this also
+  guards the data/token lockstep across the one-at-a-time shift on the
+  re-throttle resume path.
+  """
+  fun name(): String => "response-queue/rethrottle mid-flush resumes"
+
+  fun apply(h: TestHelper) =>
+    let notify = _TestQueueNotify
+    let queue = _ResponseQueue(notify)
+    notify.queue = queue
+
+    let id = queue.register(true)
+    let t1 = queue.create_chunk_token()
+    let t2 = queue.create_chunk_token()
+    let t3 = queue.create_chunk_token()
+    queue.throttle()
+    queue.send_data(id, "chunk-1", t1)
+    queue.send_data(id, "chunk-2", t2)
+    queue.send_data(id, "chunk-3", t3)
+    queue.finish(id)
+
+    // Re-throttle after the first flush, then unthrottle.
+    notify.throttle_after = 1
+    queue.unthrottle()
+
+    // Only chunk-1 flushed; chunks 2 and 3 stay buffered; no completion yet.
+    h.assert_eq[USize](1, notify.flushed_data.size(),
+      "Re-throttle must stop the flush after chunk-1")
+    h.assert_eq[USize](0, notify.completions.size(),
+      "Head must not complete while chunks remain buffered")
+
+    // Drain refills; unthrottle again flushes the survivors and completes.
+    queue.unthrottle()
+
+    let flushed = notify.flushed_as_strings()
+    h.assert_eq[USize](3, flushed.size())
+    try
+      h.assert_eq[String val]("chunk-1", flushed(0)?)
+      h.assert_eq[String val]("chunk-2", flushed(1)?)
+      h.assert_eq[String val]("chunk-3", flushed(2)?)
+    else
+      h.fail("Resume flush assertion index out of bounds")
+    end
+    // Tokens must stay paired with their chunks across the resume.
+    h.assert_eq[USize](3, notify.flushed_tokens.size())
+    try
+      h.assert_true(notify.flushed_tokens(0)? as ChunkSendToken == t1,
+        "Token 1 must stay paired with chunk-1")
+      h.assert_true(notify.flushed_tokens(1)? as ChunkSendToken == t2,
+        "Token 2 must stay paired with chunk-2")
+      h.assert_true(notify.flushed_tokens(2)? as ChunkSendToken == t3,
+        "Token 3 must stay paired with chunk-3")
+    else
+      h.fail("Resume token assertion failed")
+    end
+    h.assert_eq[USize](1, notify.completions.size(),
+      "Head completes once all buffered chunks flush")
+
+class \nodoc\ iso _TestQueueFinishWhileThrottledKeepsData is UnitTest
+  """
+  Defect 3. Finishing a throttled head that still has buffered data must
+  not advance the head and drop the data — it must defer until the next
+  unthrottle drains the buffer.
+  """
+  fun name(): String => "response-queue/finish while throttled keeps data"
+
+  fun apply(h: TestHelper) =>
+    let notify = _TestQueueNotify
+    let queue = _ResponseQueue(notify)
+    notify.queue = queue
+
+    let id = queue.register(true)
+    queue.throttle()
+    queue.send_data(id, "chunk-1")
+    queue.send_data(id, "chunk-2")
+    queue.send_data(id, "chunk-3")
+
+    // Finish while throttled — must defer, not advance.
+    queue.finish(id)
+    h.assert_eq[USize](0, notify.flushed_data.size(),
+      "Throttled finish must not flush")
+    h.assert_eq[USize](0, notify.completions.size(),
+      "Throttled finish must not complete (would drop buffered data)")
+
+    queue.unthrottle()
+
+    let flushed = notify.flushed_as_strings()
+    h.assert_eq[USize](3, flushed.size())
+    try
+      h.assert_eq[String val]("chunk-1", flushed(0)?)
+      h.assert_eq[String val]("chunk-2", flushed(1)?)
+      h.assert_eq[String val]("chunk-3", flushed(2)?)
+    else
+      h.fail("Deferred finish flush assertion index out of bounds")
+    end
+    h.assert_eq[USize](1, notify.completions.size())
+
+class \nodoc\ iso _TestQueueRethrottleMidFlushNewHead is UnitTest
+  """
+  Defect 2 (the cascade path). After the head completes and _pump_head
+  advances to an already-finished pipelined entry, re-throttling partway
+  through that new head's flush must also keep the survivors buffered.
+  """
+  fun name(): String => "response-queue/rethrottle mid-flush new head"
+
+  fun apply(h: TestHelper) =>
+    let notify = _TestQueueNotify
+    let queue = _ResponseQueue(notify)
+    notify.queue = queue
+
+    let id0 = queue.register(true)
+    let id1 = queue.register(true)
+
+    queue.throttle()
+    // id0 has no body; finishing it while throttled defers.
+    queue.finish(id0)
+    // id1 (non-head) buffers regardless of throttle.
+    queue.send_data(id1, "i1-a")
+    queue.send_data(id1, "i1-b")
+    queue.send_data(id1, "i1-c")
+    queue.finish(id1)
+
+    // id0 contributes 0 flushes, so the first flush is id1's chunk a;
+    // re-throttle lands on it, exercising the outer-loop guard between
+    // id0's advance and id1's flush.
+    notify.throttle_after = 1
+    queue.unthrottle()
+
+    h.assert_eq[USize](1, notify.flushed_data.size(),
+      "Re-throttle must stop after id1's first chunk")
+    h.assert_eq[USize](1, notify.completions.size(),
+      "id0 completed; id1 must not complete yet")
+    try
+      h.assert_eq[String val]("i1-a", notify.flushed_as_strings()(0)?)
+    else
+      h.fail("New-head flush assertion index out of bounds")
+    end
+
+    queue.unthrottle()
+
+    let flushed = notify.flushed_as_strings()
+    h.assert_eq[USize](3, flushed.size())
+    try
+      h.assert_eq[String val]("i1-a", flushed(0)?)
+      h.assert_eq[String val]("i1-b", flushed(1)?)
+      h.assert_eq[String val]("i1-c", flushed(2)?)
+    else
+      h.fail("New-head resume assertion index out of bounds")
+    end
+    h.assert_eq[USize](2, notify.completions.size(),
+      "Both entries complete after the survivors flush")
+
+class \nodoc\ iso _TestQueueRethrottleOnLastChunk is UnitTest
+  """
+  Boundary: re-throttle coincides with buffer exhaustion (the last chunk).
+  All chunks flush, but the advance/completion must be deferred — the
+  throttle check fires before the finished-check — and happen on the next
+  empty-drain unthrottle.
+  """
+  fun name(): String => "response-queue/rethrottle on last chunk"
+
+  fun apply(h: TestHelper) =>
+    let notify = _TestQueueNotify
+    let queue = _ResponseQueue(notify)
+    notify.queue = queue
+
+    let id = queue.register(true)
+    queue.throttle()
+    queue.send_data(id, "chunk-1")
+    queue.send_data(id, "chunk-2")
+    queue.send_data(id, "chunk-3")
+    queue.finish(id)
+
+    // Re-throttle on the third (last) flush.
+    notify.throttle_after = 3
+    queue.unthrottle()
+
+    h.assert_eq[USize](3, notify.flushed_data.size(),
+      "All buffered chunks flush before the re-throttle")
+    h.assert_eq[USize](0, notify.completions.size(),
+      "Re-throttle at exhaustion must defer the completion")
+
+    // Empty-drain unthrottle advances and completes.
+    queue.unthrottle()
+    h.assert_eq[USize](3, notify.flushed_data.size(),
+      "No extra flush on the empty drain")
+    h.assert_eq[USize](1, notify.completions.size())
+
+class \nodoc\ iso _TestQueueCloseDuringRethrottle is UnitTest
+  """
+  Boundary: close() arrives while in the re-throttled state (survivors
+  buffered). A subsequent unthrottle must not flush or complete anything —
+  the intersection of defect 1 and the close-safety contract.
+  """
+  fun name(): String => "response-queue/close during rethrottle"
+
+  fun apply(h: TestHelper) =>
+    let notify = _TestQueueNotify
+    let queue = _ResponseQueue(notify)
+    notify.queue = queue
+
+    let id = queue.register(true)
+    queue.throttle()
+    queue.send_data(id, "chunk-1")
+    queue.send_data(id, "chunk-2")
+    queue.send_data(id, "chunk-3")
+    queue.finish(id)
+
+    notify.throttle_after = 1
+    queue.unthrottle()
+    h.assert_eq[USize](1, notify.flushed_data.size())
+    h.assert_eq[USize](0, notify.completions.size())
+
+    // Close while survivors are still buffered, then unthrottle.
+    queue.close()
+    queue.unthrottle()
+
+    h.assert_eq[USize](1, notify.flushed_data.size(),
+      "Closed queue must not flush survivors")
+    h.assert_eq[USize](0, notify.completions.size(),
+      "Closed queue must not complete")
+
+class \nodoc\ iso _PropertyQueueRethrottleDelivery
+  is Property1[(USize, USize)]
+  """
+  For a finished head with N buffered token-carrying chunks, re-throttling
+  once after the k-th flush (for any k in 1..N) must still deliver all N
+  chunks exactly once, in order, with their tokens paired, and fire exactly
+  one completion. Covers every re-throttle point — including the off-by-one
+  boundaries (k=1, k=N) the example tests pin individually.
+  """
+  fun name(): String => "response-queue/rethrottle delivery"
+
+  fun gen(): Generator[(USize, USize)] =>
+    // N in 2..15, then a re-throttle point k in 1..N.
+    Generators.usize(2, 15).flat_map[(USize, USize)](
+      {(n: USize): Generator[(USize, USize)] =>
+        Generators.usize(1, n).map[(USize, USize)](
+          {(k: USize): (USize, USize) => (n, k) })
+      })
+
+  fun ref property(arg1: (USize, USize), ph: PropertyHelper) =>
+    (let n, let k) = arg1
+    let notify = _TestQueueNotify
+    let queue = _ResponseQueue(notify)
+    notify.queue = queue
+
+    let id = queue.register(true)
+    let tokens = Array[ChunkSendToken](n)
+    queue.throttle()
+    for i in Range(0, n) do
+      let tok = queue.create_chunk_token()
+      tokens.push(tok)
+      queue.send_data(id, i.string(), tok)
+    end
+    queue.finish(id)
+
+    // Re-throttle once, after the k-th chunk flushes.
+    notify.throttle_after = k
+    queue.unthrottle()
+
+    // The re-throttle must STOP the flush at exactly k chunks (this is the
+    // fix — without the mid-loop _throttled re-check the loop would run on).
+    ph.assert_eq[USize](k, notify.flushed_data.size(),
+      "First unthrottle must stop at k=" + k.string() + " chunks of " +
+      n.string())
+    if k < n then
+      ph.assert_eq[USize](0, notify.completions.size(),
+        "No completion while chunks remain buffered, k=" + k.string())
+    end
+
+    // Drive unthrottle until the response completes (bounded — the survivors
+    // drain in one more round, then the head advances).
+    var rounds: USize = 0
+    while (notify.completions.size() == 0) and (rounds <= (n + 1)) do
+      queue.unthrottle()
+      rounds = rounds + 1
+    end
+
+    // All N chunks delivered exactly once, in registration order.
+    let flushed = notify.flushed_as_strings()
+    ph.assert_eq[USize](n, flushed.size(),
+      "Expected " + n.string() + " chunks for k=" + k.string())
+    for i in Range(0, n) do
+      try
+        ph.assert_eq[String val](i.string(), flushed(i)?,
+          "Order mismatch at " + i.string() + " for k=" + k.string())
+      end
+    end
+    // Tokens stay paired with their chunks across the re-throttle. Match
+    // explicitly so a None (desynced) token fails rather than being swallowed.
+    ph.assert_eq[USize](n, notify.flushed_tokens.size())
+    for i in Range(0, n) do
+      try
+        match notify.flushed_tokens(i)?
+        | let ct: ChunkSendToken =>
+          ph.assert_true(ct == tokens(i)?,
+            "Token mismatch at " + i.string() + " for k=" + k.string())
+        | None =>
+          ph.fail("Token None at " + i.string() + " for k=" + k.string())
+        end
+      else
+        ph.fail("Token index out of bounds at " + i.string())
+      end
+    end
+    // Exactly one completion.
+    ph.assert_eq[USize](1, notify.completions.size(),
+      "Expected exactly one completion for k=" + k.string())
 
 // ---------------------------------------------------------------------------
 // Property-based test: token ordering
