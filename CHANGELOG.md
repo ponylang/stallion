@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Fix truncated streaming responses under sustained backpressure ([PR #133](https://github.com/ponylang/stallion/pull/133))
 
 ### Added
 
