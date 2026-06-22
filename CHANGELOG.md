@@ -2,17 +2,11 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a CHANGELOG](http://keepachangelog.com/).
 
-## [unreleased] - unreleased
+## [0.7.3] - 2026-06-22
 
 ### Fixed
 
 - Fix server going silent after sending a large response ([PR #134](https://github.com/ponylang/stallion/pull/134))
-
-### Added
-
-
-### Changed
-
 
 ## [0.7.2] - 2026-06-10
 
