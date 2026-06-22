@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Fix server going silent after sending a large response ([PR #134](https://github.com/ponylang/stallion/pull/134))
 
 ### Added
 
