@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Changed
 
+- Drop support for Windows 10 ([PR #135](https://github.com/ponylang/stallion/pull/135))
 
 ## [0.7.3] - 2026-06-22
 
