@@ -46,7 +46,7 @@ Concretely: a field name containing `_` is a valid RFC 9110 §5.6.2 token, so we
 
 Package: `stallion` (repo name is `stallion`, Pony package name is `stallion`)
 
-Built on lori (v0.15.1). Lori provides raw TCP I/O with a connection-actor model: `_on_received(data: Array[U8] iso)` for incoming data, `TCPConnection.send(data): (SendToken | SendError)` for outgoing, plus backpressure notifications, SSL support, per-connection ASIO-level idle timers, and general-purpose one-shot timers.
+Built on lori (v0.16.0). Lori provides raw TCP I/O with a connection-actor model: `_on_received(data: Array[U8] iso)` for incoming data, `TCPConnection.send(data): (SendToken | SendError)` for outgoing, plus backpressure notifications, SSL support, per-connection ASIO-level idle timers, and general-purpose one-shot timers.
 
 ### Key design decisions
 
