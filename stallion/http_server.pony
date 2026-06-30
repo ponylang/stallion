@@ -42,7 +42,6 @@ class HTTPServer is
   var _requests_pending: USize = 0
   var _requests_completed: USize = 0
   var _parser: (_RequestParser | None) = None
-  var _idle: Bool = true
   embed _pending_sent_tokens: Array[(ChunkSendToken | None)]
 
   new none() =>
@@ -268,7 +267,6 @@ class HTTPServer is
       _Unreachable(); return
     end
     _requests_pending = _requests_pending + 1
-    _idle = false
 
     // Safety net: close if too many pipelined requests are pending
     match \exhaustive\ _config
@@ -360,9 +358,9 @@ class HTTPServer is
     Decrements the pending request count, increments the completed count,
     and decides whether to close the connection. The check order is:
     keep-alive=false closes first (existing HTTP semantics), then
-    max-requests check (connection resource limit), then idle if no more
-    requests are pending. Pipelined requests already in flight still get
-    served — the connection closes after the Nth response flushes.
+    max-requests check (connection resource limit). Pipelined requests
+    already in flight still get served — the connection closes after the
+    Nth response flushes.
     """
     _requests_pending = _requests_pending - 1
     _requests_completed = _requests_completed + 1
@@ -370,8 +368,6 @@ class HTTPServer is
       _close_connection()
     elseif _max_requests_reached() then
       _close_connection()
-    elseif _requests_pending == 0 then
-      _idle = true
     end
 
   fun _max_requests_reached(): Bool =>
@@ -445,10 +441,16 @@ class HTTPServer is
     end
 
   fun ref _handle_idle_timeout() =>
-    """Close the connection if it is idle (between requests)."""
-    if _idle then
-      _close_connection()
-    end
+    """
+    Close the connection on idle timeout.
+
+    "Idle" means no socket activity for the configured timeout, matching
+    lori's idle timer — not "between requests". A connection that stalls
+    mid-request or mid-response with no activity is closed like any other
+    idle connection. A client that keeps trickling data resets the timer
+    and is not closed; only fully-stalled connections are.
+    """
+    _close_connection()
 
   fun ref _handle_timer(token: lori.TimerToken) =>
     """Forward one-shot timer firing to the receiver."""
@@ -558,6 +560,9 @@ class HTTPServer is
       | let r: HTTPServerLifecycleEventReceiver ref => r.on_closed()
       | None => _Unreachable()
       end
-      _tcp_connection.close()
+      // Set _Closed before close(): on a muted connection close() hard-closes
+      // synchronously and re-enters _on_closed; the _Closed state makes that
+      // re-entry a no-op, so on_closed fires exactly once.
       _state = _Closed
+      _tcp_connection.close()
     end

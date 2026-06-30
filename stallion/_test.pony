@@ -155,6 +155,7 @@ actor \nodoc\ Main is TestList
     test(_TestErrorResponse431)
     test(_TestErrorResponse505)
     test(_TestIdleTimeout)
+    test(_TestIdleTimeoutClosesStalledConnection)
     test(_TestMaxRequestsPerConnection)
     test(_TestServerTimerFires)
     test(_TestServerTimerCancelled)
