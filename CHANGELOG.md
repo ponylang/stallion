@@ -6,6 +6,10 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Fix idle timeout never closing stalled connections ([PR #137](https://github.com/ponylang/stallion/pull/137))
+- Fix connections closed mid-transfer by the idle timeout ([PR #137](https://github.com/ponylang/stallion/pull/137))
+- Fix on_closed firing twice when a backpressured connection closes ([PR #137](https://github.com/ponylang/stallion/pull/137))
+
 
 ### Added
 
