@@ -2,17 +2,13 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a CHANGELOG](http://keepachangelog.com/).
 
-## [unreleased] - unreleased
+## [0.8.0] - 2026-06-30
 
 ### Fixed
 
 - Fix idle timeout never closing stalled connections ([PR #137](https://github.com/ponylang/stallion/pull/137))
 - Fix connections closed mid-transfer by the idle timeout ([PR #137](https://github.com/ponylang/stallion/pull/137))
 - Fix on_closed firing twice when a backpressured connection closes ([PR #137](https://github.com/ponylang/stallion/pull/137))
-
-
-### Added
-
 
 ### Changed
 
