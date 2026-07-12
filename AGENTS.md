@@ -1,4 +1,6 @@
-# HTTP Server for Pony
+# Stallion
+
+An HTTP/1.x server library for Pony, built on lori. The user's actor is the connection — there is no separate internal actor.
 
 <!-- contributor-only -->
 ## Contributing with an AI assistant
@@ -22,131 +24,42 @@ When you start working on this project, load the `pony-skills` skill — it tell
 Read [CONTRIBUTING.md](CONTRIBUTING.md).
 <!-- /contributor-only -->
 
-## Building
+## Building and testing
 
 ```
-make ssl=3.0.x      # build and run tests (OpenSSL 3.x)
-make ssl=1.1.x      # build and run tests (OpenSSL 1.1.x)
-make test-one t=TestName ssl=3.0.x  # run a single test by name
-make ssl=libressl   # build and run tests (LibreSSL)
-make clean           # clean build artifacts
+make ssl=3.0.x                       # build + run tests (OpenSSL 3.x)
+make ssl=1.1.x                       # OpenSSL 1.1.x
+make ssl=libressl                    # LibreSSL
+make test-one t=TestName ssl=3.0.x   # run a single test by name
+make clean
 ```
 
-The `ssl` option is required because this library and lori depend on the `ssl` package.
+`ssl=` is required because stallion and lori depend on the `ssl` package.
 
 ## RFC conformance
 
 Stallion conforms to the HTTP RFCs: we reject what they say to reject and accept what they say to accept. We will also reject more than the RFCs strictly require when doing so closes a security hole and the message is one no conformant client would send — that hardening costs conformant traffic nothing. What we will not do is the reverse: refuse a conformant message, or add non-conformant behavior, to compensate for some other party we cannot fix.
 
-The line is who would be harmed. We reject a malformed message the RFCs themselves say to reject — `Content-Length` together with `Transfer-Encoding` (RFC 9112 §6.3), an invalid field name (RFC 9110 §5.6.2, RFC 9112 §5.1), or a field value containing CR, LF, or NUL (RFC 9110 §5.5) — and we likewise reject a message only a broken or hostile client would send, even where the RFCs would tolerate it. But a conformant message that some intermediary might still mishandle is not ours to pre-empt: refusing it would break conformant clients to chase a misbehaving party we cannot fix.
+The line is who would be harmed. We reject a message the RFCs themselves say to reject, and a message only a broken or hostile client would send, even where the RFCs would tolerate it. But a conformant message that some intermediary might still mishandle is not ours to pre-empt: refusing it would break conformant clients to chase a misbehaving party we cannot fix.
 
 Concretely: a field name containing `_` is a valid RFC 9110 §5.6.2 token, so we accept it — even though an upstream that rewrites `_` to `-` could confuse `X_Forwarded_For` with `X-Forwarded-For`. That rewrite is the upstream's bug, not ours, and refusing a valid token to defend against it would be the wrong trade.
 
 ## Architecture
 
-Package: `stallion` (repo name is `stallion`, Pony package name is `stallion`)
-
-Built on lori (v0.16.1). Lori provides raw TCP I/O with a connection-actor model: `_on_received(data: Array[U8] iso)` for incoming data, `TCPConnection.send(data): (SendToken | SendError)` for outgoing, plus backpressure notifications, SSL support, per-connection ASIO-level idle timers, and general-purpose one-shot timers.
-
-### Key design decisions
-
-**Protocol class pattern (mirrors lori's layering)**: The user's actor IS the connection — no hidden internal actor. The architecture mirrors lori's own layering:
+The design mirrors lori's own layering — a protocol class, an actor trait, and a lifecycle-event-receiver trait:
 
 ```
-lori layer:    TCPConnection (class) + TCPConnectionActor (trait) + ServerLifecycleEventReceiver (trait)
-http layer:    HTTPServer (class) + HTTPServerActor (trait) + HTTPServerLifecycleEventReceiver (trait)
+lori:  TCPConnection (class) + TCPConnectionActor (trait) + ServerLifecycleEventReceiver (trait)
+http:  HTTPServer    (class) + HTTPServerActor    (trait) + HTTPServerLifecycleEventReceiver (trait)
 ```
 
-The user's actor stores `HTTPServer` as a field and implements `HTTPServerActor` (which extends both `TCPConnectionActor` and `HTTPServerLifecycleEventReceiver`). The protocol class handles all HTTP parsing, response queue management, and connection lifecycle — calling back to the user's actor for HTTP-level events. Other actors can communicate directly with the user's actor since it IS the connection actor.
+The user's actor holds an `HTTPServer` and implements `HTTPServerActor`; because the actor is the connection, other actors can message it directly. A separate listener actor implements `lori.TCPListenerActor` and creates the server actors in `_on_accept` — no factory, no notify, no hidden actor.
 
-**No HTTP-layer listener wrapper**: A separate listener actor implements `lori.TCPListenerActor` directly, creating `HTTPServerActor` instances in `_on_accept`. Lifecycle callbacks (`_on_listening`, `_on_listen_failure`, `_on_closed`) go directly to the listener actor. No factory class, no notify class, no hidden internal actor.
+The parser and the connection lifecycle are each a small state machine, with states as classes and every state implementing every operation.
 
-**`none()` constructor for field defaults**: `HTTPServer.none()` creates a placeholder instance that allows the `_http` field to have a default value. This is needed because Pony actor constructors require all fields to be initialized before `this` becomes `ref`. Without a default, `this` is `tag` in the constructor body, which can't be passed to `HTTPServer.create()`. The `none()` instance is immediately replaced by `create()` or `ssl()` — its methods are never called.
+**Each security-critical grammar rule lives in one primitive**, so a fix reaches every caller by construction — CR/LF, for instance, is interpreted only in `_LineScan`, which replaced a scattered `find_crlf` that was the root cause of a class of request-smuggling bugs. Keep a new grammar rule in its own primitive; do not re-interpret bytes in a state class.
 
-**Parser callback is `ref`, not `tag`**: The parser runs inside the connection actor, so its callback interface uses `fun ref` methods (synchronous calls), not `be` behaviors (actor messages).
+## Conventions
 
-**Trait-based state machines**: State machines (parser and connection lifecycle) follow the pattern from `ponylang/postgres`: states are classes implementing trait hierarchies. Traits for state categories supply default implementations that trap on invalid operations. Each state class owns its per-state data (buffers, accumulators), which is automatically cleaned up on state transitions.
-
-**Connection lifecycle**: Connections are persistent by default (HTTP/1.1 keep-alive). The user's listener creates connections via `_on_accept`, passing `ServerConfig` for parser limits and idle timeout. For HTTPS, actors use `HTTPServer.ssl` instead of `HTTPServer`, passing an `SSLContext val`. Connections that fail before starting (e.g., SSL handshake failure) fire `on_start_failure(reason)` — neither `on_request()` nor `on_closed()` fires for these connections. Active connections close on `Connection: close`, HTTP/1.0 without keep-alive, parse errors, idle timeout, `max_requests_per_connection` limit, or when the actor calls `HTTPServer.close()`. `HTTPServer.yield_read()` cooperatively yields the read loop for scheduler fairness — call it from HTTP callbacks to implement yield policies. Backpressure from lori is propagated via `on_throttled()`/`on_unthrottled()` callbacks.
-
-**URI parsing**: The protocol layer parses request-target strings into `URI val` (from `ponylang/uri`) before delivering them in the `Request val` object. Invalid URIs are rejected with 400 Bad Request. Actors that access URI components (e.g., `request'.uri.query_params()`) need `use "uri"` in their package to name types like `QueryParams`.
-
-**Streaming-only body delivery**: Body data is delivered incrementally via `on_body_chunk()` callbacks. Actors that need the complete body accumulate chunks manually.
-
-**Per-request Responder**: Each request gets its own `Responder` instance, delivered to both `on_request()` and `on_request_complete()`. Simple servers override only `on_request_complete(request', responder)`. Override `on_request()` when you need to respond before the body arrives (e.g., 413 rejection, starting a streaming response). Responders support two modes: complete (`respond()` with pre-serialized bytes from `ResponseBuilder`) and streaming (`start_chunked_response()` + `send_chunk()` + `finish_response()`). A `_ResponseQueue` ensures pipelined responses are delivered in request order. After connection close, any Responders the actor still holds become inert.
-
-## Release Notes
-
-Follow the standard ponylang release notes conventions. Create individual `.md` files in `.release-notes/` for each PR with user-facing changes.
-
-## File Layout
-
-- `stallion/` — main package source
-  - `method.pony` — HTTP method types (`Method` interface, 9 primitives, `Methods` parse/enumerate)
-  - `version.pony` — HTTP version types (`HTTP10`, `HTTP11`, `Version` closed union)
-  - `status.pony` — HTTP status codes (`Status` interface, 35 standard primitives)
-  - `header.pony` — Single HTTP header name-value pair (`Header val` class)
-  - `headers.pony` — Case-insensitive header collection (`Headers` class, stores `Array[Header val]`; `get()` combines repeated list-valued field lines per RFC 9110 §5.3)
-  - `_list_valued_headers.pony` — Allowlist of comma-separated list header fields and documented deny list (`_ListValuedHeaders` primitive)
-  - `_response_serializer.pony` — Response wire-format serializer (package-private)
-  - `_mort.pony` — Runtime enforcement primitives (`_IllegalState`, `_Unreachable`)
-  - `_ows.pony` — RFC 9110 §5.6.3 optional whitespace (SP/HTAB) — single source for the OWS predicate, zero-copy trim, and strip charset (`_OWS` primitive)
-  - `_token.pony` — RFC 9110 §5.6.2 token (`tchar`) — single source for the token-character predicate and whole-string validity (`_Token` primitive); used to validate HTTP field names (RFC 9112 §5.1) and cookie names
-  - `_field_value.pony` — RFC 9110 §5.5 field-value validity (`_FieldValue` primitive) — rejects the MUST-reject set (CR, LF, NUL) inside a header value
-  - `_host_value.pony` — RFC 9110 §7.2 / RFC 9112 §3.2 Host field-value validity (`_HostValue` primitive) — single source for the `uri-host [ ":" port ]` grammar (reg-name / IPv4 / bracketed IP-literal per RFC 3986 §3.2.2, plus a `*DIGIT` port bounded to ≤65535); IP-literal predicates mirror `uri`'s `ParseURIAuthority`. `_HostValue` is syntax only; the cross-check against an absolute-form/CONNECT target authority lives in `_host_authority_match.pony`
-  - `_host_authority_match.pony` — RFC 9110 §7.2 Host / request-target authority agreement (`_HostAuthorityMatch` primitive) — compares a present Host value against an absolute-form or CONNECT target authority, rejecting a disagreement (routing-confusion / smuggling surface). Case-insensitive host comparison, default-port normalization keyed off the target scheme (http→80, https→443; none for CONNECT/other), userinfo excluded; no normalization beyond ASCII case (empty host, trailing-dot FQDN, non-canonical IPv4 all treated as disagreeing)
-  - `_quoted_split.pony` — RFC 9110 §5.6.4 quoted-string-aware delimiter split (`_QuotedSplit` primitive) — shared by the Transfer-Encoding and Accept parsers so a delimiter inside a quoted parameter value (including `quoted-pair` escapes) does not split an element; returns `(segments, unterminated)` so the framing path can reject a malformed (unterminated-quote) value while Accept ignores it
-  - `parse_error.pony` — Parse error types (`ParseError` union, 22 error primitives; grammar-aligned per the conformant-by-construction parser. The old overloaded `MalformedHeaders` was retired and removed. `InvalidHostValue` is the protocol-layer Host-value syntax rejection, distinct from the presence/uniqueness `BadHostHeader` and from `MismatchedHost` (Host value disagrees with the request-target authority). `MissingConnectPort` rejects a CONNECT target without the mandatory port; `UserinfoInTarget` rejects userinfo in the request-target authority per RFC 9110 §4.2.4)
-  - `_parser_config.pony` — Parser size limit configuration
-  - `_request_parser_notify.pony` — Parser callback trait (synchronous `ref` methods)
-  - `_transfer_encoding.pony` — Transfer-Encoding tokenizer and RFC 9112 §6.1/§6.3 coding decision (`_TransferEncoding` primitive, `_ChunkedFraming` sentinel); validates each coding is a `token` so an obfuscated coding name is a 400, not a 501
-  - `_line_scan.pony` — RFC 9112 §2.2 line policy (`_LineScan` primitive, `_Line` + `_ScannedLine` classes) — THE single place CR/LF is interpreted, for every line type; rejects bare CR/LF (`BareCRLF`), treats a CR at the buffer edge as need-more (resumability). Replaces the old `find_crlf`, the root cause of the smuggling-bug class. `_ScannedLine` is the typed token (built only via `_RequestParser.scanned_line` from a `_Line`) that the gates require, so a caller cannot feed them un-scanned bytes
-  - `_field_line.pony` — RFC 9112 §5 field-line gate (`_FieldLine` primitive, `_Field` class) — THE single field-line grammar gate (token name, OWS, NUL-in-value, obs-fold), shared verbatim by the header and trailer states so a fix reaches both by construction
-  - `_request_line.pony` — RFC 9112 §3 request line (`_RequestLine` primitive) — exactly-one-SP framing (`InvalidRequestLine`), method/version parse, request-target byte gate (non-empty, VCHAR-only → `InvalidURI`); target delivered raw for the protocol layer to parse into a URI
-  - `_chunk_header.pony` — RFC 9112 §7.1 chunk header (`_ChunkHeader` primitive) — strict `1*HEXDIG` chunk-size (`InvalidChunk`) and validated chunk-ext (token names, token/quoted-string values → `InvalidChunkExtension`), the previously-unvalidated chunk position
-  - `_forbidden_trailers.pony` — RFC 9110 §6.5.1 trailer denylist (`_ForbiddenTrailers` primitive) — framing/routing/control/auth field names rejected in a trailer section (`ForbiddenTrailer`)
-  - `_parser_state.pony` — Parser state machine (state interface, 6 thin state classes that drive `_LineScan`/`_FieldLine`/the gates; no state interprets CR/LF or field-line grammar itself)
-  - `_request_parser.pony` — Request parser class (entry point, buffer management)
-  - `request.pony` — Immutable request metadata bundle (`Request val`: method, URI, version, headers, cookies)
-  - `chunk_send_token.pony` — Opaque chunk send token (`ChunkSendToken val`, `Equatable`, private constructor)
-  - `http_server_lifecycle_event_receiver.pony` — HTTP callback trait (`HTTPServerLifecycleEventReceiver`: on_request, on_body_chunk, on_request_complete, on_closed, on_start_failure, on_throttled, on_chunk_sent, on_unthrottled, on_timer, on_timer_failure)
-  - `http_server_actor.pony` — Server actor trait (`HTTPServerActor`: extends `TCPConnectionActor` and `HTTPServerLifecycleEventReceiver`, provides `_connection()` default)
-  - `stallion.pony` — Package docstring
-  - `http_server.pony` — Protocol class (`HTTPServer`: owns TCP connection + parser + URI parsing + response queue, implements `ServerLifecycleEventReceiver` + `_RequestParserNotify` + `_ResponseQueueNotify`)
-  - `_keep_alive_decision.pony` — Keep-alive logic (`_KeepAliveDecision` primitive)
-  - `response_builder.pony` — Pre-serialized response construction (`ResponseBuilder` primitive, `ResponseHeadersBuilder`/`ResponseBodyBuilder` phase interfaces, `_ResponseBuilderImpl`)
-  - `start_chunked_response_result.pony` — Typed result from `start_chunked_response()` (`StartChunkedResponseResult` union, `StreamingStarted`/`AlreadyResponded`/`ChunkedNotSupported` primitives)
-  - `responder.pony` — Per-request response sender (`Responder` class, state machine, complete and streaming modes)
-  - `_response_queue.pony` — Pipelined response ordering (`_ResponseQueue`, `_ResponseQueueNotify`, `_QueueEntry`)
-  - `_chunked_encoder.pony` — Chunked transfer encoding (`_ChunkedEncoder` primitive)
-  - `max_requests_per_connection.pony` — Constrained type for max requests limit (`MaxRequestsPerConnection`, `MakeMaxRequestsPerConnection`, validator)
-  - `server_config.pony` — Server configuration (`ServerConfig` class with `max_requests_per_connection: (MaxRequestsPerConnection | None)`, `DefaultIdleTimeout` primitive)
-  - `_error_response.pony` — Pre-built error response strings (`_ErrorResponse` primitive)
-  - `_connection_state.pony` — Connection lifecycle states (`_Active`, `_Closed`; dispatches lori events to server handler methods)
-  - `request_cookie.pony` — Single parsed cookie name-value pair (`RequestCookie val`, private constructor)
-  - `request_cookies.pony` — Immutable collection of parsed request cookies (`RequestCookies val`, `get()`, `values()`, `size()`)
-  - `parse_cookies.pony` — Cookie parser (`ParseCookies` primitive: `from_headers()`, `apply()`, lenient RFC 6265 §5.4 parsing)
-  - `same_site.pony` — SameSite attribute types (`SameSiteStrict`, `SameSiteLax`, `SameSiteNone`, `SameSite` union)
-  - `set_cookie_build_error.pony` — Build error types (`InvalidCookieName`, `InvalidCookieValue`, `InvalidCookiePath`, `InvalidCookieDomain`, `CookiePrefixViolation`, `SameSiteRequiresSecure`, `SetCookieBuildError` union)
-  - `set_cookie.pony` — Validated, pre-serialized `Set-Cookie` header (`SetCookie val`, `header_value()`, private constructor)
-  - `set_cookie_builder.pony` — `Set-Cookie` header builder (`SetCookieBuilder ref`, secure defaults, chaining, prefix rules)
-  - `_cookie_validator.pony` — Cookie name/value/attribute validation (cookie names via `_Token`, RFC 6265 cookie-octet, path/domain safety)
-  - `_http_date.pony` — IMF-fixdate formatter for `Expires` attribute (`_HTTPDate` primitive)
-  - `media_type.pony` — HTTP media type (`MediaType val` class, `Equatable & Stringable`)
-  - `no_acceptable_type.pony` — Content negotiation failure (`NoAcceptableType` primitive)
-  - `content_negotiation_result.pony` — Result type alias (`MediaType val | NoAcceptableType`)
-  - `_quality.pony` — Constrained quality factor 0–1000 (`_Quality`, `_MakeQuality`, `_QualityValidator`)
-  - `_accept_range.pony` — Parsed Accept header media range (`_AcceptRange val`, specificity scoring)
-  - `_accept_parser.pony` — Accept header parser (`_AcceptParser` primitive, lenient, quoted-string-aware)
-  - `content_negotiation.pony` — Content negotiation (`ContentNegotiation` primitive: `from_request()`, `apply()`, RFC 7231 §5.3.2)
-- `assets/` — test assets
-  - `cert.pem` — Self-signed test certificate for SSL examples
-  - `key.pem` — Test private key for SSL examples
-- `examples/` — example programs
-  - `cookies/main.pony` — Visit counter demonstrating `Request.cookies` and `SetCookieBuilder`
-  - `hello/main.pony` — Greeting server with URI parsing and query parameter extraction
-  - `negotiate/main.pony` — Content negotiation server responding with JSON or plain text based on Accept header
-  - `ssl/main.pony` — HTTPS server using SSL/TLS
-  - `request_timeout/main.pony` — Request processing deadline using `set_timer()`/`cancel_timer()`/`on_timer()`
-  - `streaming/main.pony` — Flow-controlled chunked transfer encoding streaming response using `on_chunk_sent()` callbacks
-  - `yield/main.pony` — Scheduler fairness via `HTTPServer.yield_read()` with a request-count-based yield policy
+- `_Unreachable()` (`_mort.pony`) for impossible code paths.
+- `\nodoc\` on test classes.
