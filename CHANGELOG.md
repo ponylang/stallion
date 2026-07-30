@@ -6,11 +6,24 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Fixed
 
+- Fix a hang when closing a connection from a request callback ([PR #140](https://github.com/ponylang/stallion/pull/140))
+- Fix a connection wedging under sustained write backpressure ([PR #140](https://github.com/ponylang/stallion/pull/140))
+- Fix backpressure not stopping incoming requests on an HTTPS connection ([PR #140](https://github.com/ponylang/stallion/pull/140))
+- Fix on_chunk_sent firing once per write-queue drain instead of once per chunk ([PR #140](https://github.com/ponylang/stallion/pull/140))
+- Fix a possible write hang under load ([PR #140](https://github.com/ponylang/stallion/pull/140))
+
 
 ### Added
 
+- Add read_buffer_size to ServerConfig ([PR #140](https://github.com/ponylang/stallion/pull/140))
+
+
 
 ### Changed
+
+- Remove HTTPServer.yield_read() ([PR #140](https://github.com/ponylang/stallion/pull/140))
+- Require ponyc 0.67.0 or later ([PR #140](https://github.com/ponylang/stallion/pull/140))
+- Move to ponylang/ssl 3.0.0 ([PR #140](https://github.com/ponylang/stallion/pull/140))
 
 
 ## [0.8.0] - 2026-06-30

@@ -8,14 +8,14 @@ stallion is beta quality software that will change frequently. Expect breaking c
 
 ## Installation
 
-* Requires ponyc 0.64.0 or later. On Windows, requires ponyc 0.66.0 or later.
+* Requires ponyc 0.67.0 or later.
 * Install [corral](https://github.com/ponylang/corral)
 * `corral add github.com/ponylang/stallion.git --version 0.8.0`
 * `corral fetch` to fetch your dependencies
 * `use "stallion"` to include this package
 * `corral run -- ponyc` to compile your application
 
-You'll also need a SSL library installed on your platform. See the [net-ssl](https://github.com/ponylang/net-ssl) installation instructions for details.
+This library depends on [ponylang/ssl](https://github.com/ponylang/ssl). It requires a C SSL library to be installed. Please see the [ssl installation instructions](https://github.com/ponylang/ssl?tab=readme-ov-file#installation) for more information.
 
 ## Usage
 
