@@ -289,9 +289,9 @@ actor \nodoc\ _TestExpectIdleClose is
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     // The server never produces a response; ignore anything that arrives.
-    None
+    lori.KeepReading
 
   fun ref _on_closed() =>
     // The idle timeout closed the stalled connection — the fix works.
@@ -352,8 +352,9 @@ actor \nodoc\ _TestMaxRequestsClient is
       "GET /2 HTTP/1.1\r\nHost: localhost\r\n\r\n" +
       "GET /3 HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
+    lori.KeepReading
 
   fun ref _on_closed() =>
     let r: String val = _response.clone()
@@ -852,12 +853,13 @@ actor \nodoc\ _TestHTTPClient is
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     // Check if we have a complete response (headers end with \r\n\r\n)
     if _response.contains("\r\n\r\n") then
       _verify_response()
     end
+    lori.KeepReading
 
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
@@ -920,7 +922,7 @@ actor \nodoc\ _TestHTTPClientExpectClose is
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     if _response.contains("\r\n\r\n") then
       let response: String val = _response.clone()
@@ -932,6 +934,7 @@ actor \nodoc\ _TestHTTPClientExpectClose is
         _h.complete(false)
       end
     end
+    lori.KeepReading
 
   fun ref _on_closed() =>
     if _response_ok then
@@ -977,7 +980,7 @@ actor \nodoc\ _TestKeepAliveClient is
     _tcp_connection.send(
       "GET /1 HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
 
@@ -997,6 +1000,7 @@ actor \nodoc\ _TestKeepAliveClient is
         _h.complete(true)
       end
     end
+    lori.KeepReading
 
   fun ref _on_closed() =>
     if _requests_sent < 2 then
@@ -1253,7 +1257,7 @@ actor \nodoc\ _TestPipelineClient is
       "GET /1 HTTP/1.1\r\nHost: localhost\r\n\r\n" +
       "GET /2 HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     // Check if we have all 3 responses
@@ -1275,6 +1279,7 @@ actor \nodoc\ _TestPipelineClient is
         _h.complete(false)
       end
     end
+    lori.KeepReading
 
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
@@ -1306,7 +1311,7 @@ actor \nodoc\ _TestPipelineCloseClient is
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     // Look for 2 occurrences of "Hello, World!"
@@ -1314,6 +1319,7 @@ actor \nodoc\ _TestPipelineCloseClient is
       r.find("Hello, World!", 0, 1)?  // Find 2nd occurrence (0-indexed nth)
       _got_responses = true
     end
+    lori.KeepReading
 
   fun ref _on_closed() =>
     if _got_responses then
@@ -1358,7 +1364,7 @@ actor \nodoc\ _TestStreamClient is
     _tcp_connection.send(
       "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     // Check for terminal chunk
@@ -1370,7 +1376,7 @@ actor \nodoc\ _TestStreamClient is
         _h.fail(
           "Missing Transfer-Encoding: chunked header in:\n" + r)
         _h.complete(false)
-        return
+        return lori.KeepReading
       end
       // Verify chunk data is present
       if not (r.contains("chunk1") and r.contains("chunk2")
@@ -1378,10 +1384,11 @@ actor \nodoc\ _TestStreamClient is
       then
         _h.fail("Missing chunk data in:\n" + r)
         _h.complete(false)
-        return
+        return lori.KeepReading
       end
       _h.complete(true)
     end
+    lori.KeepReading
 
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
@@ -1460,7 +1467,7 @@ actor \nodoc\ _TestMaxPendingClient is
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     if (not _got_ok) and r.contains("first-ok") then
@@ -1469,6 +1476,7 @@ actor \nodoc\ _TestMaxPendingClient is
     if (not _got_500) and r.contains("500 Internal Server Error") then
       _got_500 = true
     end
+    lori.KeepReading
 
   fun ref _on_closed() =>
     if _got_ok and _got_500 then
@@ -1639,7 +1647,7 @@ actor \nodoc\ _TestChunkSentClient is
     _tcp_connection.send(
       "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     // Check for terminal chunk
@@ -1650,7 +1658,7 @@ actor \nodoc\ _TestChunkSentClient is
         _h.fail(
           "Missing Transfer-Encoding: chunked header in:\n" + r)
         _h.complete(false)
-        return
+        return lori.KeepReading
       end
       // Verify all 3 chunks arrived
       if not (r.contains("cs-chunk-1") and r.contains("cs-chunk-2")
@@ -1658,10 +1666,11 @@ actor \nodoc\ _TestChunkSentClient is
       then
         _h.fail("Missing chunk data in:\n" + r)
         _h.complete(false)
-        return
+        return lori.KeepReading
       end
       _h.complete(true)
     end
+    lori.KeepReading
 
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
@@ -2056,7 +2065,7 @@ actor \nodoc\ _TestPipelinedBodiesClient is
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     if (not _got_first) and r.contains("first") then
@@ -2065,6 +2074,7 @@ actor \nodoc\ _TestPipelinedBodiesClient is
     if (not _got_second) and r.contains("second") then
       _got_second = true
     end
+    lori.KeepReading
 
   fun ref _on_closed() =>
     if _got_first and _got_second then
@@ -2323,11 +2333,12 @@ actor \nodoc\ _TestSSLHTTPClient is
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     if _response.contains("\r\n\r\n") then
       _verify_response()
     end
+    lori.KeepReading
 
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("SSL client connection failed")
@@ -2389,7 +2400,7 @@ actor \nodoc\ _TestSSLHTTPClientExpectClose is
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     if _response.contains("\r\n\r\n") then
       let response: String val = _response.clone()
@@ -2401,6 +2412,7 @@ actor \nodoc\ _TestSSLHTTPClientExpectClose is
         _h.complete(false)
       end
     end
+    lori.KeepReading
 
   fun ref _on_closed() =>
     if _response_ok then
@@ -2449,7 +2461,7 @@ actor \nodoc\ _TestSSLKeepAliveClient is
     _tcp_connection.send(
       "GET /1 HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
 
@@ -2466,6 +2478,7 @@ actor \nodoc\ _TestSSLKeepAliveClient is
         _h.complete(true)
       end
     end
+    lori.KeepReading
 
   fun ref _on_closed() =>
     if _requests_sent < 2 then
@@ -2505,7 +2518,7 @@ actor \nodoc\ _TestSSLStreamClient is
     _tcp_connection.send(
       "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     if r.contains("0\r\n\r\n") then
@@ -2515,17 +2528,18 @@ actor \nodoc\ _TestSSLStreamClient is
         _h.fail(
           "Missing Transfer-Encoding: chunked header in:\n" + r)
         _h.complete(false)
-        return
+        return lori.KeepReading
       end
       if not (r.contains("chunk1") and r.contains("chunk2")
         and r.contains("chunk3"))
       then
         _h.fail("Missing chunk data in:\n" + r)
         _h.complete(false)
-        return
+        return lori.KeepReading
       end
       _h.complete(true)
     end
+    lori.KeepReading
 
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("SSL stream client connection failed")

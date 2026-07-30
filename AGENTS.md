@@ -27,6 +27,7 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Building and testing
 
 ```
+make ssl=4.0.x                       # build + run tests (OpenSSL 4.x)
 make ssl=3.0.x                       # build + run tests (OpenSSL 3.x)
 make ssl=1.1.x                       # OpenSSL 1.1.x
 make ssl=libressl                    # LibreSSL

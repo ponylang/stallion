@@ -54,6 +54,7 @@ class val ServerConfig
   let max_pending_responses: USize
   let idle_timeout: (lori.IdleTimeout | None)
   let max_requests_per_connection: (MaxRequestsPerConnection | None)
+  let read_buffer_size: lori.ReadBufferSize
 
   new val create(
     host': String,
@@ -64,7 +65,8 @@ class val ServerConfig
     max_body_size': USize = 1_048_576,
     max_pending_responses': USize = 100,
     idle_timeout': (lori.IdleTimeout | None) = DefaultIdleTimeout(),
-    max_requests_per_connection': (MaxRequestsPerConnection | None) = None)
+    max_requests_per_connection': (MaxRequestsPerConnection | None) = None,
+    read_buffer_size': lori.ReadBufferSize = lori.DefaultReadBufferSize())
   =>
     """
     Create server configuration.
@@ -80,6 +82,11 @@ class val ServerConfig
     keep-alive connection can serve before the server closes it. `None`
     (the default) means unlimited. Use `MakeMaxRequestsPerConnection` to
     create validated limit values (must be at least 1).
+    `read_buffer_size'` is how many bytes a connection reads before it
+    hands the scheduler back and resumes on a later turn. Smaller values
+    bound how much one connection does per turn, at the cost of more
+    turns. Defaults to 16KB. Use `lori.MakeReadBufferSize(bytes)` to
+    create custom values.
     """
     host = host'
     port = port'
@@ -90,6 +97,7 @@ class val ServerConfig
     max_pending_responses = max_pending_responses'
     idle_timeout = idle_timeout'
     max_requests_per_connection = max_requests_per_connection'
+    read_buffer_size = read_buffer_size'
 
   fun _parser_config(): _ParserConfig val =>
     """Create a parser config from the parser limit fields."""

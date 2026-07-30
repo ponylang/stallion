@@ -76,7 +76,8 @@ class HTTPServer is
     _queue = _ResponseQueue(this)
     _parser = _RequestParser(this, config._parser_config())
     _tcp_connection =
-      lori.TCPConnection.server(auth, fd, server_actor, this)
+      lori.TCPConnection.server(auth, fd, server_actor, this
+        where read_buffer_size = config.read_buffer_size)
 
   new ssl(
     auth: lori.TCPServerAuth,
@@ -98,7 +99,8 @@ class HTTPServer is
     _queue = _ResponseQueue(this)
     _parser = _RequestParser(this, config._parser_config())
     _tcp_connection =
-      lori.TCPConnection.ssl_server(auth, ssl_ctx, fd, server_actor, this)
+      lori.TCPConnection.ssl_server(auth, ssl_ctx, fd, server_actor, this
+        where read_buffer_size = config.read_buffer_size)
 
   fun ref _connection(): lori.TCPConnection =>
     """Return the underlying TCP connection."""
@@ -114,8 +116,9 @@ class HTTPServer is
       _tcp_connection.idle_timeout(c.idle_timeout)
     end
 
-  fun ref _on_received(data: Array[U8] iso) =>
+  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
     _state.on_received(this, consume data)
+    lori.KeepReading
 
   fun ref _on_closed() =>
     _state.on_closed(this)
@@ -489,24 +492,6 @@ class HTTPServer is
     idempotent due to the `_Active` state guard.
     """
     _close_connection()
-
-  fun ref yield_read() =>
-    """
-    Request the read loop to exit after the current callback returns,
-    giving other actors a chance to run. Reading resumes automatically
-    in the next scheduler turn — no explicit action is needed.
-
-    Call this from HTTP callbacks (`on_request`, `on_body_chunk`,
-    `on_request_complete`) to implement yield policies such as yielding
-    every N requests during pipelining storms or every N bytes of body
-    data.
-
-    Operates at the TCP level: it prevents the *next* socket read, not
-    the processing of already-buffered data. If a single receive delivers
-    a buffer containing multiple pipelined requests, all are parsed and
-    all callbacks fire before the yield takes effect.
-    """
-    _tcp_connection.yield_read()
 
   fun ref set_timer(duration: lori.TimerDuration)
     : (lori.TimerToken | lori.SetTimerError)

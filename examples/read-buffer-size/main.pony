@@ -1,14 +1,16 @@
 """
-HTTP server that yields the read loop every N requests for scheduler
-fairness. Under sustained pipelined traffic a single connection's read
-loop can monopolize the Pony scheduler; periodic `yield_read()` calls
-give other actors a chance to run.
+HTTP server that reads a small amount from each connection before handing
+the scheduler back.
 
-Demonstrates calling `HTTPServer.yield_read()` from `on_request_complete`
-to implement a request-count-based yield policy. The yield is a one-shot
-pause — the read loop resumes automatically in the next scheduler turn.
+A connection reads up to its read buffer size in one scheduler turn, then
+queues itself to continue on a later turn. Under sustained pipelined
+traffic that bound is what keeps one busy connection from monopolizing a
+scheduler thread, because every request carried by a single read is parsed
+and answered before the connection gives the turn back.
 
-Try it with pipelined requests to see the yield in action:
+Demonstrates setting `read_buffer_size` on `ServerConfig`. The default is
+16KB; this server uses 1KB, so it does roughly a sixteenth as much work per
+turn and takes more turns to do it.
 
 ```
 printf 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n%.0s' {1..20} | nc localhost 8080
@@ -36,13 +38,20 @@ actor Listener is lori.TCPListenerActor
   =>
     _out = out
     _server_auth = lori.TCPServerAuth(auth)
-    _config = stallion.ServerConfig(host, port)
+    _config =
+      match lori.MakeReadBufferSize(1024)
+      | let b: lori.ReadBufferSize =>
+        stallion.ServerConfig(host, port where read_buffer_size' = b)
+      else
+        // 1024 is greater than zero, so this cannot happen.
+        stallion.ServerConfig(host, port)
+      end
     _tcp_listener = lori.TCPListener(auth, host, port, this)
 
   fun ref _listener(): lori.TCPListener => _tcp_listener
 
   fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
-    YieldServer(_server_auth, fd, _config, _out)
+    ReadBufferServer(_server_auth, fd, _config, _out)
 
   fun ref _on_listening() =>
     try
@@ -58,7 +67,7 @@ actor Listener is lori.TCPListenerActor
   fun ref _on_closed() =>
     _out.print("Server closed")
 
-actor YieldServer is stallion.HTTPServerActor
+actor ReadBufferServer is stallion.HTTPServerActor
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
   let _out: OutStream
   var _request_count: USize = 0
@@ -86,9 +95,3 @@ actor YieldServer is stallion.HTTPServerActor
       .add_chunk(body)
       .build()
     responder.respond(response)
-
-    // Yield every 5 requests to let other actors run
-    if (_request_count % 5) == 0 then
-      _out.print("Yielding after request " + _request_count.string())
-      _http.yield_read()
-    end
