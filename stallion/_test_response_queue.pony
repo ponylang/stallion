@@ -13,6 +13,11 @@ class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
   var close_on_flush_data: Bool = false
   var flush_data_close_trigger: String val = ""
 
+  // Close the queue from inside the next `_flush_data`, whatever the data is.
+  // Simulates a send error, which closes the connection before `send_data`
+  // returns to its caller. Cleared as it fires, so it closes once.
+  var close_on_next_flush: Bool = false
+
   // One-shot re-throttle hook: when the cumulative flush count reaches
   // `throttle_after`, call throttle() once and clear the hook. Simulates lori
   // re-applying backpressure synchronously inside send() (a partial write
@@ -45,6 +50,12 @@ class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
         match queue
         | let q: _ResponseQueue => q.throttle()
         end
+      end
+    end
+    if close_on_next_flush then
+      close_on_next_flush = false
+      match queue
+      | let q: _ResponseQueue => q.close()
       end
     end
     if close_on_flush_data then
@@ -1024,3 +1035,22 @@ primitive \nodoc\ _PermutationGenerator
           end
           consume result
         })
+
+// ---------------------------------------------------------------------------
+// Closed-queue accessor
+// ---------------------------------------------------------------------------
+
+class \nodoc\ iso _TestQueueIsClosed is UnitTest
+  """
+  Verify is_closed() reports false on a fresh queue and true after close().
+  """
+  fun name(): String => "response-queue/is_closed"
+
+  fun apply(h: TestHelper) =>
+    let queue = _ResponseQueue(_TestQueueNotify)
+
+    h.assert_false(queue.is_closed(), "a fresh queue is not closed")
+
+    queue.close()
+
+    h.assert_true(queue.is_closed(), "a queue is closed after close()")

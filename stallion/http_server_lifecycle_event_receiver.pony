@@ -55,11 +55,26 @@ trait ref HTTPServerLifecycleEventReceiver
 
   fun ref on_closed() =>
     """
-    Called when the connection closes.
+    Called once the connection is closed.
 
     Fires on client disconnect, server-initiated close, or any other
     reason. Not called if the connection fails before starting — see
     `on_start_failure()` for that case.
+
+    When the server closes first — through `HTTPServer.close()` or any
+    other close stallion starts — a close taken while the connection is
+    under backpressure (from `on_throttled()` until `on_unthrottled()`)
+    is a hard close: it shuts the connection down at once, drops
+    undelivered data, and fires this callback in the same turn. A close
+    taken at any other time leaves the connection open until the peer
+    closes its half, and this callback fires then. Stallion sets no
+    limit on how long that takes, so an actor that releases resources
+    here holds them until the peer closes.
+
+    To close without waiting on the peer, call `dispose()` on the actor:
+    `HTTPServerActor` is a `lori.TCPConnectionActor`, whose `dispose()`
+    hard-closes the connection and delivers `on_closed()` in the dispose
+    turn.
     """
     None
 
@@ -90,18 +105,27 @@ trait ref HTTPServerLifecycleEventReceiver
 
   fun ref on_chunk_sent(token: ChunkSendToken) =>
     """
-    Called when a chunk from `send_chunk()` has been handed to the OS.
+    Called for a chunk from `send_chunk()` whose bytes reached the OS.
 
     The `token` matches the `ChunkSendToken` returned by the
     `send_chunk()` call that produced the data. Fires asynchronously
     in a subsequent behavior turn — never during the `send_chunk()` call
-    itself. Only user chunks trigger this callback; internal sends
+    itself. Only user chunks produce this callback; internal sends
     (headers, terminal chunk, error responses) do not.
+
+    No callback fires until the chunk's bytes reach the OS, and even then it
+    can be lost: when the connection's close is reported first, any callback
+    queued behind that report never reaches the actor. One way that happens
+    is a delivery and the close landing in the same actor turn, where lori
+    reports the close synchronously and the delivery is queued behind it
+    (`ponylang/lori#345`).
 
     Use this for flow-controlled streaming: send a chunk, wait for the
     callback, then send the next chunk. Multiple chunks can be in flight
     simultaneously (windowed); use the tokens to track which have been
-    delivered.
+    delivered. Because a callback can go missing, an actor that sends the
+    next chunk only after the previous one's callback can stop making
+    progress.
     """
     None
 
@@ -117,14 +141,23 @@ trait ref HTTPServerLifecycleEventReceiver
     """
     Called when a one-shot timer created by `HTTPServer.set_timer()` fires.
 
-    The `token` matches the one returned by `set_timer()`. Fires once per
-    `set_timer()` call. The timer is consumed before the callback, so it is
-    safe to call `set_timer()` from within `on_timer()` to re-arm. No
-    automatic re-arming occurs.
+    The `token` matches the one returned by `set_timer()`. A `set_timer()`
+    call produces at most one callback. The timer is consumed before the
+    callback, so it is safe to call `set_timer()` from within `on_timer()` to
+    re-arm. No automatic re-arming occurs.
 
-    Unlike idle timeout, this timer has no I/O-reset behavior — it fires
-    unconditionally after the configured duration, regardless of send/receive
-    activity.
+    A timer that comes due after the connection has started closing still
+    fires. That is the point: a close the server starts is not complete until
+    the peer closes its half, so `on_closed()` may be a long way off, and
+    this callback is what your actor has to act on in the meantime. Calling
+    `dispose()` on the actor from here closes without waiting on the peer.
+
+    A new timer cannot be set once the connection is closing —
+    `HTTPServer.set_timer()` returns `SetTimerNotOpen` — so this is the last
+    callback of its kind for that connection.
+
+    Unlike idle timeout, this timer has no I/O-reset behavior — send and
+    receive activity do not change when it comes due.
     """
     None
 

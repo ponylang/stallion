@@ -42,12 +42,15 @@ class ref Responder
     // HTTP/1.0 — fall back to a complete response
     responder.respond(fallback_response)
   | AlreadyResponded => None
+  | ConnectionClosed => None
   end
   ```
 
   Each `send_chunk()` returns a `ChunkSendToken` (or `None` if the call
-  was a no-op). A matching `on_chunk_sent(token)` callback fires when the
-  OS accepts the data, enabling flow-controlled streaming.
+  was a no-op). No callback fires until the chunk's bytes reach the OS, and
+  even then it can be lost — read
+  `HTTPServerLifecycleEventReceiver.on_chunk_sent()` before building
+  flow-controlled streaming on those callbacks.
 
   Responders are created internally by `HTTPServer`. Application
   code should not attempt to construct them directly.
@@ -98,11 +101,22 @@ class ref Responder
 
     Returns `StreamingStarted` on success, `ChunkedNotSupported` for HTTP/1.0
     requests (which do not support chunked transfer encoding — use `respond()`
-    with a `ResponseBuilder`-constructed response instead), or
-    `AlreadyResponded` when a response has already been started or completed.
+    with a `ResponseBuilder`-constructed response instead), `AlreadyResponded`
+    when a response has already been started or completed, or
+    `ConnectionClosed` when the connection is closed or closing.
+
+    On a connection that is closed or closing, the result is
+    `ConnectionClosed` even for an HTTP/1.0 request, because `respond()`, the
+    fallback for `ChunkedNotSupported`, does not work there either. After a
+    response has already been started or completed, the result is
+    `AlreadyResponded` whatever state the connection is in.
+    `ConnectionClosed` starts nothing: a second call returns
+    `ConnectionClosed` again, and a later `send_chunk()` returns `None`.
     """
     match _state
     | _ResponderNotResponded =>
+      if _queue.is_closed() then return ConnectionClosed end
+
       // HTTP/1.0 does not support chunked transfer encoding
       if _version is HTTP10 then return ChunkedNotSupported end
 
@@ -120,6 +134,13 @@ class ref Responder
       end
       let response = _ResponseSerializer(status, h, None, _version)
       _queue.send_data(_id, consume response)
+      // send_data can close the connection on its way out: a send error
+      // closes the queue before it returns. Nothing was started in that
+      // case, so report it and leave the Responder where it began.
+      if _queue.is_closed() then
+        _state = _ResponderNotResponded
+        return ConnectionClosed
+      end
       StreamingStarted
     else
       AlreadyResponded
@@ -132,16 +153,21 @@ class ref Responder
     The data is wrapped in chunked transfer encoding format. Empty data is
     silently ignored — use `finish_response()` to send the terminal chunk.
 
-    Returns `ChunkSendToken` when the chunk was queued — a matching
-    `on_chunk_sent()` callback will fire when the OS accepts the data.
-    Returns `None` when the call was a no-op (wrong state, empty data,
-    or HTTP/1.0 request where chunked encoding was rejected).
+    Returns `ChunkSendToken` when the chunk was queued. Returns `None` when
+    the call was a no-op (wrong state, empty data, a connection that is
+    closed or closing, or an HTTP/1.0 request where chunked encoding was
+    rejected).
+
+    A token is not a promise of a callback. No callback fires until the
+    chunk's bytes reach the OS, and even then it can be lost — see
+    `HTTPServerLifecycleEventReceiver.on_chunk_sent()`.
 
     Only valid after `start_chunked_response()`. Calls in other states are
     silently ignored.
     """
     match _state
     | _ResponderStreaming =>
+      if _queue.is_closed() then return None end
       let size: USize = match \exhaustive\ data
       | let s: String val => s.size()
       | let a: Array[U8] val => a.size()
@@ -150,6 +176,10 @@ class ref Responder
       let token = _queue.create_chunk_token()
       let chunk = _ChunkedEncoder.chunk(data)
       _queue.send_data(_id, consume chunk, token)
+      // send_data can close the connection on its way out: a send error
+      // closes the queue before it returns. The chunk went nowhere, so hand
+      // back no token rather than one that will never be reported.
+      if _queue.is_closed() then return None end
       token
     else
       None

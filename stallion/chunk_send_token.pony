@@ -2,10 +2,11 @@ class val ChunkSendToken is Equatable[ChunkSendToken]
   """
   Identifies a `send_chunk()` operation.
 
-  Returned by `Responder.send_chunk()` on success and delivered to
-  `HTTPServerLifecycleEventReceiver.on_chunk_sent()` when the chunk data has
-  been fully handed to the OS. Tokens use structural equality based on
-  their ID, which is scoped per connection.
+  Returned by `Responder.send_chunk()` on success. The same token reaches
+  `HTTPServerLifecycleEventReceiver.on_chunk_sent()`. No callback fires until
+  the chunk's bytes reach the OS, and even then it can be lost — see that
+  callback for the case where it does not arrive. Tokens use structural
+  equality based on their ID, which is scoped per connection.
 
   Applications managing multiple connections should pair tokens with
   connection identity to avoid ambiguity.

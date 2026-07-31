@@ -89,8 +89,9 @@ class ref _ResponseQueue
 
     Called by `Responder.send_chunk()` to mint a token before submitting
     data to the queue. The token travels alongside the data through
-    buffering and flushing, ultimately reaching the actor via
-    `on_chunk_sent()` when the OS accepts the bytes.
+    buffering and flushing. No callback fires until the chunk's bytes reach
+    the OS, and even then it can be lost — see
+    `HTTPServerLifecycleEventReceiver.on_chunk_sent()`.
     """
     let id = _next_chunk_token_id
     _next_chunk_token_id = _next_chunk_token_id + 1
@@ -180,6 +181,10 @@ class ref _ResponseQueue
     """
     _closed = true
     _entries.clear()
+
+  fun is_closed(): Bool =>
+    """Whether the queue is closed. A closed queue discards all work."""
+    _closed
 
   fun pending(): USize =>
     """Number of requests registered but not yet finished."""

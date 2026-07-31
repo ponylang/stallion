@@ -124,11 +124,14 @@ class HTTPServer is
     _state.on_closed(this)
 
   fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+    // Set _Closed before delivering, for the reason _handle_closed does: an
+    // actor that calls close() from the callback re-enters
+    // _close_connection(), and the state guard makes that a no-op.
+    _state = _Closed
     match \exhaustive\ _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref => r.on_start_failure(reason)
     | None => _Unreachable()
     end
-    _state = _Closed
 
   fun ref _on_throttled() =>
     _state.on_throttled(this)
@@ -138,6 +141,9 @@ class HTTPServer is
 
   fun ref _on_sent(token: lori.SendToken) =>
     _state.on_sent(this, token)
+
+  fun ref _on_send_failed(token: lori.SendToken) =>
+    _state.on_send_failed(this, token)
 
   fun ref _on_idle_timeout() =>
     _state.on_idle_timeout(this)
@@ -275,7 +281,7 @@ class HTTPServer is
     match \exhaustive\ _config
     | let c: ServerConfig =>
       if _requests_pending > c.max_pending_responses then
-        _tcp_connection.send(_ErrorResponse.no_response())
+        _flush_data(_ErrorResponse.no_response())
         _close_connection()
         return
       end
@@ -321,7 +327,7 @@ class HTTPServer is
     // itself or internally here (Host/URI rejection in request_received), and
     // in the latter case the parser is otherwise unaware the request was
     // rejected and would keep parsing.
-    _tcp_connection.send(_ErrorResponse.for_error(err))
+    _flush_data(_ErrorResponse.for_error(err))
     match _parser
     | let p: _RequestParser => p.stop()
     end
@@ -339,15 +345,18 @@ class HTTPServer is
     """
     Send response data to the TCP connection.
 
-    Called when data for the head-of-line entry is ready to send.
     On successful send, pushes the HTTP-level token onto the FIFO so
     `_handle_sent` can correlate the lori `_on_sent` callback back to
-    the originating `send_chunk()` call. On send error, closes the
+    the originating `send_chunk()` call. On send error, starts closing the
     connection (which in turn closes the queue, making any remaining
     Responders inert).
     """
     match \exhaustive\ _tcp_connection.send(data)
     | let _: lori.SendToken =>
+      // Push only on success: an errored send adds no FIFO entry. send()
+      // synchronously fires the throttle callback, and on a send error the
+      // close callback, before it returns; the close path clears the FIFO,
+      // so this push can land on a FIFO that was just emptied.
       _pending_sent_tokens.push(token)
     | let _: lori.SendError =>
       _close_connection()
@@ -395,15 +404,24 @@ class HTTPServer is
     end
 
   fun ref _handle_closed() =>
-    """Notify the receiver that the connection has closed."""
+    """
+    Handle lori's report that the connection has closed.
+
+    Discards the chunk tokens still waiting on a send outcome — no further
+    `on_chunk_sent()` is delivered for this connection — and delivers
+    `on_closed()` to the receiver.
+    """
     match _parser | let p: _RequestParser => p.stop() end
     match _queue | let q: _ResponseQueue => q.close() end
     _pending_sent_tokens.clear()
+    // Set _Closed before delivering on_closed: an actor that calls close()
+    // from on_closed re-enters _close_connection(), and the state guard makes
+    // that a no-op.
+    _state = _Closed
     match \exhaustive\ _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref => r.on_closed()
     | None => _Unreachable()
     end
-    _state = _Closed
 
   fun ref _handle_throttled() =>
     """Apply backpressure: mute the TCP connection and notify the receiver."""
@@ -427,9 +445,9 @@ class HTTPServer is
     """
     Correlate a lori send completion back to an HTTP-level chunk token.
 
-    Pops the next entry from the FIFO. If it's a `ChunkSendToken`,
-    delivers `on_chunk_sent(token)` to the actor. If `None`, it was an
-    internal send (headers, terminal chunk, complete response) — skip it.
+    Pops the next entry from the FIFO. A `ChunkSendToken` reaches the actor
+    as `on_chunk_sent(token)`. A `None` entry was an internal send with
+    nothing to deliver.
     """
     try
       match _pending_sent_tokens.shift()?
@@ -441,6 +459,19 @@ class HTTPServer is
       end
     else
       _Unreachable()
+    end
+
+  fun ref _handle_send_failed(token: lori.SendToken) =>
+    """
+    Drop the FIFO entry for a send lori could not deliver.
+
+    Stallion reports delivery only, so a chunk whose bytes never reached
+    the OS produces no callback. No path through stallion reaches here with
+    an empty FIFO; the bare `try` is there so that a shift on an empty one
+    discards the notification instead of ending the process.
+    """
+    try
+      _pending_sent_tokens.shift()?
     end
 
   fun ref _handle_idle_timeout() =>
@@ -488,8 +519,9 @@ class HTTPServer is
 
     Use this when the actor needs to force-close the connection — for
     example, after rejecting a request early (413 Payload Too Large) via
-    the `Responder` delivered in `on_request()`. Safe to call at any time;
-    idempotent due to the `_Active` state guard.
+    the `Responder` delivered in `on_request()`. Safe to call at any time:
+    the first call starts the close, and a call made once the connection is
+    closing or closed does nothing.
     """
     _close_connection()
 
@@ -501,10 +533,11 @@ class HTTPServer is
     duration. Returns a `TimerToken` on success, or a `SetTimerError` on
     failure.
 
-    Unlike idle timeout, this timer has no I/O-reset behavior — it fires
-    unconditionally after the duration elapses, regardless of send/receive
-    activity. There is no automatic re-arming; call `set_timer()` again from
-    `on_timer()` for repetition.
+    Unlike idle timeout, this timer has no I/O-reset behavior — send and
+    receive activity do not change when it comes due. A timer set here still
+    fires if the connection starts closing before it comes due. There is no
+    automatic re-arming; call `set_timer()` again from `on_timer()` for
+    repetition.
 
     Only one timer can be active at a time. Setting a timer while one is
     already active returns `SetTimerAlreadyActive` — call `cancel_timer()`
@@ -528,26 +561,32 @@ class HTTPServer is
 
   fun ref _close_connection() =>
     """
-    Close the connection and clean up all resources.
+    Close the connection.
+
+    Under backpressure the close is a hard close that finishes inside
+    this call, so `_handle_closed` has already run by the time this
+    returns. A close at any other time leaves the connection open until
+    the peer closes its half, and `_handle_closed` runs when lori reports
+    the close.
 
     Safe to call from within queue callbacks (e.g., `_response_complete`
-    with `keep_alive=false`) — the `_Active` state guard prevents
-    double-close. After this, any Responders the actor still holds
-    become inert: their methods call through to the queue, which is
-    closed and no-ops everything.
+    with `keep_alive=false`): a second close is a no-op in every state
+    that is not `_Active`. After this, any Responders the actor still
+    holds become inert — their methods call through to the queue, which
+    is closed and no-ops everything.
     """
-    match _state
-    | let _: _Active =>
-      match _parser | let p: _RequestParser => p.stop() end
-      match _queue | let q: _ResponseQueue => q.close() end
-      _pending_sent_tokens.clear()
-      match \exhaustive\ _lifecycle_event_receiver
-      | let r: HTTPServerLifecycleEventReceiver ref => r.on_closed()
-      | None => _Unreachable()
-      end
-      // Set _Closed before close(): on a muted connection close() hard-closes
-      // synchronously and re-enters _on_closed; the _Closed state makes that
-      // re-entry a no-op, so on_closed fires exactly once.
-      _state = _Closed
-      _tcp_connection.close()
-    end
+    _state.close(this)
+
+  fun ref _start_close() =>
+    """
+    Stop taking work and hand the connection to lori.
+
+    Reached only from `_Active`, so this runs at most once per connection.
+    """
+    match _parser | let p: _RequestParser => p.stop() end
+    match _queue | let q: _ResponseQueue => q.close() end
+    // Set _Closing before close(): on a muted connection close() hard-closes
+    // synchronously and re-enters _on_closed; _Closing.on_closed delivers
+    // on_closed once and moves to _Closed.
+    _state = _Closing
+    _tcp_connection.close()
