@@ -95,8 +95,17 @@ fun ref on_request_complete(request': stallion.Request val,
     // HTTP/1.0 — fall back to a complete response
     responder.respond(fallback_response)
   | stallion.AlreadyResponded => None
+  | stallion.ConnectionClosed => None
   end
 ```
+
+No callback fires until the chunk's bytes reach the OS, and even then it can
+be lost: when the connection's close is reported first, any callback queued
+behind that report never reaches the actor. One way that happens is a delivery
+and the close landing in the same actor turn, where lori reports the close
+synchronously and the delivery is queued behind it (`ponylang/lori#345`). An
+actor that sends the next chunk only after the previous one's callback can
+therefore stop making progress.
 
 For HTTPS, use `stallion.HTTPServer.ssl` instead of `stallion.HTTPServer`. Store
 an `SSLContext val` in the listener and pass it through in `_on_accept`:

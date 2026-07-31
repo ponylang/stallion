@@ -16,11 +16,23 @@ primitive ChunkedNotSupported is _StartChunkedResponseResult
   """
   fun string(): String iso^ => "ChunkedNotSupported".clone()
 
-type StartChunkedResponseResult is
-  ((StreamingStarted | AlreadyResponded | ChunkedNotSupported)
-  & _StartChunkedResponseResult)
+primitive ConnectionClosed is _StartChunkedResponseResult
   """
-  Result of calling `Responder.start_chunked_response()`: indicates whether
-  streaming was started, was rejected because HTTP/1.0 doesn't support chunked
-  transfer encoding, or was rejected because a response was already in progress.
+  The connection is closed or closing, so nothing more can be sent for this
+  request.
+
+  Nothing was started: a second `start_chunked_response()` on the same
+  `Responder` returns `ConnectionClosed` again, and a later `send_chunk()`
+  returns `None`.
+  """
+  fun string(): String iso^ => "ConnectionClosed".clone()
+
+type StartChunkedResponseResult is
+  ((StreamingStarted | AlreadyResponded | ChunkedNotSupported
+  | ConnectionClosed) & _StartChunkedResponseResult)
+  """
+  Result of `Responder.start_chunked_response()`: streaming started, or the
+  reason it did not — HTTP/1.0 does not support chunked transfer encoding, a
+  response was already started or completed, or the connection is closed or
+  closing.
   """

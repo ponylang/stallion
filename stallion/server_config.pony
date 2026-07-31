@@ -16,7 +16,9 @@ class val ServerConfig
 
   Host and port specify the listen address. Parser limits control the maximum
   size of request components. Idle timeout controls how long a keep-alive
-  connection can sit without activity before being closed.
+  connection can sit without activity before being closed; it applies only
+  while the connection is open, so once a close has started the idle timeout
+  no longer bounds the connection.
   `max_requests_per_connection` limits how many requests a single keep-alive
   connection can serve before the server closes it (analogous to nginx's
   `keepalive_requests`). `None` means unlimited. Use

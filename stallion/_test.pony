@@ -70,6 +70,13 @@ actor \nodoc\ Main is TestList
     test(_TestStartChunkedHTTP10)
     test(_TestStartChunkedAlreadyResponded)
     test(_TestStartChunkedAlreadyStreaming)
+    test(_TestSendChunkAfterClose)
+    test(_TestStartChunkedConnectionClosed)
+    test(_TestStartChunkedClosedAfterResponded)
+    test(_TestStartChunkedClosedBeatsHTTP10)
+    test(_TestStartChunkedClosedLeavesState)
+    test(_TestStartChunkedClosedMidCall)
+    test(_TestSendChunkClosedMidCall)
 
     // Parser property-based tests
     test(Property1UnitTest[(String val, String val)](
@@ -201,6 +208,7 @@ actor \nodoc\ Main is TestList
     test(_TestQueueTokenNoneForInternalSends)
     test(_TestQueueTokenThrottle)
     test(_TestQueueTokenClose)
+    test(_TestQueueIsClosed)
 
     // Pipelining and streaming integration tests
     test(_TestPipelineCorrectness)
@@ -209,6 +217,11 @@ actor \nodoc\ Main is TestList
     test(_TestMaxPendingOverflow)
     test(_TestHTTP10ChunkedRejection)
     test(_TestChunkSentCallback)
+    test(_TestChunkSentBeforeClose)
+    test(_TestChunkSentMultipleBeforeClose)
+    test(_TestOnClosedAfterResponse)
+    test(_TestChunkSentPipelinedNonHead)
+    test(_TestTimerFiresWhileClosing)
 
 
     // URI parsing integration tests
