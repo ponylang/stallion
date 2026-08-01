@@ -10,10 +10,9 @@ use lori = "lori"
 // reusing the harness actors (_TestServerListener, _TestHelloServerFactory,
 // _TestHTTPClient) defined in _test_server.pony.
 //
-// missing_host / duplicate_host encode NEW behavior (RFC 9110 §7.2 /
-// 9112 §3.2): a server MUST answer 400 to an HTTP/1.1 request that lacks Host
-// or carries more than one. Not enforced today — these are catalogue entries
-// until the rewrite adds the check. connect_ok is a guard: a valid CONNECT
+// server/missing host and server/duplicate host cover RFC 9110 §7.2 and RFC
+// 9112 §3.2: a server MUST answer 400 to an HTTP/1.1 request that lacks Host or
+// carries more than one. server/connect ok is a guard: a valid CONNECT
 // (authority-form target + Host) is accepted.
 // ---------------------------------------------------------------------------
 
