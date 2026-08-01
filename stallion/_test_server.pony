@@ -831,6 +831,7 @@ actor \nodoc\ _TestHTTPClient is
   let _expected_status: String val
   let _expected_body: (String val | None)
   var _response: String ref = String
+  var _completed: Bool = false
 
   new create(
     h: TestHelper,
@@ -861,11 +862,19 @@ actor \nodoc\ _TestHTTPClient is
     end
     lori.KeepReading
 
+  fun ref _on_closed() =>
+    // A close after the test's outcome is decided is not a failure.
+    if not _completed then
+      _h.fail("Connection closed before the response arrived:\n" + _response)
+      _h.complete(false)
+    end
+
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
   fun ref _verify_response() =>
+    _completed = true
     let response: String val = _response.clone()
 
     // Verify status line contains expected status
@@ -965,6 +974,7 @@ actor \nodoc\ _TestKeepAliveClient is
   let _h: TestHelper
   var _response: String ref = String
   var _requests_sent: USize = 0
+  var _completed: Bool = false
 
   new create(h: TestHelper, port: String) =>
     _h = h
@@ -997,14 +1007,16 @@ actor \nodoc\ _TestKeepAliveClient is
       // Wait for second "Hello, World!" (the 2nd occurrence, 0-indexed nth)
       try
         r.find("Hello, World!", 0, 1)?
+        _completed = true
         _h.complete(true)
       end
     end
     lori.KeepReading
 
   fun ref _on_closed() =>
-    if _requests_sent < 2 then
-      _h.fail("Connection closed before both requests completed")
+    // A close after the test's outcome is decided is not a failure.
+    if not _completed then
+      _h.fail("Connection closed before both requests completed:\n" + _response)
       _h.complete(false)
     end
 
@@ -1240,6 +1252,7 @@ actor \nodoc\ _TestPipelineClient is
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   let _h: TestHelper
   var _response: String ref = String
+  var _completed: Bool = false
 
   new create(h: TestHelper, port: String) =>
     _h = h
@@ -1262,6 +1275,7 @@ actor \nodoc\ _TestPipelineClient is
     let r: String val = _response.clone()
     // Check if we have all 3 responses
     if r.contains("response-2") then
+      _completed = true
       try
         let pos0 = r.find("response-0")?
         let pos1 = r.find("response-1")?
@@ -1280,6 +1294,14 @@ actor \nodoc\ _TestPipelineClient is
       end
     end
     lori.KeepReading
+
+  fun ref _on_closed() =>
+    // A close after the test's outcome is decided is not a failure.
+    if not _completed then
+      _h.fail(
+        "Connection closed before all three responses arrived:\n" + _response)
+      _h.complete(false)
+    end
 
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
@@ -1350,6 +1372,7 @@ actor \nodoc\ _TestStreamClient is
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   let _h: TestHelper
   var _response: String ref = String
+  var _completed: Bool = false
 
   new create(h: TestHelper, port: String) =>
     _h = h
@@ -1369,6 +1392,7 @@ actor \nodoc\ _TestStreamClient is
     let r: String val = _response.clone()
     // Check for terminal chunk
     if r.contains("0\r\n\r\n") then
+      _completed = true
       // Verify Transfer-Encoding: chunked header (case-insensitive check)
       if not (r.contains("Transfer-Encoding: chunked")
         or r.contains("transfer-encoding: chunked"))
@@ -1389,6 +1413,15 @@ actor \nodoc\ _TestStreamClient is
       _h.complete(true)
     end
     lori.KeepReading
+
+  fun ref _on_closed() =>
+    // A close after the test's outcome is decided is not a failure.
+    if not _completed then
+      _h.fail(
+        "Connection closed before the chunked response completed:\n"
+          + _response)
+      _h.complete(false)
+    end
 
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
@@ -1634,6 +1667,7 @@ actor \nodoc\ _TestChunkSentClient is
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   let _h: TestHelper
   var _response: String ref = String
+  var _completed: Bool = false
 
   new create(h: TestHelper, port: String) =>
     _h = h
@@ -1653,6 +1687,7 @@ actor \nodoc\ _TestChunkSentClient is
     let r: String val = _response.clone()
     // Check for terminal chunk
     if r.contains("0\r\n\r\n") then
+      _completed = true
       if not (r.contains("Transfer-Encoding: chunked")
         or r.contains("transfer-encoding: chunked"))
       then
@@ -1672,6 +1707,15 @@ actor \nodoc\ _TestChunkSentClient is
       _h.complete(true)
     end
     lori.KeepReading
+
+  fun ref _on_closed() =>
+    // A close after the test's outcome is decided is not a failure.
+    if not _completed then
+      _h.fail(
+        "Connection closed before the chunked response completed:\n"
+          + _response)
+      _h.complete(false)
+    end
 
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("Client connection failed")
@@ -2311,6 +2355,7 @@ actor \nodoc\ _TestSSLHTTPClient is
   let _expected_status: String val
   let _expected_body: (String val | None)
   var _response: String ref = String
+  var _completed: Bool = false
 
   new create(
     h: TestHelper,
@@ -2341,11 +2386,19 @@ actor \nodoc\ _TestSSLHTTPClient is
     end
     lori.KeepReading
 
+  fun ref _on_closed() =>
+    // A close after the test's outcome is decided is not a failure.
+    if not _completed then
+      _h.fail("Connection closed before the response arrived:\n" + _response)
+      _h.complete(false)
+    end
+
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("SSL client connection failed")
     _h.complete(false)
 
   fun ref _verify_response() =>
+    _completed = true
     let response: String val = _response.clone()
 
     if not response.contains(_expected_status) then
@@ -2443,6 +2496,7 @@ actor \nodoc\ _TestSSLKeepAliveClient is
   let _h: TestHelper
   var _response: String ref = String
   var _requests_sent: USize = 0
+  var _completed: Bool = false
 
   new create(
     h: TestHelper,
@@ -2476,14 +2530,16 @@ actor \nodoc\ _TestSSLKeepAliveClient is
     elseif _requests_sent == 2 then
       try
         r.find("Hello, World!", 0, 1)?
+        _completed = true
         _h.complete(true)
       end
     end
     lori.KeepReading
 
   fun ref _on_closed() =>
-    if _requests_sent < 2 then
-      _h.fail("Connection closed before both requests completed")
+    // A close after the test's outcome is decided is not a failure.
+    if not _completed then
+      _h.fail("Connection closed before both requests completed:\n" + _response)
       _h.complete(false)
     end
 
@@ -2501,6 +2557,7 @@ actor \nodoc\ _TestSSLStreamClient is
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
   let _h: TestHelper
   var _response: String ref = String
+  var _completed: Bool = false
 
   new create(
     h: TestHelper,
@@ -2523,6 +2580,7 @@ actor \nodoc\ _TestSSLStreamClient is
     _response.append(consume data)
     let r: String val = _response.clone()
     if r.contains("0\r\n\r\n") then
+      _completed = true
       if not (r.contains("Transfer-Encoding: chunked")
         or r.contains("transfer-encoding: chunked"))
       then
@@ -2541,6 +2599,15 @@ actor \nodoc\ _TestSSLStreamClient is
       _h.complete(true)
     end
     lori.KeepReading
+
+  fun ref _on_closed() =>
+    // A close after the test's outcome is decided is not a failure.
+    if not _completed then
+      _h.fail(
+        "Connection closed before the chunked response completed:\n"
+          + _response)
+      _h.complete(false)
+    end
 
   fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
     _h.fail("SSL stream client connection failed")
