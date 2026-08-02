@@ -138,3 +138,7 @@ end
 On a connection that is closed or closing, an HTTP/1.0 request gets `ConnectionClosed` rather than `ChunkedNotSupported`, because falling back to `respond()` does not work there either. A `Responder` that has already responded still gets `AlreadyResponded`. `ConnectionClosed` starts nothing, so a second `start_chunked_response()` returns it again, and a `send_chunk()` after it returns `None`.
 
 An actor called back at `on_chunk_sent()` while the connection is closing gets `None` from `send_chunk()` before it has been told anything is closing.
+## Fix a number of SSL bugs
+
+Fixed multiple bugs affecting SSL support, including handshake failures being reported as authentication failures, data being silently dropped on large writes and when encryption fails, and connections being closed by unrelated SSL failures elsewhere.
+
