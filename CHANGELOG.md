@@ -12,13 +12,11 @@ All notable changes to this project will be documented in this file. This projec
 - Fix on_chunk_sent firing once per write-queue drain instead of once per chunk ([PR #140](https://github.com/ponylang/stallion/pull/140))
 - Fix a possible write hang under load ([PR #140](https://github.com/ponylang/stallion/pull/140))
 - Fix on_chunk_sent not firing when the connection closes ([PR #146](https://github.com/ponylang/stallion/pull/146))
-
+- Fix a number of SSL bugs ([PR #157](https://github.com/ponylang/stallion/pull/157))
 
 ### Added
 
 - Add read_buffer_size to ServerConfig ([PR #140](https://github.com/ponylang/stallion/pull/140))
-
-
 
 ### Changed
 
@@ -27,7 +25,6 @@ All notable changes to this project will be documented in this file. This projec
 - Move to ponylang/ssl 3.0.0 ([PR #140](https://github.com/ponylang/stallion/pull/140))
 - Change when on_closed() fires ([PR #146](https://github.com/ponylang/stallion/pull/146))
 - Report a closed connection from Responder ([PR #146](https://github.com/ponylang/stallion/pull/146))
-
 
 ## [0.8.0] - 2026-06-30
 
