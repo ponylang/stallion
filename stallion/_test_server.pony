@@ -1641,9 +1641,9 @@ actor \nodoc\ _TestChunkSentServer is HTTPServerActor
       h
     end
     responder.start_chunked_response(StatusOK, headers)
-    responder.send_chunk("cs-chunk-1")
     _responder = responder
     _chunks_sent = 1
+    responder.send_chunk("cs-chunk-1")
 
   fun ref on_chunk_sent(token: ChunkSendToken) =>
     match _responder

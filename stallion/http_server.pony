@@ -43,6 +43,7 @@ class HTTPServer is
   var _requests_completed: USize = 0
   var _parser: (_RequestParser | None) = None
   embed _pending_sent_tokens: Array[(ChunkSendToken | None)]
+  var _next_chunk_token: (ChunkSendToken | None) = None
 
   new none() =>
     """
@@ -144,6 +145,11 @@ class HTTPServer is
 
   fun ref _on_send_failed(token: lori.SendToken) =>
     _state.on_send_failed(this, token)
+
+  fun ref _on_send_accepted(token: lori.SendToken,
+    data: (ByteSeq | ByteSeqIter))
+  =>
+    _pending_sent_tokens.push(_next_chunk_token)
 
   fun ref _on_idle_timeout() =>
     _state.on_idle_timeout(this)
@@ -345,19 +351,14 @@ class HTTPServer is
     """
     Send response data to the TCP connection.
 
-    On successful send, pushes the HTTP-level token onto the FIFO so
-    `_handle_sent` can correlate the lori `_on_sent` callback back to
-    the originating `send_chunk()` call. On send error, starts closing the
-    connection (which in turn closes the queue, making any remaining
-    Responders inert).
+    Stages the HTTP-level token in `_next_chunk_token` before calling
+    `send()`, because `_on_send_accepted` fires from inside `send()` and
+    pushes it onto the FIFO before `_on_sent` can pop it. On send error,
+    starts closing the connection.
     """
+    _next_chunk_token = token
     match \exhaustive\ _tcp_connection.send(data)
-    | let _: lori.SendToken =>
-      // Push only on success: an errored send adds no FIFO entry. send()
-      // synchronously fires the throttle callback, and on a send error the
-      // close callback, before it returns; the close path clears the FIFO,
-      // so this push can land on a FIFO that was just emptied.
-      _pending_sent_tokens.push(token)
+    | lori.SendAccepted => None
     | let _: lori.SendError =>
       _close_connection()
     end

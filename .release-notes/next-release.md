@@ -80,11 +80,11 @@ end
 
 Stallion now requires ponyc 0.67.0 or later on every platform. The previous minimum was 0.64.0, and 0.66.0 on Windows; 0.64.0 through 0.66.x are no longer supported. The write hang under load is closed by a socket call that ponyc added in 0.67.0.
 
-## Move to ponylang/ssl 3.0.0
+## Move to ponylang/ssl 4.0.0
 
-Stallion now requires ponylang/ssl 3.0.0, where it required 2.0.1. Stallion's own API is unchanged by the move: you build an `SSLContext val` and hand it to `HTTPServer.ssl` exactly as before.
+Stallion now requires ponylang/ssl 4.0.0, where it required 2.0.1. Stallion's own API is unchanged by the move: you build an `SSLContext val` and hand it to `HTTPServer.ssl` exactly as before.
 
-Your own code can break if it picks up the new version. If your application does not declare ssl itself, it gets 3.0.0 through stallion, and your own `use "ssl/net"` or `use "ssl/crypto"` code is built against it. If your application does declare ssl, your declaration is the one that applies.
+Your own code can break if it picks up the new version. If your application does not declare ssl itself, it gets 4.0.0 through stallion, and your own `use "ssl/net"` or `use "ssl/crypto"` code is built against it. If your application does declare ssl, your declaration is the one that applies.
 
 The twelve protocol-version primitives now spell their acronyms in full. They are the values passed to `SSLContext.set_min_proto_version` and `set_max_proto_version`, so if you pin a TLS version on the context you hand to `HTTPServer.ssl`, that call no longer compiles until you rename it:
 
@@ -96,7 +96,7 @@ ctx.set_min_proto_version(Tls1u2Version())?
 ctx.set_min_proto_version(TLS1u2Version())?
 ```
 
-`SSLContext.alpn_set_resolver` also changed: it takes an `ALPNProtocolResolver val` where it took a `box`. Constructing a `Digest`, `Digest.final`, and `HmacSha256` are all partial and need a `?`. `SSLState` gained an `SSLDisposed` member, which breaks an exhaustive match on `SSL.state()`. And a reference typed `HashFn tag` no longer compiles, so type it `val` or `box`. See the ponylang/ssl 3.0.0 release notes for more on each.
+`SSLContext.alpn_set_resolver` also changed: it takes an `ALPNProtocolResolver val` where it took a `box`. Constructing a `Digest`, `Digest.final`, and `HmacSha256` are all partial and need a `?`. `SSLState` gained an `SSLDisposed` member, which breaks an exhaustive match on `SSL.state()`. And a reference typed `HashFn tag` no longer compiles, so type it `val` or `box`. See the ponylang/ssl 3.0.0 and 4.0.0 release notes for more on each.
 
 ## Change when on_closed() fires
 
@@ -141,4 +141,26 @@ An actor called back at `on_chunk_sent()` while the connection is closing gets `
 ## Fix a number of SSL bugs
 
 Fixed multiple bugs affecting SSL support, including handshake failures being reported as authentication failures, data being silently dropped on large writes and when encryption fails, and connections being closed by unrelated SSL failures elsewhere.
+
+## Fix additional SSL connection bugs
+
+Fixed additional bugs in SSL connection handling that could cause handshake failures to be misreported, data to be silently dropped during encrypted writes, and one connection's SSL failure to close a different connection.
+
+## Change when on_chunk_sent fires
+
+`on_chunk_sent()` can now fire during the `send_chunk()` call that produced the chunk, when the bytes drain to the operating system immediately. It used to fire only in a later actor turn.
+
+Code that sets state after `send_chunk()` and reads it in `on_chunk_sent()` has a latent ordering bug that this change exposes. Move the state setup before the `send_chunk()` call:
+
+```pony
+// Before — on_chunk_sent could read stale state
+responder.send_chunk("chunk 1")
+_responder = responder
+_chunks_sent = 1
+
+// After — state is ready before the callback can fire
+_responder = responder
+_chunks_sent = 1
+responder.send_chunk("chunk 1")
+```
 
