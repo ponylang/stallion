@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. This projec
 - Fix a possible write hang under load ([PR #140](https://github.com/ponylang/stallion/pull/140))
 - Fix on_chunk_sent not firing when the connection closes ([PR #146](https://github.com/ponylang/stallion/pull/146))
 - Fix a number of SSL bugs ([PR #157](https://github.com/ponylang/stallion/pull/157))
+- Fix additional SSL connection bugs ([PR #159](https://github.com/ponylang/stallion/pull/159))
 
 ### Added
 
@@ -22,8 +23,9 @@ All notable changes to this project will be documented in this file. This projec
 
 - Remove HTTPServer.yield_read() ([PR #140](https://github.com/ponylang/stallion/pull/140))
 - Require ponyc 0.67.0 or later ([PR #140](https://github.com/ponylang/stallion/pull/140))
-- Move to ponylang/ssl 3.0.0 ([PR #140](https://github.com/ponylang/stallion/pull/140))
+- Move to ponylang/ssl 4.0.0 ([PR #140](https://github.com/ponylang/stallion/pull/140))
 - Change when on_closed() fires ([PR #146](https://github.com/ponylang/stallion/pull/146))
+- Change when on_chunk_sent fires ([PR #159](https://github.com/ponylang/stallion/pull/159))
 - Report a closed connection from Responder ([PR #146](https://github.com/ponylang/stallion/pull/146))
 
 ## [0.8.0] - 2026-06-30

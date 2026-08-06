@@ -108,10 +108,11 @@ trait ref HTTPServerLifecycleEventReceiver
     Called for a chunk from `send_chunk()` whose bytes reached the OS.
 
     The `token` matches the `ChunkSendToken` returned by the
-    `send_chunk()` call that produced the data. Fires asynchronously
-    in a subsequent behavior turn — never during the `send_chunk()` call
-    itself. Only user chunks produce this callback; internal sends
-    (headers, terminal chunk, error responses) do not.
+    `send_chunk()` call that produced the data. Can fire during the
+    `send_chunk()` call itself when the bytes drain immediately, so any
+    state that `on_chunk_sent` reads must be set before calling
+    `send_chunk()`. Only user chunks produce this callback; internal
+    sends (headers, terminal chunk, error responses) do not.
 
     No callback fires until the chunk's bytes reach the OS, and even then it
     can be lost: when the connection's close is reported first, any callback
