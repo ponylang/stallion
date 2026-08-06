@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file. This projec
 - Fix on_chunk_sent not firing when the connection closes ([PR #146](https://github.com/ponylang/stallion/pull/146))
 - Fix a number of SSL bugs ([PR #157](https://github.com/ponylang/stallion/pull/157))
 - Fix additional SSL connection bugs ([PR #159](https://github.com/ponylang/stallion/pull/159))
+- Send TLS close_notify on graceful close ([PR #161](https://github.com/ponylang/stallion/pull/161))
 
 ### Added
 
