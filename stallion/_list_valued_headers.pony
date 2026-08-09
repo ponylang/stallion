@@ -46,8 +46,9 @@ primitive _ListValuedHeaders
     Whether `name` is a comma-separated list field. `name` must already be
     lowercased (header names are stored lowercase by `Headers`).
     """
-    // This allowlist is duplicated in the tests: `_TestListValuedHeadersAllowlist`
-    // asserts every entry, and `_PropertyGetCombinesListField`'s generator
+    // This allowlist is duplicated in the tests:
+    // `_TestListValuedHeadersAllowlist` asserts every entry, and
+    // `_PropertyGetCombinesListField`'s generator
     // draws from it. Keep all three in sync when adding or removing a field.
     match name
     | "connection" => true

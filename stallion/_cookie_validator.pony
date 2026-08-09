@@ -10,11 +10,15 @@ primitive _CookieValidator
   """
 
   fun valid_name(name: String box): Bool =>
-    """Return true if `name` is a valid cookie name (RFC 2616 token)."""
+    """
+    Return true if `name` is a valid cookie name (RFC 2616 token).
+    """
     _Token.valid(name)
 
   fun valid_value(value: String box): Bool =>
-    """Return true if `value` contains only valid cookie-octets."""
+    """
+    Return true if `value` contains only valid cookie-octets.
+    """
     for byte in value.values() do
       if not _is_cookie_octet(byte) then return false end
     end

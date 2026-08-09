@@ -18,24 +18,26 @@ primitive _ResponseSerializer
     version: Version = HTTP11)
     : Array[U8] iso^
   =>
-    """Serialize a response to wire format bytes."""
+    """
+    Serialize a response to wire format bytes.
+    """
     recover iso
       let buf = Array[U8]
 
       // Status line: "HTTP/1.1 200 OK\r\n"
-      buf.>append(version.string())
-        .>push(' ')
-        .>append(status.code().string())
-        .>push(' ')
-        .>append(status.reason())
-        .>append("\r\n")
+      buf .> append(version.string())
+        .> push(' ')
+        .> append(status.code().string())
+        .> push(' ')
+        .> append(status.reason())
+        .> append("\r\n")
 
       // Headers
       for hdr in headers.values() do
-        buf.>append(hdr.name)
-          .>append(": ")
-          .>append(hdr.value)
-          .>append("\r\n")
+        buf .> append(hdr.name)
+          .> append(": ")
+          .> append(hdr.value)
+          .> append("\r\n")
       end
 
       // Blank line separating headers from body

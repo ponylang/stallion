@@ -10,7 +10,9 @@ primitive _AcceptParser
   """
 
   fun apply(header_value: String val): Array[_AcceptRange val] val =>
-    """Parse a single Accept header value string."""
+    """
+    Parse a single Accept header value string.
+    """
     let ranges = recover iso Array[_AcceptRange val] end
     (let segments, _) = _QuotedSplit(header_value, ',')
     for segment in segments.values() do
@@ -195,7 +197,9 @@ primitive _AcceptParser
     (int_val + frac_val).min(1000)
 
   fun _strip_quotes(s: String val): String val =>
-    """Strip surrounding double quotes if present."""
+    """
+    Strip surrounding double quotes if present.
+    """
     if (s.size() >= 2) and
       try (s(0)? == '"') and (s(s.size() - 1)? == '"') else false end
     then

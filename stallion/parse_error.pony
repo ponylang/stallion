@@ -1,9 +1,13 @@
 primitive TooLarge
-  """Request line or headers exceed the configured size limit."""
+  """
+  Request line or headers exceed the configured size limit.
+  """
   fun string(): String iso^ => "TooLarge".clone()
 
 primitive UnknownMethod
-  """HTTP method string not recognized."""
+  """
+  HTTP method string not recognized.
+  """
   fun string(): String iso^ => "UnknownMethod".clone()
 
 primitive InvalidURI
@@ -17,7 +21,9 @@ primitive InvalidURI
   fun string(): String iso^ => "InvalidURI".clone()
 
 primitive InvalidVersion
-  """HTTP version is not HTTP/1.0 or HTTP/1.1."""
+  """
+  HTTP version is not HTTP/1.0 or HTTP/1.1.
+  """
   fun string(): String iso^ => "InvalidVersion".clone()
 
 primitive BareCRLF
@@ -73,7 +79,9 @@ primitive InvalidRequestLine
   fun string(): String iso^ => "InvalidRequestLine".clone()
 
 primitive InvalidContentLength
-  """Content-Length is non-numeric, negative, or has conflicting values."""
+  """
+  Content-Length is non-numeric, negative, or has conflicting values.
+  """
   fun string(): String iso^ => "InvalidContentLength".clone()
 
 primitive InvalidChunk
@@ -91,17 +99,22 @@ primitive InvalidChunkExtension
   """
   A chunk extension contains forbidden or malformed bytes.
 
-  A chunk-ext is `*( BWS ";" BWS chunk-ext-name [ BWS "=" BWS chunk-ext-val ] )`
-  where names are tokens and values are token or quoted-string (RFC 9112 §7.1.1).
+  A chunk-ext is
+  `*( BWS ";" BWS chunk-ext-name [ BWS "=" BWS chunk-ext-val ] )`
+  where names are tokens and values are token or quoted-string
+  (RFC 9112 §7.1.1).
   Optional whitespace within the extension list is tolerated; whitespace between
-  the chunk-size and the first `;` is rejected as `InvalidChunk` (RFC 9110 §5.6.3
-  permits rejecting BWS). Unvalidated chunk-extension bytes are a smuggling
-  surface, so they are parsed rather than skipped to CRLF.
+  the chunk-size and the first `;` is rejected as `InvalidChunk`
+  (RFC 9110 §5.6.3 permits rejecting BWS). Unvalidated
+  chunk-extension bytes are a smuggling surface, so they are parsed
+  rather than skipped to CRLF.
   """
   fun string(): String iso^ => "InvalidChunkExtension".clone()
 
 primitive BodyTooLarge
-  """Request body exceeds the configured maximum body size."""
+  """
+  Request body exceeds the configured maximum body size.
+  """
   fun string(): String iso^ => "BodyTooLarge".clone()
 
 primitive InvalidTransferEncoding
@@ -139,7 +152,8 @@ primitive ForbiddenTrailer
 
 primitive BadHostHeader
   """
-  A request's Host header field is missing (HTTP/1.1) or duplicated (any version).
+  A request's Host header field is missing (HTTP/1.1) or duplicated
+  (any version).
 
   RFC 9110 §7.2 / RFC 9112 §3.2 require every HTTP/1.1 request to carry exactly
   one Host field; a server must answer 400 to one that lacks Host or has more
@@ -188,8 +202,9 @@ primitive MissingConnectPort
   """
   A CONNECT request-target lacks the required port.
 
-  RFC 9112 §3.2 defines `authority-form = uri-host ":" port`, and RFC 9110 §9.3.6
-  requires a CONNECT request-target to carry the host *and* port of the tunnel
+  RFC 9112 §3.2 defines `authority-form = uri-host ":" port`, and
+  RFC 9110 §9.3.6 requires a CONNECT request-target to carry the
+  host *and* port of the tunnel
   destination. A target with no port — whether the colon is absent
   (`example.com`) or the port is empty (`example.com:`) — does not satisfy the
   grammar and is a 400. Distinct from `InvalidURI`, which covers RFC 3986
@@ -228,11 +243,16 @@ primitive ContentLengthWithTransferEncoding
   fun string(): String iso^ => "ContentLengthWithTransferEncoding".clone()
 
 type ParseError is
-  (TooLarge | UnknownMethod | InvalidURI | InvalidVersion
+  ( TooLarge | UnknownMethod | InvalidURI | InvalidVersion
   | BareCRLF | InvalidFieldName | InvalidFieldValue | ObsFold
   | InvalidRequestLine | InvalidContentLength | InvalidChunk
-  | InvalidChunkExtension | BodyTooLarge | InvalidTransferEncoding
-  | UnsupportedTransferEncoding | ContentLengthWithTransferEncoding
+  | InvalidChunkExtension | BodyTooLarge
+  | InvalidTransferEncoding
+  | UnsupportedTransferEncoding
+  | ContentLengthWithTransferEncoding
   | ForbiddenTrailer | BadHostHeader | InvalidHostValue
-  | MismatchedHost | MissingConnectPort | UserinfoInTarget)
-  """Parse error encountered during HTTP request parsing."""
+  | MismatchedHost | MissingConnectPort
+  | UserinfoInTarget )
+  """
+  Parse error encountered during HTTP request parsing.
+  """

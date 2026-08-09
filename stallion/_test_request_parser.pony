@@ -2,10 +2,6 @@ use "format"
 use "pony_check"
 use "pony_test"
 
-// ---------------------------------------------------------------------------
-// Test helper: recording implementation of _RequestParserNotify
-// ---------------------------------------------------------------------------
-
 class \nodoc\ _TestParserNotify is _RequestParserNotify
   embed requests: Array[(Method, String val, Version, Headers val)] =
     Array[(Method, String val, Version, Headers val)]
@@ -38,10 +34,6 @@ class \nodoc\ _TestParserNotify is _RequestParserNotify
     end
     out.clone()
 
-// ---------------------------------------------------------------------------
-// Property-based tests
-// ---------------------------------------------------------------------------
-
 class \nodoc\ iso _PropertyValidRequestLineParsesCorrectly
   is Property1[(String val, String val)]
   """
@@ -53,10 +45,12 @@ class \nodoc\ iso _PropertyValidRequestLineParsesCorrectly
 
   fun gen(): Generator[(String val, String val)] =>
     // Generate (method_string, path)
-    let method_gen = Generators.one_of[String val](
-      ["GET"; "HEAD"; "POST"; "PUT"; "DELETE"
-       "CONNECT"; "OPTIONS"; "TRACE"; "PATCH"])
-    let path_gen = Generators.map2[String val, String val, String val](
+    let method_gen =
+      Generators.one_of[String val](
+      [ "GET"; "HEAD"; "POST"; "PUT"; "DELETE"
+        "CONNECT"; "OPTIONS"; "TRACE"; "PATCH"])
+    let path_gen =
+      Generators.map2[String val, String val, String val](
       Generators.unit[String val]("/"),
       Generators.ascii_letters(0, 20),
       {(slash, rest) => slash + rest })
@@ -73,11 +67,17 @@ class \nodoc\ iso _PropertyValidRequestLineParsesCorrectly
     let parser = _RequestParser(notify)
     parser.parse(recover raw.array().clone() end)
 
-    ph.assert_eq[USize](1, notify.requests.size(),
+    ph.assert_eq[USize](
+      1,
+      notify.requests.size(),
       "should have 1 request")
-    ph.assert_eq[USize](1, notify.completed,
+    ph.assert_eq[USize](
+      1,
+      notify.completed,
       "should have 1 completion")
-    ph.assert_eq[USize](0, notify.errors.size(),
+    ph.assert_eq[USize](
+      0,
+      notify.errors.size(),
       "should have 0 errors")
     try
       (let m, let u, let v, _) = notify.requests(0)?
@@ -96,15 +96,15 @@ class \nodoc\ iso _PropertyInvalidMethodRejected
   fun name(): String => "parser/invalid_method_rejected"
 
   fun gen(): Generator[String val] =>
-    Generators.frequency[String val]([
-      as WeightedGenerator[String val]:
+    Generators.frequency[String val](
+      [ as WeightedGenerator[String val]:
       (1, Generators.one_of[String val](
-        ["get"; "head"; "post"; "put"; "delete"
-         "connect"; "options"; "trace"; "patch"]))
+        [ "get"; "head"; "post"; "put"; "delete"
+          "connect"; "options"; "trace"; "patch"]))
       (1, Generators.one_of[String val](
-        ["GETX"; "POSTY"; "PUTS"]))
+        [ "GETX"; "POSTY"; "PUTS"]))
       (1, Generators.one_of[String val](
-        ["GE"; "POS"; "DELET"]))
+        [ "GE"; "POS"; "DELET"]))
       (1, Generators.ascii_numeric(1, 10))
     ])
 
@@ -114,12 +114,17 @@ class \nodoc\ iso _PropertyInvalidMethodRejected
     let parser = _RequestParser(notify)
     parser.parse(recover raw.array().clone() end)
 
-    ph.assert_eq[USize](0, notify.requests.size(),
+    ph.assert_eq[USize](
+      0,
+      notify.requests.size(),
       "should have 0 requests for: " + arg1)
-    ph.assert_eq[USize](1, notify.errors.size(),
+    ph.assert_eq[USize](
+      1,
+      notify.errors.size(),
       "should have 1 error for: " + arg1)
     try
-      ph.assert_true(notify.errors(0)? is UnknownMethod,
+      ph.assert_true(
+        notify.errors(0)? is UnknownMethod,
         "error should be UnknownMethod for: " + arg1)
     end
 
@@ -133,7 +138,8 @@ class \nodoc\ iso _PropertyHeadersRoundtrip
 
   fun gen(): Generator[Array[(String val, String val)] ref] =>
     // Generate 1-5 header (name, value) pairs
-    let pair_gen = Generators.zip2[String val, String val](
+    let pair_gen =
+      Generators.zip2[String val, String val](
       Generators.ascii_letters(1, 10),
       Generators.ascii_letters(1, 20))
     Generators.array_of[
@@ -154,7 +160,9 @@ class \nodoc\ iso _PropertyHeadersRoundtrip
     let parser = _RequestParser(notify)
     parser.parse(recover raw.array().clone() end)
 
-    ph.assert_eq[USize](1, notify.requests.size(),
+    ph.assert_eq[USize](
+      1,
+      notify.requests.size(),
       "should have 1 request")
     try
       (_, _, _, let headers) = notify.requests(0)?
@@ -171,7 +179,9 @@ class \nodoc\ iso _PropertyHeadersRoundtrip
           seen.push(lower)
           match \exhaustive\ headers.get(hdr_name)
           | let v: String val =>
-            ph.assert_eq[String val](hdr_value, v,
+            ph.assert_eq[String val](
+              hdr_value,
+              v,
               "header " + hdr_name + " mismatch")
           | None =>
             ph.fail("header " + hdr_name + " not found")
@@ -195,7 +205,8 @@ class \nodoc\ iso _PropertyFixedBodyDelivered
 
   fun ref property(arg1: USize, ph: PropertyHelper) =>
     // Build body of the given size
-    let body = recover val
+    let body =
+      recover val
       let b = Array[U8](arg1)
       var i: USize = 0
       while i < arg1 do
@@ -205,24 +216,30 @@ class \nodoc\ iso _PropertyFixedBodyDelivered
       b
     end
 
-    let raw = recover val
-      let r = String
-      r.append("POST /data HTTP/1.1\r\n")
-      r.append("Content-Length: " + arg1.string() + "\r\n")
-      r.append("\r\n")
-      r.append(body)
-      r
-    end
+    let raw =
+      recover val
+        String
+          .> append("POST /data HTTP/1.1\r\n")
+          .> append("Content-Length: " + arg1.string() + "\r\n")
+          .> append("\r\n")
+          .> append(body)
+      end
 
     let notify: _TestParserNotify ref = _TestParserNotify
     let parser = _RequestParser(notify)
     parser.parse(recover raw.array().clone() end)
 
-    ph.assert_eq[USize](1, notify.requests.size(),
+    ph.assert_eq[USize](
+      1,
+      notify.requests.size(),
       "should have 1 request")
-    ph.assert_eq[USize](1, notify.completed,
+    ph.assert_eq[USize](
+      1,
+      notify.completed,
       "should have 1 completion")
-    ph.assert_eq[USize](0, notify.errors.size(),
+    ph.assert_eq[USize](
+      0,
+      notify.errors.size(),
       "should have 0 errors")
 
     // Verify body size by summing chunks
@@ -238,7 +255,9 @@ class \nodoc\ iso _PropertyFixedBodyDelivered
       try
         var ci: USize = 0
         while ci < chunk.size() do
-          ph.assert_eq[U8](body(byte_idx)?, chunk(ci)?,
+          ph.assert_eq[U8](
+            body(byte_idx)?,
+            chunk(ci)?,
             "body byte mismatch at " + byte_idx.string())
           byte_idx = byte_idx + 1
           ci = ci + 1
@@ -267,7 +286,8 @@ class \nodoc\ iso _PropertyChunkedBodyDelivered
       "\r\n"
 
     for size in arg1.values() do
-      let chunk_data: String val = recover val
+      let chunk_data: String val =
+        recover val
         let s = String(size)
         var i: USize = 0
         while i < size do
@@ -287,18 +307,26 @@ class \nodoc\ iso _PropertyChunkedBodyDelivered
     let parser = _RequestParser(notify)
     parser.parse(recover raw.array().clone() end)
 
-    ph.assert_eq[USize](1, notify.requests.size(),
+    ph.assert_eq[USize](
+      1,
+      notify.requests.size(),
       "should have 1 request")
-    ph.assert_eq[USize](1, notify.completed,
+    ph.assert_eq[USize](
+      1,
+      notify.completed,
       "should have 1 completion")
-    ph.assert_eq[USize](0, notify.errors.size(),
+    ph.assert_eq[USize](
+      0,
+      notify.errors.size(),
       "should have 0 errors")
 
     var total_received: USize = 0
     for chunk in notify.body_chunks.values() do
       total_received = total_received + chunk.size()
     end
-    ph.assert_eq[USize](total_size, total_received,
+    ph.assert_eq[USize](
+      total_size,
+      total_received,
       "total body size mismatch")
 
 class \nodoc\ iso _PropertyRequestLineBoundary
@@ -313,23 +341,23 @@ class \nodoc\ iso _PropertyRequestLineBoundary
     let valid_gen: Generator[(String val, Bool)] =
       Generators.map2[String val, String val, (String val, Bool)](
         Generators.one_of[String val](
-          ["GET"; "POST"; "PUT"; "DELETE"; "HEAD"]),
+          [ "GET"; "POST"; "PUT"; "DELETE"; "HEAD"]),
         Generators.ascii_letters(1, 10),
         {(method, path) =>
-          (method + " /" + path + " HTTP/1.1\r\nHost: x\r\n\r\n", true) })
+          (method + " /" + path + " HTTP/1.1\r\nHost: x\r\n\r\n", true)})
 
     let invalid_gen: Generator[(String val, Bool)] =
-      Generators.frequency[String val]([
-        as WeightedGenerator[String val]:
+      Generators.frequency[String val](
+        [ as WeightedGenerator[String val]:
         (1, Generators.one_of[String val](
-          ["get"; "GETX"; "POS"; "123"]))
+          [ "get"; "GETX"; "POS"; "123"]))
         (1, Generators.ascii(1, 10))
-      ]).map[(String val, Bool)](
+        ]).map[(String val, Bool)](
         {(method) =>
-          (method + " / HTTP/1.1\r\n\r\n", false) })
+          (method + " / HTTP/1.1\r\n\r\n", false)})
 
-    Generators.frequency[(String val, Bool)]([
-      as WeightedGenerator[(String val, Bool)]:
+    Generators.frequency[(String val, Bool)](
+      [ as WeightedGenerator[(String val, Bool)]:
       (1, valid_gen)
       (1, invalid_gen)
     ])
@@ -341,18 +369,20 @@ class \nodoc\ iso _PropertyRequestLineBoundary
     parser.parse(recover raw.array().clone() end)
 
     if should_succeed then
-      ph.assert_eq[USize](1, notify.requests.size(),
+      ph.assert_eq[USize](
+        1,
+        notify.requests.size(),
         "valid request should parse")
-      ph.assert_eq[USize](0, notify.errors.size(),
+      ph.assert_eq[USize](
+        0,
+        notify.errors.size(),
         "valid request should have no errors")
     else
-      ph.assert_eq[USize](1, notify.errors.size(),
+      ph.assert_eq[USize](
+        1,
+        notify.errors.size(),
         "invalid request should produce error")
     end
-
-// ---------------------------------------------------------------------------
-// Example-based tests
-// ---------------------------------------------------------------------------
 
 class \nodoc\ iso _TestParserKnownGoodRequests is UnitTest
   """Verify exact callback sequences for well-known HTTP requests."""
@@ -449,11 +479,10 @@ class \nodoc\ iso _TestIncrementalByteByByte is UnitTest
     let arr = raw.array()
     while i < arr.size() do
       try
-        let byte = recover iso
-          let a = Array[U8](1)
-          a.push(arr(i)?)
-          a
-        end
+        let byte =
+          recover iso
+            Array[U8](1) .> push(arr(i)?)
+          end
         parser.parse(consume byte)
       end
       i = i + 1
@@ -562,7 +591,6 @@ class \nodoc\ iso _TestSizeLimitHeaders is UnitTest
     let config = _ParserConfig(where max_header_size' = 32)
     let notify: _TestParserNotify ref = _TestParserNotify
     let parser = _RequestParser(notify, config)
-
     let raw: String val =
       "GET / HTTP/1.1\r\n" +
       "X-Very-Long-Header-Name: very-long-value-that-exceeds-limit\r\n" +
@@ -590,10 +618,13 @@ class \nodoc\ iso _TestSizeLimitBody is UnitTest
       "0123456789"
     parser.parse(recover raw.array().clone() end)
 
-    h.assert_eq[USize](1, notify.errors.size(),
+    h.assert_eq[USize](
+      1,
+      notify.errors.size(),
       "fixed body: should have 1 error")
     try
-      h.assert_true(notify.errors(0)? is BodyTooLarge,
+      h.assert_true(
+        notify.errors(0)? is BodyTooLarge,
         "fixed body: should be BodyTooLarge")
     end
 
@@ -606,10 +637,13 @@ class \nodoc\ iso _TestSizeLimitBody is UnitTest
       "a\r\n0123456789\r\n0\r\n\r\n"
     parser2.parse(recover raw2.array().clone() end)
 
-    h.assert_eq[USize](1, notify2.errors.size(),
+    h.assert_eq[USize](
+      1,
+      notify2.errors.size(),
       "chunked body: should have 1 error")
     try
-      h.assert_true(notify2.errors(0)? is BodyTooLarge,
+      h.assert_true(
+        notify2.errors(0)? is BodyTooLarge,
         "chunked body: should be BodyTooLarge")
     end
 
@@ -625,7 +659,8 @@ class \nodoc\ iso _TestInvalidContentLength is UnitTest
 
     h.assert_eq[USize](1, notify.errors.size(), "should have 1 error")
     try
-      h.assert_true(notify.errors(0)? is InvalidContentLength,
+      h.assert_true(
+        notify.errors(0)? is InvalidContentLength,
         "should be InvalidContentLength")
     end
 
@@ -644,7 +679,8 @@ class \nodoc\ iso _TestInvalidChunkSize is UnitTest
 
     h.assert_eq[USize](1, notify.errors.size(), "should have 1 error")
     try
-      h.assert_true(notify.errors(0)? is InvalidChunk,
+      h.assert_true(
+        notify.errors(0)? is InvalidChunk,
         "should be InvalidChunk")
     end
 
@@ -663,7 +699,8 @@ class \nodoc\ iso _TestMissingCRLFAfterChunk is UnitTest
 
     h.assert_eq[USize](1, notify.errors.size(), "should have 1 error")
     try
-      h.assert_true(notify.errors(0)? is InvalidChunk,
+      h.assert_true(
+        notify.errors(0)? is InvalidChunk,
         "should be InvalidChunk")
     end
 
@@ -701,7 +738,8 @@ class \nodoc\ iso _TestHTTP10Version is UnitTest
 
     h.assert_eq[USize](1, notify.requests.size())
     try
-      h.assert_true(notify.requests(0)?._3 is HTTP10,
+      h.assert_true(
+        notify.requests(0)?._3 is HTTP10,
         "version should be HTTP/1.0")
     end
 
@@ -720,10 +758,13 @@ class \nodoc\ iso _TestInvalidVersion is UnitTest
     let notify: _TestParserNotify ref = _TestParserNotify
     let parser = _RequestParser(notify)
     parser.parse(recover raw.array().clone() end)
-    h.assert_eq[USize](1, notify.errors.size(),
+    h.assert_eq[USize](
+      1,
+      notify.errors.size(),
       "should have 1 error for " + ver)
     try
-      h.assert_true(notify.errors(0)? is InvalidVersion,
+      h.assert_true(
+        notify.errors(0)? is InvalidVersion,
         "should be InvalidVersion for " + ver)
     end
 
@@ -782,7 +823,8 @@ class \nodoc\ iso _TestContentLengthAndChunked is UnitTest
 
     h.assert_eq[USize](1, notify.errors.size(), "should have 1 error")
     try
-      h.assert_true(notify.errors(0)? is ContentLengthWithTransferEncoding,
+      h.assert_true(
+        notify.errors(0)? is ContentLengthWithTransferEncoding,
         "should be ContentLengthWithTransferEncoding")
     end
 
@@ -802,7 +844,8 @@ class \nodoc\ iso _TestDuplicateContentLength is UnitTest
 
     h.assert_eq[USize](1, notify.errors.size(), "should have 1 error")
     try
-      h.assert_true(notify.errors(0)? is InvalidContentLength,
+      h.assert_true(
+        notify.errors(0)? is InvalidContentLength,
         "should be InvalidContentLength")
     end
 
@@ -812,21 +855,24 @@ class \nodoc\ iso _TestInvalidURI is UnitTest
 
   fun apply(h: TestHelper) =>
     // URI with control character (0x01) → InvalidURI
-    let raw: String val = recover val
-      let s = String
-      s.append("GET /foo")
-      s.push(0x01)
-      s.append("bar HTTP/1.1\r\n\r\n")
-      s
-    end
+    let raw: String val =
+      recover val
+        String
+          .> append("GET /foo")
+          .> push(0x01)
+          .> append("bar HTTP/1.1\r\n\r\n")
+      end
     let notify: _TestParserNotify ref = _TestParserNotify
     let parser = _RequestParser(notify)
     parser.parse(recover raw.array().clone() end)
 
-    h.assert_eq[USize](1, notify.errors.size(),
+    h.assert_eq[USize](
+      1,
+      notify.errors.size(),
       "should have 1 error")
     try
-      h.assert_true(notify.errors(0)? is InvalidURI,
+      h.assert_true(
+        notify.errors(0)? is InvalidURI,
         "should be InvalidURI")
     end
 
@@ -851,15 +897,21 @@ class \nodoc\ iso _TestDataAfterError is UnitTest
     parser.parse(recover good.array().clone() end)
 
     // Should still have exactly 1 error and 0 requests
-    h.assert_eq[USize](1, notify.errors.size(),
+    h.assert_eq[USize](
+      1,
+      notify.errors.size(),
       "still 1 error after second parse")
-    h.assert_eq[USize](0, notify.requests.size(),
+    h.assert_eq[USize](
+      0,
+      notify.requests.size(),
       "0 requests (parser is failed)")
 
 class \nodoc\ iso _TestTransferEncodingUnknownNoBody is UnitTest
   """
   Unknown transfer coding (substring of "chunked") with no body →
-  UnsupportedTransferEncoding, no request delivered, no hang. Regression
+  UnsupportedTransferEncoding,
+  no request delivered,
+  no hang. Regression
   for the substring-match DoS (issue #101).
   """
   fun name(): String => "parser/transfer_encoding_unknown_no_body"
@@ -878,7 +930,8 @@ class \nodoc\ iso _TestTransferEncodingUnknownNoBody is UnitTest
     h.assert_eq[USize](0, notify.completed, "no completion")
     h.assert_eq[USize](1, notify.errors.size(), "1 error")
     try
-      h.assert_true(notify.errors(0)? is UnsupportedTransferEncoding,
+      h.assert_true(
+        notify.errors(0)? is UnsupportedTransferEncoding,
         "should be UnsupportedTransferEncoding")
     end
 
@@ -905,7 +958,8 @@ class \nodoc\ iso _TestTransferEncodingUnknownWithChunkedBody is UnitTest
     h.assert_eq[USize](0, notify.completed, "no completion")
     h.assert_eq[USize](1, notify.errors.size(), "1 error")
     try
-      h.assert_true(notify.errors(0)? is UnsupportedTransferEncoding,
+      h.assert_true(
+        notify.errors(0)? is UnsupportedTransferEncoding,
         "should be UnsupportedTransferEncoding")
     end
 
@@ -924,7 +978,8 @@ class \nodoc\ iso _TestTransferEncodingGzipChunked is UnitTest
     h.assert_eq[USize](0, notify.requests.size(), "no request delivered")
     h.assert_eq[USize](1, notify.errors.size(), "1 error")
     try
-      h.assert_true(notify.errors(0)? is UnsupportedTransferEncoding,
+      h.assert_true(
+        notify.errors(0)? is UnsupportedTransferEncoding,
         "should be UnsupportedTransferEncoding")
     end
 
@@ -943,7 +998,8 @@ class \nodoc\ iso _TestTransferEncodingChunkedNotFinal is UnitTest
     h.assert_eq[USize](0, notify.requests.size(), "no request delivered")
     h.assert_eq[USize](1, notify.errors.size(), "1 error")
     try
-      h.assert_true(notify.errors(0)? is InvalidTransferEncoding,
+      h.assert_true(
+        notify.errors(0)? is InvalidTransferEncoding,
         "should be InvalidTransferEncoding")
     end
 
@@ -962,7 +1018,8 @@ class \nodoc\ iso _TestTransferEncodingDuplicateChunked is UnitTest
     h.assert_eq[USize](0, notify.requests.size(), "no request delivered")
     h.assert_eq[USize](1, notify.errors.size(), "1 error")
     try
-      h.assert_true(notify.errors(0)? is InvalidTransferEncoding,
+      h.assert_true(
+        notify.errors(0)? is InvalidTransferEncoding,
         "should be InvalidTransferEncoding")
     end
 
@@ -981,7 +1038,8 @@ class \nodoc\ iso _TestTransferEncodingEmpty is UnitTest
     h.assert_eq[USize](0, notify.requests.size(), "no request delivered")
     h.assert_eq[USize](1, notify.errors.size(), "1 error")
     try
-      h.assert_true(notify.errors(0)? is InvalidTransferEncoding,
+      h.assert_true(
+        notify.errors(0)? is InvalidTransferEncoding,
         "should be InvalidTransferEncoding")
     end
 
@@ -1061,7 +1119,8 @@ class \nodoc\ iso _TestTransferEncodingUnterminatedQuote is UnitTest
     h.assert_eq[USize](0, notify.completed, "no completion")
     h.assert_eq[USize](1, notify.errors.size(), "1 error")
     try
-      h.assert_true(notify.errors(0)? is InvalidTransferEncoding,
+      h.assert_true(
+        notify.errors(0)? is InvalidTransferEncoding,
         "should be InvalidTransferEncoding")
     end
 
@@ -1108,8 +1167,9 @@ class \nodoc\ iso _TestTransferEncodingEvaluate is UnitTest
     // Only SP and HTAB are OWS; a coding name wrapped in other control bytes
     // (here vertical tabs) is not a valid `token`, so the Transfer-Encoding is
     // malformed (400) rather than an unimplemented coding (501).
-    let vtab: String val = recover val
-      String.>push(0x0b).>append("chunked").>push(0x0b)
+    let vtab: String val =
+      recover val
+      String .> push(0x0b) .> append("chunked") .> push(0x0b)
     end
     _check(h, vtab, "invalid")
     // A comma inside a quoted transfer-parameter value (RFC 9112 §7) must
@@ -1137,7 +1197,9 @@ class \nodoc\ iso _TestTransferEncodingEvaluate is UnitTest
       | UnsupportedTransferEncoding => "unsupported"
       | InvalidTransferEncoding => "invalid"
       end
-    h.assert_eq[String](expected, actual,
+    h.assert_eq[String](
+      expected,
+      actual,
       "value=\"" + value + "\"")
 
 class \nodoc\ iso _TestTransferEncodingMultiLine is UnitTest
@@ -1161,6 +1223,7 @@ class \nodoc\ iso _TestTransferEncodingMultiLine is UnitTest
     h.assert_eq[USize](0, notify.completed, "no completion")
     h.assert_eq[USize](1, notify.errors.size(), "1 error")
     try
-      h.assert_true(notify.errors(0)? is UnsupportedTransferEncoding,
+      h.assert_true(
+        notify.errors(0)? is UnsupportedTransferEncoding,
         "should be UnsupportedTransferEncoding")
     end

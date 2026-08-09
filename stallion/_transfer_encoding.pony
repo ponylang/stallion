@@ -67,9 +67,9 @@ primitive _TransferEncoding
     options have none).
     """
     let cut_at: ISize = try raw.find(";")? else raw.size().isize() end
-    let coding: String ref = raw.substring(0, cut_at)
-    coding.strip(_OWS.chars())
-    coding.lower()
+    raw.substring(0, cut_at)
+      .> strip(_OWS.chars())
+      .> lower_in_place()
 
   fun evaluate(tokens: Array[String] box, well_formed: Bool)
     : (_ChunkedFraming | UnsupportedTransferEncoding | InvalidTransferEncoding)

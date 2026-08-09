@@ -48,7 +48,9 @@ primitive _HostValue
   """
 
   fun valid(s: String box): Bool =>
-    """Whether `s` is a valid Host field value (`uri-host [ ":" port ]`)."""
+    """
+    Whether `s` is a valid Host field value (`uri-host [ ":" port ]`).
+    """
     if s.size() == 0 then return true end // empty reg-name
     try
       if s(0)? == '[' then

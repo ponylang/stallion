@@ -45,7 +45,8 @@ class \nodoc\ iso _PropertyChunkedEncoderFormat
     ph.assert_true(found, "No CRLF found in encoded chunk")
 
     // Extract hex size string and verify it matches data size
-    let hex_str = recover val
+    let hex_str =
+      recover val
       let s = String.create(crlf_pos)
       var i: USize = 0
       while i < crlf_pos do
@@ -56,7 +57,9 @@ class \nodoc\ iso _PropertyChunkedEncoderFormat
     end
     try
       let declared_size = hex_str.read_int[USize](0, 16)?._1
-      ph.assert_eq[USize](arg1.size(), declared_size,
+      ph.assert_eq[USize](
+        arg1.size(),
+        declared_size,
         "Declared hex size doesn't match actual data size")
     else
       ph.fail("Failed to parse hex size: " + hex_str)
@@ -67,7 +70,9 @@ class \nodoc\ iso _PropertyChunkedEncoderFormat
     var j: USize = 0
     while j < arg1.size() do
       try
-        ph.assert_eq[U8](arg1(j)?, encoded_val(data_start + j)?,
+        ph.assert_eq[U8](
+          arg1(j)?,
+          encoded_val(data_start + j)?,
           "Data byte mismatch at position " + j.string())
       else
         ph.fail("Index out of bounds at position " + j.string())
@@ -78,9 +83,13 @@ class \nodoc\ iso _PropertyChunkedEncoderFormat
     // Verify trailing \r\n
     let trail_start = data_start + arg1.size()
     try
-      ph.assert_eq[U8]('\r', encoded_val(trail_start)?,
+      ph.assert_eq[U8](
+        '\r',
+        encoded_val(trail_start)?,
         "Missing trailing \\r")
-      ph.assert_eq[U8]('\n', encoded_val(trail_start + 1)?,
+      ph.assert_eq[U8](
+        '\n',
+        encoded_val(trail_start + 1)?,
         "Missing trailing \\n")
     else
       ph.fail("Encoded chunk too short for trailing CRLF")

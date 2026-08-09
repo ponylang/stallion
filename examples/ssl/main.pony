@@ -1,14 +1,3 @@
-"""
-HTTPS server that responds to every request with "Hello, World!".
-
-Demonstrates SSL/TLS support: creating an `SSLContext`, loading certificate
-and key files, and passing the context to connection actors via `_on_accept`.
-Actors use `HTTPServer.ssl` instead of `HTTPServer` to create an HTTPS
-connection.
-
-Must be run from the project root so the relative certificate paths resolve
-correctly. Test with `curl -k https://localhost:8443/`.
-"""
 use "files"
 use "ssl/net"
 use stallion = "../../stallion"
@@ -38,6 +27,9 @@ actor Main
     Listener(auth, "0.0.0.0", "8443", env.out, sslctx)
 
 actor Listener is lori.TCPListenerActor
+  """
+  TLS listener that creates `HelloServer` actors for each connection.
+  """
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _out: OutStream
   let _config: stallion.ServerConfig
@@ -77,6 +69,9 @@ actor Listener is lori.TCPListenerActor
     _out.print("Server closed")
 
 actor HelloServer is stallion.HTTPServerActor
+  """
+  Responds to every HTTPS request with a greeting.
+  """
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
 
   new create(
@@ -89,7 +84,8 @@ actor HelloServer is stallion.HTTPServerActor
 
   fun ref _http_connection(): stallion.HTTPServer => _http
 
-  fun ref on_request_complete(request': stallion.Request val,
+  fun ref on_request_complete(
+    request': stallion.Request val,
     responder: stallion.Responder)
   =>
     let resp_body: String val = "Hello, World!"

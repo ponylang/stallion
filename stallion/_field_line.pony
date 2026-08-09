@@ -29,7 +29,8 @@ primitive _FieldLine
   """
   fun parse(scanned: _ScannedLine): _FieldResult =>
     let line: String val = scanned.content
-    if (line.size() > 0) and _OWS(try line(0)? else _Unreachable(); ' ' end) then
+    let first = try line(0)? else _Unreachable(); ' ' end
+    if (line.size() > 0) and _OWS(first) then
       return ObsFold
     end
     let colon = try line.find(":")?.usize() else return InvalidFieldName end

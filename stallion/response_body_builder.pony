@@ -90,27 +90,30 @@ primitive ResponseBuilder
     version: Version = HTTP11)
     : ResponseHeadersBuilder
   =>
-    """Create a builder with the given status and version."""
+    """
+    Create a builder with the given status and version.
+    """
     _ResponseBuilderImpl._create(status, version)
 
 class ref _ResponseBuilderImpl is (ResponseHeadersBuilder & ResponseBodyBuilder)
   var _buf: Array[U8] iso
 
   new ref _create(status: Status, version: Version) =>
-    _buf = recover iso
-      Array[U8].>append(version.string())
-        .>push(' ')
-        .>append(status.code().string())
-        .>push(' ')
-        .>append(status.reason())
-        .>append("\r\n")
-    end
+    _buf =
+      recover iso
+        Array[U8] .> append(version.string())
+          .> push(' ')
+          .> append(status.code().string())
+          .> push(' ')
+          .> append(status.reason())
+          .> append("\r\n")
+      end
 
   fun ref add_header(name: String, value: String): ResponseHeadersBuilder =>
-    _buf.>append(name)
-      .>append(": ")
-      .>append(value)
-      .>append("\r\n")
+    _buf .> append(name)
+      .> append(": ")
+      .> append(value)
+      .> append("\r\n")
     this
 
   fun ref finish_headers(): ResponseBodyBuilder =>

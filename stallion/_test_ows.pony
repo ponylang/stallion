@@ -28,7 +28,9 @@ class \nodoc\ iso _TestOWS is UnitTest
 
     // trim does not touch interior OWS or non-OWS whitespace at the edges.
     h.assert_eq[String val]("a\tb", _OWS.trim(" a\tb "), "interior HTAB kept")
-    h.assert_eq[String val]("\nx\n", _OWS.trim(" \nx\n "),
+    h.assert_eq[String val](
+      "\nx\n",
+      _OWS.trim(" \nx\n "),
       "CR/LF are not trimmed")
 
     // trim returns a zero-copy view into the source — not a fresh

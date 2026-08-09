@@ -23,31 +23,37 @@ primitive ParseCookies
 
     Multiple `Cookie` headers are concatenated per RFC 6265 §5.4.
     """
-    let cookies: Array[RequestCookie val] val = recover val
-      let arr = Array[RequestCookie val]
-      for hdr in headers.values() do
-        if hdr.name == "cookie" then
-          _parse_into(hdr.value, arr)
+    let cookies: Array[RequestCookie val] val =
+      recover val
+        let arr = Array[RequestCookie val]
+        for hdr in headers.values() do
+          if hdr.name == "cookie" then
+            _parse_into(hdr.value, arr)
+          end
         end
+        arr
       end
-      arr
-    end
     RequestCookies._create(cookies)
 
   fun apply(header_value: String val): RequestCookies val =>
-    """Parse a single `Cookie` header value string."""
-    let cookies: Array[RequestCookie val] val = recover val
-      let arr = Array[RequestCookie val]
-      _parse_into(header_value, arr)
-      arr
-    end
+    """
+    Parse a single `Cookie` header value string.
+    """
+    let cookies: Array[RequestCookie val] val =
+      recover val
+        let arr = Array[RequestCookie val]
+        _parse_into(header_value, arr)
+        arr
+      end
     RequestCookies._create(cookies)
 
   fun _parse_into(
     header_value: String val,
     cookies: Array[RequestCookie val] ref)
   =>
-    """Parse cookie pairs from a header value and append to the array."""
+    """
+    Parse cookie pairs from a header value and append to the array.
+    """
     // Split on ";"
     var start: USize = 0
     let size = header_value.size()

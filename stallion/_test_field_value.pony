@@ -30,5 +30,6 @@ class \nodoc\ iso _TestFieldValue is UnitTest
     h.assert_true(_FieldValue.valid("a b\tc"), "interior SP and HTAB")
     h.assert_false(_FieldValue.valid("a\rb"), "interior CR")
     h.assert_false(_FieldValue.valid("a\nb"), "interior LF")
-    h.assert_false(_FieldValue.valid(recover val String.>push(0) end),
+    h.assert_false(
+      _FieldValue.valid(recover val String .> push(0) end),
       "interior NUL")

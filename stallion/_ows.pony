@@ -13,7 +13,9 @@ primitive _OWS
   """
 
   fun apply(b: U8): Bool =>
-    """Whether `b` is an OWS byte (SP or HTAB)."""
+    """
+    Whether `b` is an OWS byte (SP or HTAB).
+    """
     (b == ' ') or (b == '\t')
 
   fun trim(s: String val): String val =>
@@ -32,5 +34,7 @@ primitive _OWS
     s.trim(first, last)
 
   fun chars(): String =>
-    """The OWS character set, for use with stdlib `String.strip`."""
+    """
+    The OWS character set, for use with stdlib `String.strip`.
+    """
     " \t"

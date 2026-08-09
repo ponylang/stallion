@@ -44,32 +44,44 @@ class ref SetCookieBuilder
     _value = value
 
   fun ref with_path(path: String val): SetCookieBuilder ref =>
-    """Set the `Path` attribute."""
+    """
+    Set the `Path` attribute.
+    """
     _path = path
     this
 
   fun ref with_domain(domain: String val): SetCookieBuilder ref =>
-    """Set the `Domain` attribute."""
+    """
+    Set the `Domain` attribute.
+    """
     _domain = domain
     this
 
   fun ref with_max_age(seconds: I64): SetCookieBuilder ref =>
-    """Set the `Max-Age` attribute in seconds."""
+    """
+    Set the `Max-Age` attribute in seconds.
+    """
     _max_age = seconds
     this
 
   fun ref with_expires(epoch_seconds: I64): SetCookieBuilder ref =>
-    """Set the `Expires` attribute from epoch seconds."""
+    """
+    Set the `Expires` attribute from epoch seconds.
+    """
     _expires = epoch_seconds
     this
 
   fun ref with_secure(secure': Bool = true): SetCookieBuilder ref =>
-    """Set or clear the `Secure` attribute."""
+    """
+    Set or clear the `Secure` attribute.
+    """
     _secure = secure'
     this
 
   fun ref with_http_only(http_only': Bool = true): SetCookieBuilder ref =>
-    """Set or clear the `HttpOnly` attribute."""
+    """
+    Set or clear the `HttpOnly` attribute.
+    """
     _http_only = http_only'
     this
 
@@ -127,9 +139,12 @@ class ref SetCookieBuilder
     // Prefix rules
     if _name.compare_sub("__Host-", 7) is Equal then
       // __Host- requires: Secure, Path="/", no Domain
-      if (not _secure)
-        or (match _path | let p: String => p != "/" else true end)
-        or (_domain isnt None)
+      let path_not_root =
+        match _path
+        | let p: String => p != "/"
+        else true
+        end
+      if (not _secure) or path_not_root or (_domain isnt None)
       then
         return CookiePrefixViolation
       end
@@ -148,38 +163,43 @@ class ref SetCookieBuilder
 
     // Serialize in fixed order:
     // name=value[; Path=...][; Domain=...][; Secure][; HttpOnly]
-    //   [; SameSite=...][; Max-Age=...][; Expires=...]
-    let header_value = recover val
-      let buf = String
-      buf.>append(_name)
-        .>push('=')
-        .>append(_value)
+    // [; SameSite=...][; Max-Age=...][; Expires=...]
+    let header_value =
+      recover val
+        let buf = String
+        buf .> append(_name)
+          .> push('=')
+          .> append(_value)
 
-      match _path
-      | let p: String => buf.>append("; Path=").>append(p)
+        match _path
+        | let p: String =>
+          buf .> append("; Path=") .> append(p)
+        end
+
+        match _domain
+        | let d: String =>
+          buf .> append("; Domain=") .> append(d)
+        end
+
+        if _secure then buf.append("; Secure") end
+        if _http_only then buf.append("; HttpOnly") end
+
+        match _same_site
+        | let ss: SameSite =>
+          buf .> append("; SameSite=") .> append(ss.string())
+        end
+
+        match _max_age
+        | let ma: I64 =>
+          buf .> append("; Max-Age=") .> append(ma.string())
+        end
+
+        match _expires
+        | let e: I64 =>
+          buf .> append("; Expires=") .> append(_HTTPDate(e))
+        end
+
+        buf
       end
-
-      match _domain
-      | let d: String => buf.>append("; Domain=").>append(d)
-      end
-
-      if _secure then buf.append("; Secure") end
-      if _http_only then buf.append("; HttpOnly") end
-
-      match _same_site
-      | let ss: SameSite =>
-        buf.>append("; SameSite=").>append(ss.string())
-      end
-
-      match _max_age
-      | let ma: I64 => buf.>append("; Max-Age=").>append(ma.string())
-      end
-
-      match _expires
-      | let e: I64 => buf.>append("; Expires=").>append(_HTTPDate(e))
-      end
-
-      buf
-    end
 
     SetCookie._create(_name, _value, header_value)

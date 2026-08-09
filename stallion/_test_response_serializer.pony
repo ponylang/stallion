@@ -2,7 +2,9 @@ use "pony_check"
 use "pony_test"
 
 class val _ResponseInput is Stringable
-  """Test input: indices and sizes that the property uses to build a response."""
+  """
+  Test input: indices and sizes that the property uses to build a response.
+  """
   let status_idx: USize
   let num_headers: USize
   let body_size: USize
@@ -16,15 +18,15 @@ class val _ResponseInput is Stringable
 
   fun string(): String iso^ =>
     recover iso
-      String.>append("ResponseInput(status_idx=")
-        .>append(status_idx.string())
-        .>append(", num_headers=")
-        .>append(num_headers.string())
-        .>append(", body_size=")
-        .>append(body_size.string())
-        .>append(", use_http10=")
-        .>append(use_http10.string())
-        .>append(")")
+      String .> append("ResponseInput(status_idx=")
+        .> append(status_idx.string())
+        .> append(", num_headers=")
+        .> append(num_headers.string())
+        .> append(", body_size=")
+        .> append(body_size.string())
+        .> append(", use_http10=")
+        .> append(use_http10.string())
+        .> append(")")
     end
 
 class \nodoc\ iso _PropertyResponseWireFormat is Property1[_ResponseInput]
@@ -43,21 +45,23 @@ class \nodoc\ iso _PropertyResponseWireFormat is Property1[_ResponseInput]
       {(si, nh, bs, h10) => _ResponseInput(si, nh, bs, h10) })
 
   fun ref property(arg1: _ResponseInput, ph: PropertyHelper) =>
-    let statuses: Array[Status val] val =
-      [StatusOK; StatusCreated; StatusNoContent
-       StatusBadRequest; StatusNotFound
-       StatusInternalServerError]
+    let statuses: Array[ Status val] val =
+      [ StatusOK; StatusCreated; StatusNoContent
+        StatusBadRequest; StatusNotFound
+        StatusInternalServerError]
 
-    let status = try
-      statuses(arg1.status_idx % statuses.size())?
-    else
-      StatusOK
-    end
+    let status =
+      try
+        statuses(arg1.status_idx % statuses.size())?
+      else
+        StatusOK
+      end
 
     let version: Version =
       if arg1.use_http10 then HTTP10 else HTTP11 end
 
-    let headers = recover val
+    let headers =
+      recover val
       let h = Headers
       var i: USize = 0
       while i < arg1.num_headers do
@@ -67,19 +71,20 @@ class \nodoc\ iso _PropertyResponseWireFormat is Property1[_ResponseInput]
       h
     end
 
-    let body: (ByteSeq | None) = if arg1.body_size > 0 then
-      recover val
-        let arr = Array[U8](arg1.body_size)
-        var i: USize = 0
-        while i < arg1.body_size do
-          arr.push('X')
-          i = i + 1
+    let body: (ByteSeq | None) =
+      if arg1.body_size > 0 then
+        recover val
+          let arr = Array[U8](arg1.body_size)
+          var i: USize = 0
+          while i < arg1.body_size do
+            arr.push('X')
+            i = i + 1
+          end
+          arr
         end
-        arr
+      else
+        None
       end
-    else
-      None
-    end
 
     let result: Array[U8] val =
       _ResponseSerializer(status, headers, body where version = version)
@@ -118,12 +123,13 @@ class \nodoc\ iso _PropertyResponseWireFormat is Property1[_ResponseInput]
     end
 
     // Verify body size
-    let sep_pos = try
-      output.find("\r\n\r\n")?
-    else
-      ph.fail("no header/body separator found")
-      return
-    end
+    let sep_pos =
+      try
+        output.find("\r\n\r\n")?
+      else
+        ph.fail("no header/body separator found")
+        return
+      end
     let body_start = sep_pos + 4
     let actual_body_size = output.size() - body_start.usize()
     ph.assert_eq[USize](arg1.body_size, actual_body_size, "body size mismatch")
@@ -150,11 +156,10 @@ class \nodoc\ iso _TestResponseSerializerKnownGood is UnitTest
       "200 OK, no headers, no body")
 
   fun _test_200_with_header_and_body(h: TestHelper) =>
-    let headers = recover val
-      let hd = Headers
-      hd.set("content-type", "text/plain")
-      hd
-    end
+    let headers =
+      recover val
+        Headers .> set("content-type", "text/plain")
+      end
     let body: Array[U8] val = "Hello, World!".array()
     let result: Array[U8] val =
       _ResponseSerializer(StatusOK, headers, body)

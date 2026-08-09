@@ -14,7 +14,9 @@ class val ChunkSendToken is Equatable[ChunkSendToken]
   let id: U64
 
   new val _create(id': U64) =>
-    """Create a token with the given ID. Package-private."""
+    """
+    Create a token with the given ID. Package-private.
+    """
     id = id'
 
   fun eq(that: box->ChunkSendToken): Bool =>

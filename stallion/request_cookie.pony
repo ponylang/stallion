@@ -10,6 +10,8 @@ class val RequestCookie
   let value: String val
 
   new val _create(name': String val, value': String val) =>
-    """Create a request cookie. Package-private."""
+    """
+    Create a request cookie. Package-private.
+    """
     name = name'
     value = value'

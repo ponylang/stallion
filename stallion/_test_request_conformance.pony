@@ -1,14 +1,13 @@
 use "pony_test"
 
-// ---------------------------------------------------------------------------
 // Table-driven HTTP/1.1 request conformance corpus (parser level).
 //
 // Each case is (name, raw-bytes, expected-outcome). Outcomes are:
-//   _Accept     — request_received with the given method/target/version, the
-//                 exact body bytes, and exactly one request_complete.
-//   _Incomplete — the parser consumed the bytes without completing or erroring
-//                 (it needs more data); no request_complete, no parse_error.
-//   ParseError  — exactly one parse_error with that specific error value.
+// _Accept — request_received with the given method/target/version, the
+// exact body bytes, and exactly one request_complete.
+// _Incomplete — the parser consumed the bytes without completing or erroring
+// (it needs more data); no request_complete, no parse_error.
+// ParseError — exactly one parse_error with that specific error value.
 //
 // Assertions target the specific dimension so flipping any case's expectation
 // makes it fail (counterfactual-friendly). The harness runs every case and
@@ -76,7 +75,7 @@ primitive \nodoc\ _CaseRunner
     let parser = _RequestParser(notify)
     parser.parse(recover c.raw.array().clone() end)
 
-    match c.expected
+    match \exhaustive\ c.expected
     | let a: _Accept => _assert_accept(h, c, notify, a)
     | _Incomplete => _assert_incomplete(h, c, notify)
     | let e: ParseError => _assert_reject(h, c, notify, e)
@@ -93,13 +92,19 @@ primitive \nodoc\ _CaseRunner
       return
     end
     if notify.requests.size() != 1 then
-      h.fail(_fail(c, "1 request",
-        notify.requests.size().string() + " requests"))
+      h.fail(
+        _fail(
+          c,
+          "1 request",
+          notify.requests.size().string() + " requests"))
       return
     end
     if notify.completed != 1 then
-      h.fail(_fail(c, "1 completion",
-        notify.completed.string() + " completions"))
+      h.fail(
+        _fail(
+          c,
+          "1 completion",
+          notify.completed.string() + " completions"))
       return
     end
     try
@@ -181,31 +186,40 @@ primitive \nodoc\ _ConformanceCases
     SP between components (RFC 9112 §3). `space_in_request_target` is handled
     HERE (parser level) as a framing violation, not at the protocol layer.
     """
-    [ _Case("rl_simple_ok",
+    [ _Case(
+      "rl_simple_ok",
         "GET / HTTP/1.1\r\nHost: a\r\n\r\n",
         _Accept("GET", "/", HTTP11))
-      _Case("rl_http10_ok",
+      _Case(
+        "rl_http10_ok",
         "GET / HTTP/1.0\r\nHost: a\r\n\r\n",
         _Accept("GET", "/", HTTP10))
-      _Case("bare_lf_request_line",
+      _Case(
+        "bare_lf_request_line",
         "GET / HTTP/1.1\nHost: a\r\n\r\n",
         BareCRLF)
-      _Case("bad_version",
+      _Case(
+        "bad_version",
         "GET / HTTP/5.6\r\nHost: a\r\n\r\n",
         InvalidVersion)
-      _Case("non_token_method",
+      _Case(
+        "non_token_method",
         "GE(T / HTTP/1.1\r\nHost: a\r\n\r\n",
         InvalidRequestLine)
-      _Case("unknown_method",
+      _Case(
+        "unknown_method",
         "FOOBAR / HTTP/1.1\r\nHost: a\r\n\r\n",
         UnknownMethod)
-      _Case("multi_sp_request_line",
+      _Case(
+        "multi_sp_request_line",
         "GET  / HTTP/1.1\r\nHost: a\r\n\r\n",
         InvalidRequestLine)
-      _Case("space_in_request_target",
+      _Case(
+        "space_in_request_target",
         "GET /a b HTTP/1.1\r\nHost: a\r\n\r\n",
         InvalidRequestLine)
-      _Case("empty_request_target",
+      _Case(
+        "empty_request_target",
         "GET  HTTP/1.1\r\nHost: a\r\n\r\n",
         InvalidURI)
     ]
@@ -216,164 +230,205 @@ primitive \nodoc\ _ConformanceCases
     (CR/LF as `BareCRLF` via the line policy, NUL as `InvalidFieldValue`); no
     obs-fold; no whitespace before the colon.
     """
-    [ _Case("ws_before_colon",
+    [ _Case(
+      "ws_before_colon",
         "GET / HTTP/1.1\r\nHost: a\r\nFoo : bar\r\n\r\n",
         InvalidFieldName)
-      _Case("non_token_field_name",
+      _Case(
+        "non_token_field_name",
         "GET / HTTP/1.1\r\nHost: a\r\nFo@o: bar\r\n\r\n",
         InvalidFieldName)
-      _Case("interior_ws_in_name",
+      _Case(
+        "interior_ws_in_name",
         "POST / HTTP/1.1\r\nHost: a\r\nContent -Length: 5\r\n" +
         "Transfer-Encoding: chunked\r\n\r\n5\r\n01234\r\n0\r\n\r\n",
         InvalidFieldName)
-      _Case("bare_cr_in_value",
+      _Case(
+        "bare_cr_in_value",
         "GET / HTTP/1.1\r\nHost: a\r\nX: b\rc\r\n\r\n",
         BareCRLF)
-      _Case("nul_in_value",
+      _Case(
+        "nul_in_value",
         "GET / HTTP/1.1\r\nHost: a\r\nX: b\x00c\r\n\r\n",
         InvalidFieldValue)
-      _Case("obs_fold",
+      _Case(
+        "obs_fold",
         "GET / HTTP/1.1\r\nHost: a\r\nX: b\r\n cont\r\n\r\n",
         ObsFold)
-      _Case("leading_space_in_header_line",
+      _Case(
+        "leading_space_in_header_line",
         "GET / HTTP/1.1\r\n Host: a\r\n\r\n",
         ObsFold)
     ]
 
   fun content_length(): Array[_Case] val =>
-    [ _Case("cl_simple_ok",
+    [ _Case(
+      "cl_simple_ok",
         "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 3\r\n\r\nabc",
         _Accept("POST", "/", HTTP11, "abc"))
-      _Case("cl_duplicate_disagree",
+      _Case(
+        "cl_duplicate_disagree",
         "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 3\r\n" +
         "Content-Length: 4\r\n\r\nabc",
         InvalidContentLength)
-      _Case("cl_duplicate_same",
+      _Case(
+        "cl_duplicate_same",
         "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 3\r\n" +
         "Content-Length: 3\r\n\r\nabc",
         _Accept("POST", "/", HTTP11, "abc"))
-      _Case("cl_comma_list_diff",
+      _Case(
+        "cl_comma_list_diff",
         "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 3, 4\r\n\r\nabc",
         InvalidContentLength)
-      _Case("cl_comma_list_same",
+      _Case(
+        "cl_comma_list_same",
         "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 3, 3\r\n\r\nabc",
         InvalidContentLength)
-      _Case("cl_non_digit",
+      _Case(
+        "cl_non_digit",
         "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 3abc\r\n\r\nabc",
         InvalidContentLength)
-      _Case("cl_plus_prefix",
+      _Case(
+        "cl_plus_prefix",
         "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: +3\r\n\r\nabc",
         InvalidContentLength)
-      _Case("cl_leading_zero",
+      _Case(
+        "cl_leading_zero",
         "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 003\r\n\r\nabc",
         _Accept("POST", "/", HTTP11, "abc"))
-      _Case("cl_empty",
+      _Case(
+        "cl_empty",
         "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: \r\n\r\nabc",
         InvalidContentLength)
     ]
 
   fun transfer_encoding(): Array[_Case] val =>
-    [ _Case("chunked_ok",
+    [ _Case(
+      "chunked_ok",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5\r\n01234\r\n0\r\n\r\n",
         _Accept("POST", "/", HTTP11, "01234"))
-      _Case("te_and_cl",
+      _Case(
+        "te_and_cl",
         "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 5\r\n" +
         "Transfer-Encoding: chunked\r\n\r\n5\r\n01234\r\n0\r\n\r\n",
         ContentLengthWithTransferEncoding)
-      _Case("te_cl_reordered",
+      _Case(
+        "te_cl_reordered",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n" +
         "Content-Length: 5\r\n\r\n5\r\n01234\r\n0\r\n\r\n",
         ContentLengthWithTransferEncoding)
-      _Case("te_chunked_not_final",
+      _Case(
+        "te_chunked_not_final",
         "POST / HTTP/1.1\r\nHost: a\r\n" +
         "Transfer-Encoding: chunked, gzip\r\n\r\n5\r\n01234\r\n0\r\n\r\n",
         InvalidTransferEncoding)
-      _Case("te_double_chunked",
+      _Case(
+        "te_double_chunked",
         "POST / HTTP/1.1\r\nHost: a\r\n" +
         "Transfer-Encoding: chunked, chunked\r\n\r\n5\r\n01234\r\n0\r\n\r\n",
         InvalidTransferEncoding)
-      _Case("te_multi_header_chunked",
+      _Case(
+        "te_multi_header_chunked",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n" +
         "Transfer-Encoding: chunked\r\n\r\n5\r\n01234\r\n0\r\n\r\n",
         InvalidTransferEncoding)
-      _Case("te_unknown_only",
+      _Case(
+        "te_unknown_only",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: fugazi\r\n\r\n",
         UnsupportedTransferEncoding)
-      _Case("te_obfuscated_control",
+      _Case(
+        "te_obfuscated_control",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: \x0bchunked\r\n\r\n" +
         "5\r\n01234\r\n0\r\n\r\n",
         InvalidTransferEncoding)
     ]
 
   fun chunked_body(): Array[_Case] val =>
-    [ _Case("chunk_bare_lf_terminator",
+    [ _Case(
+      "chunk_bare_lf_terminator",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5\n01234\r\n0\r\n\r\n",
         BareCRLF)
-      _Case("chunk_size_garbage_after",
+      _Case(
+        "chunk_size_garbage_after",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5XX\r\n01234\r\n0\r\n\r\n",
         InvalidChunk)
-      _Case("chunk_size_hex_prefix",
+      _Case(
+        "chunk_size_hex_prefix",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "0x5\r\n01234\r\n0\r\n\r\n",
         InvalidChunk)
-      _Case("chunk_size_underscore",
+      _Case(
+        "chunk_size_underscore",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5_0\r\n01234\r\n0\r\n\r\n",
         InvalidChunk)
-      _Case("chunk_size_overflow_wraps_limit",
+      _Case(
+        "chunk_size_overflow_wraps_limit",
         // A first chunk advances total to 1, then a USize.max chunk-size would
         // wrap the body-size check below the limit with plain `+`. Must reject.
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "1\r\nX\r\nffffffffffffffff\r\n",
         BodyTooLarge)
-      _Case("chunk_ext_nul",
+      _Case(
+        "chunk_ext_nul",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5;\x00\r\n01234\r\n0\r\n\r\n",
         InvalidChunkExtension)
-      _Case("chunk_ext_bare_cr",
+      _Case(
+        "chunk_ext_bare_cr",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5;a\rb\r\n01234\r\n0\r\n\r\n",
         BareCRLF)
-      _Case("chunk_ext_ok",
+      _Case(
+        "chunk_ext_ok",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5;ext\r\n01234\r\n0\r\n\r\n",
         _Accept("POST", "/", HTTP11, "01234"))
-      _Case("chunk_ext_token_value",
+      _Case(
+        "chunk_ext_token_value",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5;a=b\r\n01234\r\n0\r\n\r\n",
         _Accept("POST", "/", HTTP11, "01234"))
-      _Case("chunk_ext_quoted_value",
+      _Case(
+        "chunk_ext_quoted_value",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5;a=\"b\"\r\n01234\r\n0\r\n\r\n",
         _Accept("POST", "/", HTTP11, "01234"))
-      _Case("chunk_ext_bad_name",
+      _Case(
+        "chunk_ext_bad_name",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5;a@b\r\n01234\r\n0\r\n\r\n",
         InvalidChunkExtension)
-      _Case("chunk_ext_empty_quoted_value",
+      _Case(
+        "chunk_ext_empty_quoted_value",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5;a=\"\"\r\n01234\r\n0\r\n\r\n",
         _Accept("POST", "/", HTTP11, "01234"))
-      _Case("chunk_ext_unterminated_quote",
+      _Case(
+        "chunk_ext_unterminated_quote",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5;a=\"b\r\n01234\r\n0\r\n\r\n",
         InvalidChunkExtension)
-      _Case("chunk_ext_ctl_in_quoted",
+      _Case(
+        "chunk_ext_ctl_in_quoted",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5;a=\"\x01\"\r\n01234\r\n0\r\n\r\n",
         InvalidChunkExtension)
-      _Case("chunk_data_bad_terminator",
+      _Case(
+        "chunk_data_bad_terminator",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5\r\n01234XY\r\n0\r\n\r\n",
         InvalidChunk)
-      _Case("chunk_data_bare_lf_terminator",
+      _Case(
+        "chunk_data_bare_lf_terminator",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5\r\n01234\n0\r\n\r\n",
         InvalidChunk)
-      _Case("chunk_missing_final_crlf",
+      _Case(
+        "chunk_missing_final_crlf",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5\r\n01234\r\n0\r\n",
         _Incomplete)
@@ -386,27 +441,33 @@ primitive \nodoc\ _ConformanceCases
     trailer rule (RFC 9110 §6.5.1): framing/routing/control fields are rejected
     even when syntactically valid.
     """
-    [ _Case("trailer_allowed_ok",
+    [ _Case(
+      "trailer_allowed_ok",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5\r\n01234\r\n0\r\nX-Checksum: abc\r\n\r\n",
         _Accept("POST", "/", HTTP11, "01234"))
-      _Case("trailer_injection_te",
+      _Case(
+        "trailer_injection_te",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5\r\n01234\r\n0\r\nTransfer-Encoding: chunked\r\n\r\n",
         ForbiddenTrailer)
-      _Case("trailer_injection_cl",
+      _Case(
+        "trailer_injection_cl",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5\r\n01234\r\n0\r\nContent-Length: 5\r\n\r\n",
         ForbiddenTrailer)
-      _Case("trailer_injection_host",
+      _Case(
+        "trailer_injection_host",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5\r\n01234\r\n0\r\nHost: evil\r\n\r\n",
         ForbiddenTrailer)
-      _Case("trailer_non_token_name",
+      _Case(
+        "trailer_non_token_name",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5\r\n01234\r\n0\r\nFo@o: bar\r\n\r\n",
         InvalidFieldName)
-      _Case("trailer_bare_lf",
+      _Case(
+        "trailer_bare_lf",
         "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
         "5\r\n01234\r\n0\r\nX-Foo: a\nb\r\n\r\n",
         BareCRLF)

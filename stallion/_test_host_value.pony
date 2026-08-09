@@ -28,7 +28,8 @@ class \nodoc\ iso _TestHostValue is UnitTest
     // IPv4 semantics, so a malformed-looking dotted value is a valid reg-name.
     h.assert_true(_HostValue.valid("127.0.0.1"), "IPv4")
     h.assert_true(_HostValue.valid("127.0.0.1:80"), "IPv4 + port")
-    h.assert_true(_HostValue.valid("999.999.999.999"),
+    h.assert_true(
+      _HostValue.valid("999.999.999.999"),
       "out-of-range IPv4 is a valid reg-name (no semantic IPv4 check)")
 
     // --- IP-literal ---------------------------------------------------------
@@ -47,9 +48,11 @@ class \nodoc\ iso _TestHostValue is UnitTest
     h.assert_true(_HostValue.valid("host:65535"), "port upper boundary")
     h.assert_false(_HostValue.valid("host:65536"), "port over boundary")
     h.assert_false(_HostValue.valid("host:99999"), "port over boundary")
-    h.assert_false(_HostValue.valid("host:99999999999999999999"),
+    h.assert_false(
+      _HostValue.valid("host:99999999999999999999"),
       "port overflow rejected, not wrapped")
-    h.assert_false(_HostValue.valid("host:6_5"),
+    h.assert_false(
+      _HostValue.valid("host:6_5"),
       "underscore in port (read_int ignores it) rejected")
     h.assert_false(_HostValue.valid("host:80a"), "non-digit port")
     h.assert_false(_HostValue.valid("host:8:0"), "second colon in port")

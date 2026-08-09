@@ -40,6 +40,6 @@ primitive _KeepAliveDecision
     Mirrors `_TransferEncoding._normalize`; see the comment there on why two
     near-identical normalizers exist.
     """
-    let token: String ref = raw.clone()
-    token.strip(_OWS.chars())
-    token.lower()
+    raw.clone()
+      .> strip(_OWS.chars())
+      .> lower_in_place()

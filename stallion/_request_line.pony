@@ -32,7 +32,7 @@ primitive _RequestLine
 
     let method_str = line.trim(0, sp1)
     let method' =
-      match Methods.parse(method_str)
+      match \exhaustive\ Methods.parse(method_str)
       | let m: Method => m
       | None =>
         // Not a method we implement. A valid token is an unimplemented method
@@ -51,7 +51,7 @@ primitive _RequestLine
     end
 
     let version' =
-      match _parse_version(line.trim(sp2 + 1))
+      match \exhaustive\ _parse_version(line.trim(sp2 + 1))
       | let v: Version => v
       | None => return InvalidVersion
       end
@@ -72,7 +72,9 @@ primitive _RequestLine
     None
 
   fun _parse_version(s: String val): (Version | None) =>
-    """Exactly `HTTP/1.0` or `HTTP/1.1`."""
+    """
+    Exactly `HTTP/1.0` or `HTTP/1.1`.
+    """
     if s.size() != 8 then return None end
     try
       if (s(0)? == 'H') and (s(1)? == 'T') and (s(2)? == 'T')

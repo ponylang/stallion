@@ -116,14 +116,16 @@ class \nodoc\ iso _PropertyGetCombinesListField
   fun name(): String => "headers/get_combines_list_field"
 
   fun gen(): Generator[(String val, Array[String val] ref)] =>
-    let name_gen = Generators.one_of[String val](
-      [as String val:
+    let name_gen =
+      Generators.one_of[String val](
+      [ as String val:
         "connection"; "transfer-encoding"; "te"; "trailer"; "upgrade"
         "via"; "accept"; "accept-charset"; "accept-encoding"
         "accept-language"; "cache-control"; "content-encoding"
         "content-language"; "if-match"; "if-none-match"; "expect"])
     // Comma-free values so the expected join is unambiguous.
-    let values_gen = Generators.array_of[String val](
+    let values_gen =
+      Generators.array_of[String val](
       Generators.ascii_letters(1, 15), 1, 5)
     Generators.zip2[String val, Array[String val] ref](name_gen, values_gen)
 
@@ -158,8 +160,9 @@ class \nodoc\ iso _PropertyGetFirstValueNonListField
 
   fun gen(): Generator[(String val, Array[String val] ref)] =>
     let name_gen = Generators.ascii_letters(1, 15)
-      .map[String val]({(s: String val): String val => "x-" + s})
-    let values_gen = Generators.array_of[String val](
+      .map[String val]({(s: String val): String val => "x-" + s })
+    let values_gen =
+      Generators.array_of[String val](
       Generators.ascii_letters(1, 15), 1, 5)
     Generators.zip2[String val, Array[String val] ref](name_gen, values_gen)
 
@@ -191,12 +194,15 @@ class \nodoc\ iso _TestHeadersListNoMatchNone is UnitTest
 
   fun apply(h: TestHelper) =>
     let headers = Headers
-    h.assert_true(headers.get("connection") is None,
+    h.assert_true(
+      headers.get("connection") is None,
       "list field with no entries returns None")
-    h.assert_true(headers.get("x-custom") is None,
+    h.assert_true(
+      headers.get("x-custom") is None,
       "non-list field with no entries returns None")
     headers.add("host", "example.com")
-    h.assert_true(headers.get("connection") is None,
+    h.assert_true(
+      headers.get("connection") is None,
       "list field still None when only other headers are present")
 
 class \nodoc\ iso _TestHeadersDeniedNotCombined is UnitTest
@@ -208,9 +214,15 @@ class \nodoc\ iso _TestHeadersDeniedNotCombined is UnitTest
   fun name(): String => "headers/denied_not_combined"
 
   fun apply(h: TestHelper) =>
-    _check(h, "Set-Cookie",
-      "id=1; Expires=Sun, 06 Nov 1994 08:49:37 GMT", "id=2")
-    _check(h, "Date", "Mon, 01 Jan 2024 00:00:00 GMT",
+    _check(
+      h,
+      "Set-Cookie",
+      "id=1; Expires=Sun, 06 Nov 1994 08:49:37 GMT",
+      "id=2")
+    _check(
+      h,
+      "Date",
+      "Mon, 01 Jan 2024 00:00:00 GMT",
       "Tue, 02 Jan 2024 00:00:00 GMT")
     _check(h, "Cookie", "a=1", "b=2")
     _check(h, "X-Custom", "first", "second")
@@ -224,9 +236,11 @@ class \nodoc\ iso _TestHeadersDeniedNotCombined is UnitTest
     let headers = Headers
     headers.add(field, first)
     headers.add(field, second)
-    match headers.get(field)
+    match \exhaustive\ headers.get(field)
     | let v: String val =>
-      h.assert_eq[String val](first, v,
+      h.assert_eq[String val](
+        first,
+        v,
         field + " must return the first value, not a combined one")
     | None =>
       h.fail(field + " unexpectedly returned None")
@@ -277,13 +291,15 @@ class \nodoc\ iso _TestKeepAliveMultiLineViaGet is UnitTest
     let hc = Headers
     hc.add("Connection", "keep-alive")
     hc.add("Connection", "close")
-    h.assert_false(_KeepAliveDecision(HTTP11, hc.get("connection")),
+    h.assert_false(
+      _KeepAliveDecision(HTTP11, hc.get("connection")),
       "close on a later Connection line must close")
 
     let hk = Headers
     hk.add("Connection", "keep-alive")
     hk.add("Connection", "Upgrade")
-    h.assert_true(_KeepAliveDecision(HTTP10, hk.get("connection")),
+    h.assert_true(
+      _KeepAliveDecision(HTTP10, hk.get("connection")),
       "keep-alive across Connection lines must keep alive on HTTP/1.0")
 
 class \nodoc\ iso _TestListValuedHeadersAllowlist is UnitTest
@@ -301,7 +317,8 @@ class \nodoc\ iso _TestListValuedHeadersAllowlist is UnitTest
         "accept-language"; "cache-control"; "content-encoding"
         "content-language"; "if-match"; "if-none-match"; "expect" ]
     for field in allow.values() do
-      h.assert_true(_ListValuedHeaders(field),
+      h.assert_true(
+        _ListValuedHeaders(field),
         field + " should be a list-valued field")
     end
 
@@ -309,13 +326,16 @@ class \nodoc\ iso _TestListValuedHeadersAllowlist is UnitTest
       [ "x-custom"; "foo"; ""; "connectionx"; "xconnection"; "x-accept"
         "accept-foo"; "te2"; "upgraded"; "transfer-encodings" ]
     for field in not_list.values() do
-      h.assert_false(_ListValuedHeaders(field),
+      h.assert_false(
+        _ListValuedHeaders(field),
         field + " should not be a list-valued field")
     end
 
-    h.assert_false(_ListValuedHeaders("Connection"),
+    h.assert_false(
+      _ListValuedHeaders("Connection"),
       "uppercase name must not match (caller lowercases)")
-    h.assert_false(_ListValuedHeaders("ACCEPT"),
+    h.assert_false(
+      _ListValuedHeaders("ACCEPT"),
       "uppercase name must not match (caller lowercases)")
 
 class \nodoc\ iso _TestListValuedHeadersDenyDisjoint is UnitTest
@@ -335,6 +355,7 @@ class \nodoc\ iso _TestListValuedHeadersDenyDisjoint is UnitTest
         "if-unmodified-since"; "content-length"; "host"; "authorization"
         "proxy-authorization" ]
     for field in deny.values() do
-      h.assert_false(_ListValuedHeaders(field),
+      h.assert_false(
+        _ListValuedHeaders(field),
         field + " is deny-listed and must never be combined")
     end
