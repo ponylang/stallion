@@ -62,7 +62,7 @@ primitive _ChunkHeader
   fun _valid_ext_elem(seg: String val): Bool =>
     let s = _OWS.trim(seg)
     if s.size() == 0 then return false end
-    match try s.find("=")?.usize() else None end
+    match \exhaustive\ try s.find("=")?.usize() else None end
     | let eq: USize =>
       _Token.valid(_OWS.trim(s.trim(0, eq)))
         and _valid_ext_val(_OWS.trim(s.trim(eq + 1)))
@@ -78,7 +78,9 @@ primitive _ChunkHeader
     end
 
   fun _valid_quoted_string(v: String val): Bool =>
-    """RFC 9110 §5.6.4 quoted-string: `DQUOTE *( qdtext / quoted-pair ) DQUOTE`."""
+    """
+    RFC 9110 §5.6.4 quoted-string: `DQUOTE *( qdtext / quoted-pair ) DQUOTE`.
+    """
     let n = v.size()
     var i: USize = 1
     try
@@ -107,12 +109,16 @@ primitive _ChunkHeader
       or ((b >= 'A') and (b <= 'F'))
 
   fun _qdtext(c: U8): Bool =>
-    """HTAB / SP / %x21 / %x23-5B / %x5D-7E / obs-text."""
+    """
+    HTAB / SP / %x21 / %x23-5B / %x5D-7E / obs-text.
+    """
     (c == 0x09) or (c == 0x20) or (c == 0x21)
       or ((c >= 0x23) and (c <= 0x5B))
       or ((c >= 0x5D) and (c <= 0x7E))
       or (c >= 0x80)
 
   fun _quoted_pair_octet(c: U8): Bool =>
-    """HTAB / SP / VCHAR / obs-text."""
+    """
+    HTAB / SP / VCHAR / obs-text.
+    """
     (c == 0x09) or (c == 0x20) or ((c >= 0x21) and (c <= 0x7E)) or (c >= 0x80)

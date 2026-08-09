@@ -1,21 +1,3 @@
-"""
-HTTP server that reads a small amount from each connection before handing
-the scheduler back.
-
-A connection reads up to its read buffer size in one scheduler turn, then
-queues itself to continue on a later turn. Under sustained pipelined
-traffic that bound is what keeps one busy connection from monopolizing a
-scheduler thread, because every request carried by a single read is parsed
-and answered before the connection gives the turn back.
-
-Demonstrates setting `read_buffer_size` on `ServerConfig`. The default is
-16KB; this server uses 1KB, so it does roughly a sixteenth as much work per
-turn and takes more turns to do it.
-
-```
-printf 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n%.0s' {1..20} | nc localhost 8080
-```
-"""
 use stallion = "../../stallion"
 use lori = "lori"
 
@@ -25,6 +7,9 @@ actor Main
     Listener(auth, "0.0.0.0", "8080", env.out)
 
 actor Listener is lori.TCPListenerActor
+  """
+  TCP listener that creates `ReadBufferServer` actors for each connection.
+  """
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _out: OutStream
   let _config: stallion.ServerConfig
@@ -68,6 +53,9 @@ actor Listener is lori.TCPListenerActor
     _out.print("Server closed")
 
 actor ReadBufferServer is stallion.HTTPServerActor
+  """
+  Responds to each request with an incrementing counter.
+  """
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
   let _out: OutStream
   var _request_count: USize = 0
@@ -83,9 +71,13 @@ actor ReadBufferServer is stallion.HTTPServerActor
 
   fun ref _http_connection(): stallion.HTTPServer => _http
 
-  fun ref on_request_complete(request': stallion.Request val,
+  fun ref on_request_complete(
+    request': stallion.Request val,
     responder: stallion.Responder)
   =>
+    """
+    Responds with a numbered request counter.
+    """
     _request_count = _request_count + 1
     let body: String val = "Request " + _request_count.string() + "\n"
     let response = stallion.ResponseBuilder(stallion.StatusOK)

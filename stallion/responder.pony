@@ -61,7 +61,9 @@ class ref Responder
   var _state: _ResponderState = _ResponderNotResponded
 
   new _create(queue: _ResponseQueue ref, id: U64, version: Version) =>
-    """Create a responder for the given request."""
+    """
+    Create a responder for the given request.
+    """
     _queue = queue
     _id = id
     _version = version
@@ -121,17 +123,18 @@ class ref Responder
       if _version is HTTP10 then return ChunkedNotSupported end
 
       _state = _ResponderStreaming
-      let h: Headers val = recover val
-        let new_h = Headers
-        match headers
-        | let existing: Headers val =>
-          for hdr in existing.values() do
-            new_h.set(hdr.name, hdr.value)
+      let h: Headers val =
+        recover val
+          let new_h = Headers
+          match headers
+          | let existing: Headers val =>
+            for hdr in existing.values() do
+              new_h.set(hdr.name, hdr.value)
+            end
           end
+          new_h.set("Transfer-Encoding", "chunked")
+          new_h
         end
-        new_h.set("Transfer-Encoding", "chunked")
-        new_h
-      end
       let response = _ResponseSerializer(status, h, None, _version)
       _queue.send_data(_id, consume response)
       // send_data can close the connection on its way out: a send error
@@ -168,10 +171,11 @@ class ref Responder
     match _state
     | _ResponderStreaming =>
       if _queue.is_closed() then return None end
-      let size: USize = match \exhaustive\ data
-      | let s: String val => s.size()
-      | let a: Array[U8] val => a.size()
-      end
+      let size: USize =
+        match \exhaustive\ data
+        | let s: String val => s.size()
+        | let a: Array[U8] val => a.size()
+        end
       if size == 0 then return None end
       let token = _queue.create_chunk_token()
       let chunk = _ChunkedEncoder.chunk(data)

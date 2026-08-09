@@ -12,37 +12,59 @@ trait ref _ConnectionState
   """
 
   fun ref on_received(server: HTTPServer ref, data: Array[U8] iso)
-    """Handle incoming data from the TCP connection."""
+    """
+    Handle incoming data from the TCP connection.
+    """
 
   fun ref on_closed(server: HTTPServer ref)
-    """Handle connection close notification."""
+    """
+    Handle connection close notification.
+    """
 
   fun ref on_throttled(server: HTTPServer ref)
-    """Handle backpressure applied notification."""
+    """
+    Handle backpressure applied notification.
+    """
 
   fun ref on_unthrottled(server: HTTPServer ref)
-    """Handle backpressure released notification."""
+    """
+    Handle backpressure released notification.
+    """
 
   fun ref on_sent(server: HTTPServer ref, token: lori.SendToken)
-    """Handle send completion notification from lori."""
+    """
+    Handle send completion notification from lori.
+    """
 
   fun ref on_send_failed(server: HTTPServer ref, token: lori.SendToken)
-    """Handle send failure notification from lori."""
+    """
+    Handle send failure notification from lori.
+    """
 
   fun ref on_idle_timeout(server: HTTPServer ref)
-    """Handle connection going idle."""
+    """
+    Handle connection going idle.
+    """
 
   fun ref on_timer(server: HTTPServer ref, token: lori.TimerToken)
-    """Handle one-shot timer firing."""
+    """
+    Handle one-shot timer firing.
+    """
 
   fun ref on_idle_timer_failure(server: HTTPServer ref)
-    """Handle idle timer ASIO subscription failure."""
+    """
+    Handle idle timer ASIO subscription failure.
+    """
 
   fun ref on_timer_failure(server: HTTPServer ref)
-    """Handle user timer ASIO subscription failure."""
+    """
+    Handle user timer ASIO subscription failure.
+    """
 
   fun ref close(server: HTTPServer ref)
-    """Handle a request to close the connection."""
+    """
+    Handle a request to close the connection.
+    """
 
 class ref _Active is _ConnectionState
   """

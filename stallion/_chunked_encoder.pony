@@ -18,20 +18,24 @@ primitive _ChunkedEncoder
     The caller must not pass empty data — use `final_chunk()` for the
     terminal chunk instead.
     """
-    let size: USize = match \exhaustive\ data
-    | let s: String val => s.size()
-    | let a: Array[U8] val => a.size()
-    end
+    let size: USize =
+      match \exhaustive\ data
+      | let s: String val => s.size()
+      | let a: Array[U8] val => a.size()
+      end
     let hex: String val = Format.int[USize](size where fmt = FormatHexBare)
     recover iso
       let buf = Array[U8](hex.size() + 2 + size + 2)
-      buf.>append(hex)
-        .>append("\r\n")
-        .>append(data)
-        .>append("\r\n")
+      buf
+        .> append(hex)
+        .> append("\r\n")
+        .> append(data)
+        .> append("\r\n")
       buf
     end
 
   fun final_chunk(): String val =>
-    """Terminal chunk marking end of chunked body."""
+    """
+    Terminal chunk marking end of chunked body.
+    """
     "0\r\n\r\n"

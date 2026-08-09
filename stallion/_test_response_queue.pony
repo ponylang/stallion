@@ -12,12 +12,10 @@ class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
   var close_on_complete: Bool = false
   var close_on_flush_data: Bool = false
   var flush_data_close_trigger: String val = ""
-
   // Close the queue from inside the next `_flush_data`, whatever the data is.
   // Simulates a send error, which closes the connection before `send_data`
   // returns to its caller. Cleared as it fires, so it closes once.
   var close_on_next_flush: Bool = false
-
   // One-shot re-throttle hook: when the cumulative flush count reaches
   // `throttle_after`, call throttle() once and clear the hook. Simulates lori
   // re-applying backpressure synchronously inside send() (a partial write
@@ -27,7 +25,6 @@ class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
   // above the current flush count) — re-arming with a value already passed
   // will never fire.
   var throttle_after: (USize | None) = None
-
   // Set by test to trigger close() on _response_complete (when keep_alive
   // is false) or on _flush_data (when data matches the trigger string),
   // simulating the connection closing due to send errors.
@@ -59,9 +56,10 @@ class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
       end
     end
     if close_on_flush_data then
-      let s: String val = match \exhaustive\ data
-      | let sv: String val => sv
-      | let a: Array[U8] val => String.from_array(a)
+      let s: String val =
+        match \exhaustive\ data
+        | let sv: String val => sv
+        | let a: Array[U8] val => String.from_array(a)
       end
       if s == flush_data_close_trigger then
         match queue
@@ -88,10 +86,6 @@ class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
       end
     end
     result
-
-// ---------------------------------------------------------------------------
-// Property-based test: in-order delivery
-// ---------------------------------------------------------------------------
 
 class \nodoc\ iso _PropertyQueueInOrderDelivery
   is Property1[Array[USize] val]
@@ -132,23 +126,31 @@ class \nodoc\ iso _PropertyQueueInOrderDelivery
 
     // Verify flush order matches registration order (0, 1, 2, ...)
     let flushed = notify.flushed_as_strings()
-    ph.assert_eq[USize](n, flushed.size(),
+    ph.assert_eq[USize](
+      n,
+      flushed.size(),
       "Expected " + n.string() + " flushes, got " + flushed.size().string())
     for i in Range(0, n) do
       try
-        ph.assert_eq[String val](i.string(), flushed(i)?,
+        ph.assert_eq[String val](
+          i.string(),
+          flushed(i)?,
           "Flush order mismatch at position " + i.string())
       end
     end
 
     // Verify all completions fired
-    ph.assert_eq[USize](n, notify.completions.size(),
+    ph.assert_eq[USize](
+      n,
+      notify.completions.size(),
       "Expected " + n.string() + " completions")
 
 class \nodoc\ iso _PropertyQueueMixedResponses
   is Property1[(USize, Array[USize] val)]
   """
-  Register N entries, send multiple chunks per entry, finish all in
+  Register N entries,
+  send multiple chunks per entry,
+  finish all in
   random permutation order. Verify all data flushes in registration
   order (entry 0's chunks before entry 1's, etc.) and all completions
   fire.
@@ -172,7 +174,6 @@ class \nodoc\ iso _PropertyQueueMixedResponses
     (let n, let perm) = arg1
     let notify = _TestQueueNotify
     let queue = _ResponseQueue(notify)
-
     let ids = Array[U64](n)
     for i in Range(0, n) do
       ids.push(queue.register(true))
@@ -196,27 +197,31 @@ class \nodoc\ iso _PropertyQueueMixedResponses
     end
 
     // All N entries should have completed
-    ph.assert_eq[USize](n, notify.completions.size(),
+    ph.assert_eq[USize](
+      n,
+      notify.completions.size(),
       "All entries should have completed")
 
     // Verify flush ordering: chunks appear in registration order
     let flushed = notify.flushed_as_strings()
-    ph.assert_eq[USize](n * 2, flushed.size(),
+    ph.assert_eq[USize](
+      n * 2,
+      flushed.size(),
       "Expected " + (n * 2).string() + " flushes")
     for i in Range(0, n) do
       try
         let expected1: String val = "chunk1-" + i.string()
         let expected2: String val = "chunk2-" + i.string()
-        ph.assert_eq[String val](expected1, flushed(i * 2)?,
+        ph.assert_eq[String val](
+          expected1,
+          flushed(i * 2)?,
           "Flush order mismatch at position " + (i * 2).string())
-        ph.assert_eq[String val](expected2, flushed((i * 2) + 1)?,
+        ph.assert_eq[String val](
+          expected2,
+          flushed((i * 2) + 1)?,
           "Flush order mismatch at position " + ((i * 2) + 1).string())
       end
     end
-
-// ---------------------------------------------------------------------------
-// Example-based tests
-// ---------------------------------------------------------------------------
 
 class \nodoc\ iso _TestQueueReverseOrder is UnitTest
   """
@@ -227,7 +232,6 @@ class \nodoc\ iso _TestQueueReverseOrder is UnitTest
   fun apply(h: TestHelper) =>
     let notify = _TestQueueNotify
     let queue = _ResponseQueue(notify)
-
     let id0 = queue.register(true)
     let id1 = queue.register(true)
     let id2 = queue.register(true)
@@ -302,7 +306,6 @@ class \nodoc\ iso _TestQueueStreamingHead is UnitTest
   fun apply(h: TestHelper) =>
     let notify = _TestQueueNotify
     let queue = _ResponseQueue(notify)
-
     let id = queue.register(true)
 
     queue.send_data(id, "chunk-1")
@@ -333,7 +336,6 @@ class \nodoc\ iso _TestQueueStreamingNonHead is UnitTest
   fun apply(h: TestHelper) =>
     let notify = _TestQueueNotify
     let queue = _ResponseQueue(notify)
-
     let id0 = queue.register(true)
     let id1 = queue.register(true)
 
@@ -371,7 +373,6 @@ class \nodoc\ iso _TestQueueThrottleUnthrottle is UnitTest
   fun apply(h: TestHelper) =>
     let notify = _TestQueueNotify
     let queue = _ResponseQueue(notify)
-
     let id = queue.register(true)
 
     // Throttle before sending
@@ -379,7 +380,9 @@ class \nodoc\ iso _TestQueueThrottleUnthrottle is UnitTest
     queue.send_data(id, "throttled-data")
 
     // Nothing should have flushed yet
-    h.assert_eq[USize](0, notify.flushed_data.size(),
+    h.assert_eq[USize](
+      0,
+      notify.flushed_data.size(),
       "Data should be buffered while throttled")
 
     // Unthrottle — buffered data should flush
@@ -438,10 +441,6 @@ class \nodoc\ iso _TestQueueCloseOnFlushData is UnitTest
     // Entry 0's completion should have fired before the cascade
     h.assert_eq[USize](1, notify.completions.size())
 
-// ---------------------------------------------------------------------------
-// Token threading tests
-// ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestQueueTokenImmediateFlush is UnitTest
   """
   Head entry: send data with a token, verify the token appears in the
@@ -452,7 +451,6 @@ class \nodoc\ iso _TestQueueTokenImmediateFlush is UnitTest
   fun apply(h: TestHelper) =>
     let notify = _TestQueueNotify
     let queue = _ResponseQueue(notify)
-
     let id = queue.register(true)
     let token = queue.create_chunk_token()
     queue.send_data(id, "chunk-data", token)
@@ -479,7 +477,6 @@ class \nodoc\ iso _TestQueueTokenBufferedFlush is UnitTest
   fun apply(h: TestHelper) =>
     let notify = _TestQueueNotify
     let queue = _ResponseQueue(notify)
-
     let id0 = queue.register(true)
     let id1 = queue.register(true)
 
@@ -522,7 +519,6 @@ class \nodoc\ iso _TestQueueTokenNoneForInternalSends is UnitTest
   fun apply(h: TestHelper) =>
     let notify = _TestQueueNotify
     let queue = _ResponseQueue(notify)
-
     let id = queue.register(true)
     let token = queue.create_chunk_token()
 
@@ -563,7 +559,6 @@ class \nodoc\ iso _TestQueueTokenThrottle is UnitTest
   fun apply(h: TestHelper) =>
     let notify = _TestQueueNotify
     let queue = _ResponseQueue(notify)
-
     let id = queue.register(true)
     let token = queue.create_chunk_token()
 
@@ -596,7 +591,6 @@ class \nodoc\ iso _TestQueueTokenClose is UnitTest
   fun apply(h: TestHelper) =>
     let notify = _TestQueueNotify
     let queue = _ResponseQueue(notify)
-
     let id = queue.register(true)
     let token = queue.create_chunk_token()
 
@@ -609,17 +603,10 @@ class \nodoc\ iso _TestQueueTokenClose is UnitTest
     h.assert_eq[USize](0, notify.flushed_tokens.size())
     h.assert_eq[USize](0, notify.flushed_data.size())
 
-// ---------------------------------------------------------------------------
-// Mid-flush re-throttle tests (issue #132)
-//
-// lori re-applies TCP backpressure synchronously inside send() (a partial
-// write fires _on_throttled, which re-enters the queue as throttle()). These
-// tests simulate that with _TestQueueNotify.throttle_after, which calls
-// throttle() once from inside _flush_data when the flush count reaches it.
-// ---------------------------------------------------------------------------
-
 class \nodoc\ iso _TestQueueRethrottleMidFlushResumes is UnitTest
   """
+  Mid-flush re-throttle (issue #132).
+
   Defect 1 (the #132 regression). A finished head with several buffered
   chunks re-throttles partway through the unthrottle flush. The unsent
   chunks must stay buffered and flush — in order, with completion — on the
@@ -649,9 +636,13 @@ class \nodoc\ iso _TestQueueRethrottleMidFlushResumes is UnitTest
     queue.unthrottle()
 
     // Only chunk-1 flushed; chunks 2 and 3 stay buffered; no completion yet.
-    h.assert_eq[USize](1, notify.flushed_data.size(),
+    h.assert_eq[USize](
+      1,
+      notify.flushed_data.size(),
       "Re-throttle must stop the flush after chunk-1")
-    h.assert_eq[USize](0, notify.completions.size(),
+    h.assert_eq[USize](
+      0,
+      notify.completions.size(),
       "Head must not complete while chunks remain buffered")
 
     // Drain refills; unthrottle again flushes the survivors and completes.
@@ -669,16 +660,21 @@ class \nodoc\ iso _TestQueueRethrottleMidFlushResumes is UnitTest
     // Tokens must stay paired with their chunks across the resume.
     h.assert_eq[USize](3, notify.flushed_tokens.size())
     try
-      h.assert_true(notify.flushed_tokens(0)? as ChunkSendToken == t1,
+      h.assert_true(
+        notify.flushed_tokens(0)? as ChunkSendToken == t1,
         "Token 1 must stay paired with chunk-1")
-      h.assert_true(notify.flushed_tokens(1)? as ChunkSendToken == t2,
+      h.assert_true(
+        notify.flushed_tokens(1)? as ChunkSendToken == t2,
         "Token 2 must stay paired with chunk-2")
-      h.assert_true(notify.flushed_tokens(2)? as ChunkSendToken == t3,
+      h.assert_true(
+        notify.flushed_tokens(2)? as ChunkSendToken == t3,
         "Token 3 must stay paired with chunk-3")
     else
       h.fail("Resume token assertion failed")
     end
-    h.assert_eq[USize](1, notify.completions.size(),
+    h.assert_eq[USize](
+      1,
+      notify.completions.size(),
       "Head completes once all buffered chunks flush")
 
 class \nodoc\ iso _TestQueueFinishWhileThrottledKeepsData is UnitTest
@@ -702,9 +698,13 @@ class \nodoc\ iso _TestQueueFinishWhileThrottledKeepsData is UnitTest
 
     // Finish while throttled — must defer, not advance.
     queue.finish(id)
-    h.assert_eq[USize](0, notify.flushed_data.size(),
+    h.assert_eq[USize](
+      0,
+      notify.flushed_data.size(),
       "Throttled finish must not flush")
-    h.assert_eq[USize](0, notify.completions.size(),
+    h.assert_eq[USize](
+      0,
+      notify.completions.size(),
       "Throttled finish must not complete (would drop buffered data)")
 
     queue.unthrottle()
@@ -751,9 +751,13 @@ class \nodoc\ iso _TestQueueRethrottleMidFlushNewHead is UnitTest
     notify.throttle_after = 1
     queue.unthrottle()
 
-    h.assert_eq[USize](1, notify.flushed_data.size(),
+    h.assert_eq[USize](
+      1,
+      notify.flushed_data.size(),
       "Re-throttle must stop after id1's first chunk")
-    h.assert_eq[USize](1, notify.completions.size(),
+    h.assert_eq[USize](
+      1,
+      notify.completions.size(),
       "id0 completed; id1 must not complete yet")
     try
       h.assert_eq[String val]("i1-a", notify.flushed_as_strings()(0)?)
@@ -772,13 +776,16 @@ class \nodoc\ iso _TestQueueRethrottleMidFlushNewHead is UnitTest
     else
       h.fail("New-head resume assertion index out of bounds")
     end
-    h.assert_eq[USize](2, notify.completions.size(),
+    h.assert_eq[USize](
+      2,
+      notify.completions.size(),
       "Both entries complete after the survivors flush")
 
 class \nodoc\ iso _TestQueueRethrottleOnLastChunk is UnitTest
   """
   Boundary: re-throttle coincides with buffer exhaustion (the last chunk).
-  All chunks flush, but the advance/completion must be deferred — the
+  All chunks flush,
+  but the advance/completion must be deferred — the
   throttle check fires before the finished-check — and happen on the next
   empty-drain unthrottle.
   """
@@ -800,14 +807,20 @@ class \nodoc\ iso _TestQueueRethrottleOnLastChunk is UnitTest
     notify.throttle_after = 3
     queue.unthrottle()
 
-    h.assert_eq[USize](3, notify.flushed_data.size(),
+    h.assert_eq[USize](
+      3,
+      notify.flushed_data.size(),
       "All buffered chunks flush before the re-throttle")
-    h.assert_eq[USize](0, notify.completions.size(),
+    h.assert_eq[USize](
+      0,
+      notify.completions.size(),
       "Re-throttle at exhaustion must defer the completion")
 
     // Empty-drain unthrottle advances and completes.
     queue.unthrottle()
-    h.assert_eq[USize](3, notify.flushed_data.size(),
+    h.assert_eq[USize](
+      3,
+      notify.flushed_data.size(),
       "No extra flush on the empty drain")
     h.assert_eq[USize](1, notify.completions.size())
 
@@ -840,17 +853,25 @@ class \nodoc\ iso _TestQueueCloseDuringRethrottle is UnitTest
     queue.close()
     queue.unthrottle()
 
-    h.assert_eq[USize](1, notify.flushed_data.size(),
+    h.assert_eq[USize](
+      1,
+      notify.flushed_data.size(),
       "Closed queue must not flush survivors")
-    h.assert_eq[USize](0, notify.completions.size(),
+    h.assert_eq[USize](
+      0,
+      notify.completions.size(),
       "Closed queue must not complete")
 
 class \nodoc\ iso _PropertyQueueRethrottleDelivery
   is Property1[(USize, USize)]
   """
-  For a finished head with N buffered token-carrying chunks, re-throttling
+  For a finished head with N buffered token-carrying chunks,
+  re-throttling
   once after the k-th flush (for any k in 1..N) must still deliver all N
-  chunks exactly once, in order, with their tokens paired, and fire exactly
+  chunks exactly once,
+  in order,
+  with their tokens paired,
+  and fire exactly
   one completion. Covers every re-throttle point — including the off-by-one
   boundaries (k=1, k=N) the example tests pin individually.
   """
@@ -886,11 +907,15 @@ class \nodoc\ iso _PropertyQueueRethrottleDelivery
 
     // The re-throttle must STOP the flush at exactly k chunks (this is the
     // fix — without the mid-loop _throttled re-check the loop would run on).
-    ph.assert_eq[USize](k, notify.flushed_data.size(),
+    ph.assert_eq[USize](
+      k,
+      notify.flushed_data.size(),
       "First unthrottle must stop at k=" + k.string() + " chunks of " +
       n.string())
     if k < n then
-      ph.assert_eq[USize](0, notify.completions.size(),
+      ph.assert_eq[USize](
+        0,
+        notify.completions.size(),
         "No completion while chunks remain buffered, k=" + k.string())
     end
 
@@ -904,11 +929,15 @@ class \nodoc\ iso _PropertyQueueRethrottleDelivery
 
     // All N chunks delivered exactly once, in registration order.
     let flushed = notify.flushed_as_strings()
-    ph.assert_eq[USize](n, flushed.size(),
+    ph.assert_eq[USize](
+      n,
+      flushed.size(),
       "Expected " + n.string() + " chunks for k=" + k.string())
     for i in Range(0, n) do
       try
-        ph.assert_eq[String val](i.string(), flushed(i)?,
+        ph.assert_eq[String val](
+          i.string(),
+          flushed(i)?,
           "Order mismatch at " + i.string() + " for k=" + k.string())
       end
     end
@@ -917,9 +946,10 @@ class \nodoc\ iso _PropertyQueueRethrottleDelivery
     ph.assert_eq[USize](n, notify.flushed_tokens.size())
     for i in Range(0, n) do
       try
-        match notify.flushed_tokens(i)?
+        match \exhaustive\ notify.flushed_tokens(i)?
         | let ct: ChunkSendToken =>
-          ph.assert_true(ct == tokens(i)?,
+          ph.assert_true(
+            ct == tokens(i)?,
             "Token mismatch at " + i.string() + " for k=" + k.string())
         | None =>
           ph.fail("Token None at " + i.string() + " for k=" + k.string())
@@ -929,12 +959,10 @@ class \nodoc\ iso _PropertyQueueRethrottleDelivery
       end
     end
     // Exactly one completion.
-    ph.assert_eq[USize](1, notify.completions.size(),
+    ph.assert_eq[USize](
+      1,
+      notify.completions.size(),
       "Expected exactly one completion for k=" + k.string())
-
-// ---------------------------------------------------------------------------
-// Property-based test: token ordering
-// ---------------------------------------------------------------------------
 
 class \nodoc\ iso _PropertyQueueTokenOrder
   is Property1[Array[USize] val]
@@ -985,20 +1013,19 @@ class \nodoc\ iso _PropertyQueueTokenOrder
       end
     end
 
-    ph.assert_eq[USize](n, flushed_chunk_tokens.size(),
+    ph.assert_eq[USize](
+      n,
+      flushed_chunk_tokens.size(),
       "Expected " + n.string() + " chunk tokens")
 
     // Verify tokens appear in registration order
     for i in Range(0, n) do
       try
-        ph.assert_true(tokens(i)? == flushed_chunk_tokens(i)?,
+        ph.assert_true(
+          tokens(i)? == flushed_chunk_tokens(i)?,
           "Token order mismatch at position " + i.string())
       end
     end
-
-// ---------------------------------------------------------------------------
-// Permutation generator for property tests
-// ---------------------------------------------------------------------------
 
 primitive \nodoc\ _PermutationGenerator
   """
@@ -1035,10 +1062,6 @@ primitive \nodoc\ _PermutationGenerator
           end
           consume result
         })
-
-// ---------------------------------------------------------------------------
-// Closed-queue accessor
-// ---------------------------------------------------------------------------
 
 class \nodoc\ iso _TestQueueIsClosed is UnitTest
   """

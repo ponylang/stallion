@@ -1,15 +1,3 @@
-"""
-Basic HTTP server that responds with a greeting. By default it responds
-with "Hello, World!" but a `?name=X` query parameter customizes the
-greeting (e.g., `?name=Pony` produces "Hello, Pony!").
-
-Demonstrates the core API: a listener actor implements
-`lori.TCPListenerActor` and creates `HTTPServerActor` instances in
-`_on_accept`, plus query parameter extraction from the pre-parsed URI.
-
-Body data arrives via `on_body_chunk()` callbacks. This example ignores
-request bodies — for body accumulation, see the streaming example.
-"""
 use stallion = "../../stallion"
 use uri = "uri"
 use lori = "lori"
@@ -20,6 +8,9 @@ actor Main
     Listener(auth, "0.0.0.0", "8080", env.out)
 
 actor Listener is lori.TCPListenerActor
+  """
+  TCP listener that creates `HelloServer` actors for each connection.
+  """
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _out: OutStream
   let _config: stallion.ServerConfig
@@ -56,6 +47,9 @@ actor Listener is lori.TCPListenerActor
     _out.print("Server closed")
 
 actor HelloServer is stallion.HTTPServerActor
+  """
+  Responds with a personalized greeting using an optional query parameter.
+  """
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
 
   new create(
@@ -67,10 +61,13 @@ actor HelloServer is stallion.HTTPServerActor
 
   fun ref _http_connection(): stallion.HTTPServer => _http
 
-  fun ref on_request_complete(request': stallion.Request val,
+  fun ref on_request_complete(
+    request': stallion.Request val,
     responder: stallion.Responder)
   =>
-    // Extract a "name" query parameter if present
+    """
+    Extracts a `name` query parameter and responds with a greeting.
+    """
     var name: String val = "World"
     match request'.uri.query_params()
     | let params: uri.QueryParams val =>

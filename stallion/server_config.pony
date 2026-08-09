@@ -1,7 +1,9 @@
 use lori = "lori"
 
 primitive DefaultIdleTimeout
-  """60-second idle timeout, the default for HTTP connections."""
+  """
+  60-second idle timeout, the default for HTTP connections.
+  """
   fun apply(): (lori.IdleTimeout | None) =>
     match lori.MakeIdleTimeout(60_000)
     | let t: lori.IdleTimeout => t
@@ -102,7 +104,9 @@ class val ServerConfig
     read_buffer_size = read_buffer_size'
 
   fun _parser_config(): _ParserConfig val =>
-    """Create a parser config from the parser limit fields."""
+    """
+    Create a parser config from the parser limit fields.
+    """
     _ParserConfig(
       max_request_line_size,
       max_header_size,

@@ -1,10 +1,3 @@
-"""
-Visit counter using cookies. Reads the `visits` cookie from the request,
-increments it, and sets it back via `Set-Cookie`. Demonstrates both
-`Request.cookies` for reading and `SetCookieBuilder` for writing cookies.
-
-First visit returns "Visit #1", subsequent visits increment the counter.
-"""
 use stallion = "../../stallion"
 use lori = "lori"
 
@@ -14,6 +7,9 @@ actor Main
     Listener(auth, "0.0.0.0", "8080", env.out)
 
 actor Listener is lori.TCPListenerActor
+  """
+  TCP listener that creates `CookieServer` actors for each connection.
+  """
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _out: OutStream
   let _config: stallion.ServerConfig
@@ -50,6 +46,9 @@ actor Listener is lori.TCPListenerActor
     _out.print("Server closed")
 
 actor CookieServer is stallion.HTTPServerActor
+  """
+  Handles HTTP requests by reading and incrementing a visit counter cookie.
+  """
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
 
   new create(
@@ -61,10 +60,13 @@ actor CookieServer is stallion.HTTPServerActor
 
   fun ref _http_connection(): stallion.HTTPServer => _http
 
-  fun ref on_request_complete(request': stallion.Request val,
+  fun ref on_request_complete(
+    request': stallion.Request val,
     responder: stallion.Responder)
   =>
-    // Read the visits cookie, defaulting to "0"
+    """
+    Reads the visits cookie, increments it, and responds with the count.
+    """
     var visits: U64 = 0
     match request'.cookies.get("visits")
     | let v: String val =>
@@ -75,19 +77,21 @@ actor CookieServer is stallion.HTTPServerActor
     let resp_body: String val = "Visit #" + visits.string()
 
     // Build a Set-Cookie header to store the updated count
-    let set_cookie = match stallion.SetCookieBuilder("visits",
+    let set_cookie =
+      match \exhaustive\ stallion.SetCookieBuilder(
+        "visits",
         visits.string())
-      .with_path("/")
-      .with_http_only(false)
-      .with_secure(false)
-      .with_same_site(stallion.SameSiteLax)
-      .build()
-    | let sc: stallion.SetCookie val => sc
-    | let err: stallion.SetCookieBuildError =>
-      // Cookie name/value are always valid here, so this is unreachable
-      _respond_error(responder)
-      return
-    end
+        .with_path("/")
+        .with_http_only(false)
+        .with_secure(false)
+        .with_same_site(stallion.SameSiteLax)
+        .build()
+      | let sc: stallion.SetCookie val => sc
+      | let err: stallion.SetCookieBuildError =>
+        // Cookie name/value are always valid here, so this is unreachable
+        _respond_error(responder)
+        return
+      end
 
     let response = stallion.ResponseBuilder(stallion.StatusOK)
       .add_header("Content-Type", "text/plain")

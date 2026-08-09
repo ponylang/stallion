@@ -10,7 +10,9 @@ primitive _ForbiddenTrailers
   does not deliver them (the callback contract has no trailer event).
   """
   fun apply(name: String box): Bool =>
-    """Whether `name` (lowercased) is forbidden in a trailer section."""
+    """
+    Whether `name` (lowercased) is forbidden in a trailer section.
+    """
     match name
     // Message framing and routing.
     | "transfer-encoding" | "content-length" | "host"

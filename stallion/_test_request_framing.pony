@@ -1,17 +1,14 @@
 use "pony_test"
 
-// ---------------------------------------------------------------------------
 // Framing & incremental coverage (Discussion #123 §1d).
 //
 // A conformance corpus has no MUST-vector for keep-alive / pipelining / partial
 // input, so a rewrite could regress resumability or shift a completion point
-// and nothing would fail. These tests close that gap:
-//   - parse-split invariance: a request fed in any chunking parses identically
-//     to the single-shot result (locks resumability at every byte boundary).
-//   - completion-point pins: request_complete fires at exactly one place per
-//     framing, and not before.
-//   - max_chunk_header_size: the one _ParserConfig limit with no prior test.
-// ---------------------------------------------------------------------------
+// and nothing would fail. These tests close that gap: parse-split
+// invariance (a request fed in any chunking parses identically to the
+// single-shot result), completion-point pins (request_complete fires at
+// exactly one place per framing), and max_chunk_header_size (the one
+// _ParserConfig limit with no prior test).
 
 class \nodoc\ iso _TestParseSplitInvariance is UnitTest
   """
@@ -99,20 +96,32 @@ class \nodoc\ iso _TestCompletionPoints is UnitTest
 
   fun apply(h: TestHelper) =>
     // No body: completes only once the blank line's final LF arrives.
-    _step(h, "no-body",
-      "GET / HTTP/1.1\r\nHost: a\r\n\r", 0,
-      "\n", 1)
+    _step(
+      h,
+      "no-body",
+      "GET / HTTP/1.1\r\nHost: a\r\n\r",
+      0,
+      "\n",
+      1)
 
     // Fixed body: completes only when the final body byte arrives.
-    _step(h, "fixed-body",
-      "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 3\r\n\r\nab", 0,
-      "c", 1)
+    _step(
+      h,
+      "fixed-body",
+      "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 3\r\n\r\nab",
+      0,
+      "c",
+      1)
 
     // Chunked: completes only at the empty trailer line.
-    _step(h, "chunked",
+    _step(
+      h,
+      "chunked",
       "POST / HTTP/1.1\r\nHost: a\r\nTransfer-Encoding: chunked\r\n\r\n" +
-      "5\r\n01234\r\n0\r\n", 0,
-      "\r\n", 1)
+      "5\r\n01234\r\n0\r\n",
+      0,
+      "\r\n",
+      1)
 
   fun _step(
     h: TestHelper,
@@ -125,14 +134,21 @@ class \nodoc\ iso _TestCompletionPoints is UnitTest
     let notify: _TestParserNotify ref = _TestParserNotify
     let parser = _RequestParser(notify)
     parser.parse(recover before.array().clone() end)
-    h.assert_eq[USize](expected_before, notify.completed,
+    h.assert_eq[USize](
+      expected_before,
+      notify.completed,
       label + ": completions before final bytes")
     parser.parse(recover rest.array().clone() end)
-    h.assert_eq[USize](expected_after, notify.completed,
+    h.assert_eq[USize](
+      expected_after,
+      notify.completed,
       label + ": completions after final bytes")
 
 class \nodoc\ iso _TestSizeLimitChunkHeader is UnitTest
-  """Chunk-size line (with extension) exceeding max_chunk_header_size → reject."""
+  """
+  Chunk-size line (with extension) exceeding max_chunk_header_size
+  is rejected.
+  """
   fun name(): String => "parser/size_limit_chunk_header"
 
   fun apply(h: TestHelper) =>
@@ -154,8 +170,8 @@ class \nodoc\ iso _TestSizeLimitHeadersCumulative is UnitTest
   """
   Many individually-small, individually-valid header lines that together exceed
   max_header_size → TooLarge. The per-line _LineScan cap can't catch this; the
-  cumulative budget must (a DoS bound, not exercised by the single-oversized-line
-  size test).
+  cumulative budget must (a DoS bound, not exercised by the
+  single-oversized-line size test).
   """
   fun name(): String => "parser/size_limit_headers_cumulative"
 

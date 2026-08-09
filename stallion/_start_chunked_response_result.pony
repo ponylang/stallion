@@ -1,11 +1,15 @@
 interface val _StartChunkedResponseResult is Stringable
 
 primitive StreamingStarted is _StartChunkedResponseResult
-  """Chunked streaming response was successfully started."""
+  """
+  Chunked streaming response was successfully started.
+  """
   fun string(): String iso^ => "StreamingStarted".clone()
 
 primitive AlreadyResponded is _StartChunkedResponseResult
-  """A response has already been started or completed for this request."""
+  """
+  A response has already been started or completed for this request.
+  """
   fun string(): String iso^ => "AlreadyResponded".clone()
 
 primitive ChunkedNotSupported is _StartChunkedResponseResult
@@ -28,8 +32,12 @@ primitive ConnectionClosed is _StartChunkedResponseResult
   fun string(): String iso^ => "ConnectionClosed".clone()
 
 type StartChunkedResponseResult is
-  ((StreamingStarted | AlreadyResponded | ChunkedNotSupported
-  | ConnectionClosed) & _StartChunkedResponseResult)
+  (
+    ( StreamingStarted
+    | AlreadyResponded
+    | ChunkedNotSupported
+    | ConnectionClosed )
+  & _StartChunkedResponseResult )
   """
   Result of `Responder.start_chunked_response()`: streaming started, or the
   reason it did not — HTTP/1.0 does not support chunked transfer encoding, a

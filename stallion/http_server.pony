@@ -77,7 +77,8 @@ class HTTPServer is
     _queue = _ResponseQueue(this)
     _parser = _RequestParser(this, config._parser_config())
     _tcp_connection =
-      lori.TCPConnection.server(auth, fd, server_actor, this
+      lori.TCPConnection.server(
+        auth, fd, server_actor, this
         where read_buffer_size = config.read_buffer_size)
 
   new ssl(
@@ -100,16 +101,15 @@ class HTTPServer is
     _queue = _ResponseQueue(this)
     _parser = _RequestParser(this, config._parser_config())
     _tcp_connection =
-      lori.TCPConnection.ssl_server(auth, ssl_ctx, fd, server_actor, this
+      lori.TCPConnection.ssl_server(
+        auth, ssl_ctx, fd, server_actor, this
         where read_buffer_size = config.read_buffer_size)
 
   fun ref _connection(): lori.TCPConnection =>
-    """Return the underlying TCP connection."""
+    """
+    Return the underlying TCP connection.
+    """
     _tcp_connection
-
-  //
-  // ServerLifecycleEventReceiver
-  //
 
   fun ref _on_started() =>
     match _config
@@ -163,24 +163,27 @@ class HTTPServer is
   fun ref _on_timer_failure() =>
     _state.on_timer_failure(this)
 
-  //
-  // _RequestParserNotify — forwarding parser events to receiver
-  //
-
   fun ref request_received(
     method: Method,
     raw_uri: String val,
     version: Version,
     headers: Headers val)
   =>
+    """
+    Validate and deliver a parsed HTTP request.
+
+    Rejects requests that violate Host header rules (RFC 9110 §7.2 /
+    RFC 9112 §3.2) or have inconsistent request-target and Host
+    authorities.
+    """
     // RFC 9110 §7.2 / RFC 9112 §3.2: an HTTP/1.1 request must carry exactly one
     // Host field — reject (400) a missing Host on HTTP/1.1. We additionally
     // reject a DUPLICATE Host on ANY version: a second Host line is request-
     // smuggling surface regardless of protocol version (security over strict
     // conformance). This needs the assembled headers, so it lives here, not in
-    // the parser. Count Host field-LINES via values(), not get(): get() combines
-    // repeated list-valued fields into one value, which would hide a duplicate
-    // Host behind a single combined result.
+    // the parser. Count Host field-LINES via values(), not get() — get()
+    // combines repeated list-valued fields into one value, which would hide
+    // a duplicate Host behind a single combined result.
     var host_count: USize = 0
     var host_value: (String val | None) = None
     for hdr in headers.values() do
@@ -252,9 +255,10 @@ class HTTPServer is
       end
     end
 
-    // RFC 9110 §7.2: when the request-target carries an authority (absolute-form
-    // or CONNECT) and a Host is present, the two must name the same host. A
-    // disagreement is a routing-confusion / request-smuggling vector, so reject
+    // RFC 9110 §7.2: when the request-target carries an authority
+    // (absolute-form or CONNECT) and a Host is present, the two must name
+    // the same host. A disagreement is a routing-confusion /
+    // request-smuggling vector, so reject
     // it with 400 even though the message is otherwise well-formed (security
     // over strict conformance, sibling to the duplicate-Host rule). Origin-form
     // and asterisk-form carry no authority and skip this; an absent Host
@@ -339,12 +343,6 @@ class HTTPServer is
     end
     _close_connection()
 
-  //
-  // _ResponseQueueNotify — called by the response queue during
-  // send_data/finish/unthrottle to delegate TCP I/O and lifecycle
-  // decisions.
-  //
-
   fun ref _flush_data(data: ByteSeq,
     token: (ChunkSendToken | None) = None)
   =>
@@ -384,7 +382,9 @@ class HTTPServer is
     end
 
   fun _max_requests_reached(): Bool =>
-    """Check whether the connection has reached its max-requests limit."""
+    """
+    Check whether the connection has reached its max-requests limit.
+    """
     match _config
     | let c: ServerConfig =>
       match c.max_requests_per_connection
@@ -394,12 +394,10 @@ class HTTPServer is
     else false
     end
 
-  //
-  // Internal methods called by state classes and HTTPServerActor
-  //
-
   fun ref _feed_parser(data: Array[U8] iso) =>
-    """Feed incoming data to the request parser."""
+    """
+    Feed incoming data to the request parser.
+    """
     match _parser
     | let p: _RequestParser => p.parse(consume data)
     end
@@ -412,8 +410,12 @@ class HTTPServer is
     `on_chunk_sent()` is delivered for this connection — and delivers
     `on_closed()` to the receiver.
     """
-    match _parser | let p: _RequestParser => p.stop() end
-    match _queue | let q: _ResponseQueue => q.close() end
+    match _parser
+    | let p: _RequestParser => p.stop()
+    end
+    match _queue
+    | let q: _ResponseQueue => q.close()
+    end
     _pending_sent_tokens.clear()
     // Set _Closed before delivering on_closed: an actor that calls close()
     // from on_closed re-enters _close_connection(), and the state guard makes
@@ -425,18 +427,26 @@ class HTTPServer is
     end
 
   fun ref _handle_throttled() =>
-    """Apply backpressure: mute the TCP connection and notify the receiver."""
+    """
+    Apply backpressure: mute the TCP connection and notify the receiver.
+    """
     _tcp_connection.mute()
-    match _queue | let q: _ResponseQueue => q.throttle() end
+    match _queue
+    | let q: _ResponseQueue => q.throttle()
+    end
     match \exhaustive\ _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref => r.on_throttled()
     | None => _Unreachable()
     end
 
   fun ref _handle_unthrottled() =>
-    """Release backpressure: unmute the TCP connection and notify the receiver."""
+    """
+    Release backpressure: unmute the TCP connection and notify the receiver.
+    """
     _tcp_connection.unmute()
-    match _queue | let q: _ResponseQueue => q.unthrottle() end
+    match _queue
+    | let q: _ResponseQueue => q.unthrottle()
+    end
     match \exhaustive\ _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref => r.on_unthrottled()
     | None => _Unreachable()
@@ -488,7 +498,9 @@ class HTTPServer is
     _close_connection()
 
   fun ref _handle_timer(token: lori.TimerToken) =>
-    """Forward one-shot timer firing to the receiver."""
+    """
+    Forward one-shot timer firing to the receiver.
+    """
     match \exhaustive\ _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref => r.on_timer(token)
     | None => _Unreachable()
@@ -507,7 +519,9 @@ class HTTPServer is
     end
 
   fun ref _handle_timer_failure() =>
-    """Forward user timer ASIO subscription failure to the receiver."""
+    """
+    Forward user timer ASIO subscription failure to the receiver.
+    """
     match \exhaustive\ _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref =>
       r.on_timer_failure()
@@ -584,8 +598,12 @@ class HTTPServer is
 
     Reached only from `_Active`, so this runs at most once per connection.
     """
-    match _parser | let p: _RequestParser => p.stop() end
-    match _queue | let q: _ResponseQueue => q.close() end
+    match _parser
+    | let p: _RequestParser => p.stop()
+    end
+    match _queue
+    | let q: _ResponseQueue => q.close()
+    end
     // Set _Closing before close(): on a muted connection close() hard-closes
     // synchronously and re-enters _on_closed; _Closing.on_closed delivers
     // on_closed once and moves to _Closed.

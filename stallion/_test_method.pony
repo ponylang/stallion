@@ -5,8 +5,8 @@ class \nodoc\ iso _PropertyValidMethodParsesCorrectly is Property1[String val]
 
   fun gen(): Generator[String val] =>
     Generators.one_of[String val](
-      ["GET"; "HEAD"; "POST"; "PUT"; "DELETE"
-       "CONNECT"; "OPTIONS"; "TRACE"; "PATCH"])
+      [ "GET"; "HEAD"; "POST"; "PUT"; "DELETE"
+        "CONNECT"; "OPTIONS"; "TRACE"; "PATCH"])
 
   fun ref property(arg1: String val, ph: PropertyHelper) =>
     match Methods.parse(arg1)
@@ -20,22 +20,22 @@ class \nodoc\ iso _PropertyInvalidMethodReturnsNone is Property1[String val]
   fun name(): String => "method/invalid_returns_none"
 
   fun gen(): Generator[String val] =>
-    Generators.frequency[String val]([
-      as WeightedGenerator[String val]:
+    Generators.frequency[String val](
+      [ as WeightedGenerator[String val]:
       // empty string
       (1, Generators.unit[String val](""))
       // wrong case
       (1, Generators.one_of[String val](
-        ["get"; "head"; "post"; "put"; "delete"
-         "connect"; "options"; "trace"; "patch"]))
+        [ "get"; "head"; "post"; "put"; "delete"
+          "connect"; "options"; "trace"; "patch"]))
       // valid method with extra chars appended
       (1, Generators.one_of[String val](
-        ["GETX"; "POSTY"; "PUTS"; "DELETES"
-         "HEADS"; "CONNECTX"; "OPTIONS!"; "TRACES"; "PATCHX"]))
+        [ "GETX"; "POSTY"; "PUTS"; "DELETES"
+          "HEADS"; "CONNECTX"; "OPTIONS!"; "TRACES"; "PATCHX"]))
       // truncated valid methods
       (1, Generators.one_of[String val](
-        ["GE"; "HEA"; "POS"; "PU"; "DELET"
-         "CONNEC"; "OPTION"; "TRAC"; "PATC"]))
+        [ "GE"; "HEA"; "POS"; "PU"; "DELET"
+          "CONNEC"; "OPTION"; "TRAC"; "PATC"]))
       // numeric strings
       (1, Generators.ascii_numeric(1, 10))
       // random ASCII (vanishingly small chance of being a valid method)
@@ -54,25 +54,25 @@ class \nodoc\ iso _PropertyMethodParseBoundary
   fun gen(): Generator[(String val, Bool)] =>
     let valid_gen: Generator[(String val, Bool)] =
       Generators.one_of[String val](
-        ["GET"; "HEAD"; "POST"; "PUT"; "DELETE"
-         "CONNECT"; "OPTIONS"; "TRACE"; "PATCH"])
+        [ "GET"; "HEAD"; "POST"; "PUT"; "DELETE"
+          "CONNECT"; "OPTIONS"; "TRACE"; "PATCH"])
         .map[( String val, Bool)]({(s) => (s, true) })
 
     let invalid_gen: Generator[(String val, Bool)] =
-      Generators.frequency[String val]([
-        as WeightedGenerator[String val]:
+      Generators.frequency[String val](
+        [ as WeightedGenerator[String val]:
         (1, Generators.unit[String val](""))
         (1, Generators.one_of[String val](
-          ["get"; "head"; "post"; "put"; "delete"
-           "connect"; "options"; "trace"; "patch"]))
+          [ "get"; "head"; "post"; "put"; "delete"
+            "connect"; "options"; "trace"; "patch"]))
         (1, Generators.one_of[String val](
-          ["GETX"; "POSTY"; "PUTS"; "DELETES"]))
+          [ "GETX"; "POSTY"; "PUTS"; "DELETES"]))
         (1, Generators.ascii_numeric(1, 10))
         (2, Generators.ascii(1, 20))
       ]).map[(String val, Bool)]({(s) => (s, false) })
 
-    Generators.frequency[(String val, Bool)]([
-      as WeightedGenerator[(String val, Bool)]:
+    Generators.frequency[(String val, Bool)](
+      [ as WeightedGenerator[(String val, Bool)]:
       (1, valid_gen)
       (1, invalid_gen)
     ])

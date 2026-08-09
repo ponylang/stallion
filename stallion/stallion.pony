@@ -4,7 +4,8 @@ HTTP server for Pony, built on lori.
 A listener actor implements `lori.TCPListenerActor` and creates
 `stallion.HTTPServerActor` instances in `_on_accept`. Each connection actor owns
 a `stallion.HTTPServer` that handles HTTP parsing and response management,
-delivering HTTP events via `stallion.HTTPServerLifecycleEventReceiver` callbacks.
+delivering HTTP events via
+`stallion.HTTPServerLifecycleEventReceiver` callbacks.
 
 ```pony
 use stallion = "stallion"

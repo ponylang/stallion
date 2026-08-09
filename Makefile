@@ -24,7 +24,7 @@ else
 	PONYC = $(COMPILE_WITH) --debug
 endif
 
-ifeq (,$(filter $(MAKECMDGOALS),clean docs TAGS))
+ifeq (,$(filter $(MAKECMDGOALS),clean docs lint TAGS))
   ifeq ($(ssl), 4.0.x)
           SSL = -Dopenssl_4.0.x
   else ifeq ($(ssl), 3.0.x)
@@ -82,4 +82,10 @@ all: test
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-.PHONY: all examples clean TAGS test test-one
+LINT_WITH := corral run -- pony-lint
+
+lint:
+	$(GET_DEPENDENCIES_WITH)
+	$(LINT_WITH) .
+
+.PHONY: all examples clean lint TAGS test test-one

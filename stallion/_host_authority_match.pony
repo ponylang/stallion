@@ -64,7 +64,7 @@ primitive _HostAuthorityMatch
     : Bool
   =>
     let host_auth =
-      match uri_pkg.ParseURIAuthority(host_value)
+      match \exhaustive\ uri_pkg.ParseURIAuthority(host_value)
       | let a: uri_pkg.URIAuthority val => a
       | let _: uri_pkg.URIParseError val => return false
       end
@@ -91,15 +91,19 @@ primitive _HostAuthorityMatch
   fun _resolve_port(port: (U16 | None), default: (U16 | None))
     : (U16 | None)
   =>
-    """The explicit port if present, otherwise the scheme default."""
-    match port
+    """
+    The explicit port if present, otherwise the scheme default.
+    """
+    match \exhaustive\ port
     | let p: U16 => p
     | None => default
     end
 
   fun _default_port(scheme: (String box | None)): (U16 | None) =>
-    """The default port for a scheme: http -> 80, https -> 443, else none."""
-    match scheme
+    """
+    The default port for a scheme: http -> 80, https -> 443, else none.
+    """
+    match \exhaustive\ scheme
     | let s: String box =>
       if _ascii_ci_eq(s, "http") then
         U16(80)
@@ -112,7 +116,9 @@ primitive _HostAuthorityMatch
     end
 
   fun _ascii_ci_eq(a: String box, b: String box): Bool =>
-    """Case-insensitive (ASCII) byte-wise string equality."""
+    """
+    Case-insensitive (ASCII) byte-wise string equality.
+    """
     if a.size() != b.size() then
       return false
     end

@@ -15,7 +15,9 @@ class val SetCookie
     value': String val,
     header_value': String val)
   =>
-    """Create a set-cookie. Package-private."""
+    """
+    Create a set-cookie. Package-private.
+    """
     name = name'
     value = value'
     _header_value = header_value'

@@ -47,5 +47,7 @@ trait tag HTTPServerActor is
     """
 
   fun ref _connection(): lori.TCPConnection =>
-    """Delegates to the protocol's TCP connection."""
+    """
+    Delegates to the protocol's TCP connection.
+    """
     _http_connection()._connection()

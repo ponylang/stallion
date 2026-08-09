@@ -1,11 +1,17 @@
 primitive _ParseContinue
-  """More data may be parseable in the current buffer."""
+  """
+  More data may be parseable in the current buffer.
+  """
 
 primitive _ParseNeedMore
-  """Need more data from the network before parsing can continue."""
+  """
+  Need more data from the network before parsing can continue.
+  """
 
 type _ParseResult is (_ParseContinue | _ParseNeedMore | ParseError)
-  """Result of a single parse step."""
+  """
+  Result of a single parse step.
+  """
 
 interface ref _ParserState
   """
@@ -15,21 +21,20 @@ interface ref _ParserState
   single CR/LF policy) and field-lines from `_FieldLine` (the single field-line
   gate), then transitions. No state interprets CR/LF or re-implements field-line
   grammar itself — that is what makes every grammar rule enforced in exactly one
-  place. Per-state data (accumulators, counters) is owned by the state object and
-  released automatically on transition.
+  place. Per-state data (accumulators, counters) is owned by the state
+  object and released automatically on transition.
   """
   fun ref parse(p: _RequestParser ref): _ParseResult
 
-// ---------------------------------------------------------------------------
-// Request line
-// ---------------------------------------------------------------------------
-
 class _ExpectRequestLine is _ParserState
-  """Initial state: waiting for a complete request line."""
+  """
+  Initial state: waiting for a complete request line.
+  """
   fun ref parse(p: _RequestParser ref): _ParseResult =>
-    match _LineScan.next(p.buf, p.pos, p.config.max_request_line_size)
+    match \exhaustive\ _LineScan.next(
+      p.buf, p.pos, p.config.max_request_line_size)
     | let line: _Line =>
-      match _RequestLine.parse(
+      match \exhaustive\ _RequestLine.parse(
         p.scanned_line(line))
       | (let m: Method, let target: String val, let v: Version) =>
         p.pos = line.next_pos()
@@ -41,10 +46,6 @@ class _ExpectRequestLine is _ParserState
     | _LineTooLong => TooLarge
     | _LineNeedMore => _ParseNeedMore
     end
-
-// ---------------------------------------------------------------------------
-// Headers
-// ---------------------------------------------------------------------------
 
 class _ExpectHeaders is _ParserState
   """
@@ -77,7 +78,7 @@ class _ExpectHeaders is _ParserState
 
   fun ref parse(p: _RequestParser ref): _ParseResult =>
     while true do
-      match _LineScan.next(p.buf, p.pos, _config.max_header_size)
+      match \exhaustive\ _LineScan.next(p.buf, p.pos, _config.max_header_size)
       | let line: _Line =>
         if line.is_blank() then
           p.pos = line.next_pos()
@@ -90,7 +91,7 @@ class _ExpectHeaders is _ParserState
           return TooLarge
         end
 
-        match _FieldLine.parse(
+        match \exhaustive\ _FieldLine.parse(
           p.scanned_line(line))
         | let f: _Field =>
           match _track(f)
@@ -111,11 +112,13 @@ class _ExpectHeaders is _ParserState
     _ParseNeedMore
 
   fun ref _track(f: _Field): (None | ParseError) =>
-    """Record Content-Length / Transfer-Encoding from a recognized field."""
+    """
+    Record Content-Length / Transfer-Encoding from a recognized field.
+    """
     if f.name == "content-length" then
-      match _parse_content_length(f.value)
+      match \exhaustive\ _parse_content_length(f.value)
       | let cl: USize =>
-        match _content_length
+        match \exhaustive\ _content_length
         | let existing: USize =>
           if existing != cl then return InvalidContentLength end
         | None =>
@@ -126,7 +129,8 @@ class _ExpectHeaders is _ParserState
     elseif f.name == "transfer-encoding" then
       _has_transfer_encoding = true
       _te_well_formed =
-        _TransferEncoding.append_codings(f.value, _te_codings) and _te_well_formed
+        _TransferEncoding.append_codings(f.value, _te_codings)
+          and _te_well_formed
     end
     None
 
@@ -146,7 +150,8 @@ class _ExpectHeaders is _ParserState
     // Resolve Transfer-Encoding framing (501/400 rejected before delivery).
     let use_chunked: Bool =
       if _has_transfer_encoding then
-        match _TransferEncoding.evaluate(_te_codings, _te_well_formed)
+        match \exhaustive\ _TransferEncoding.evaluate(
+          _te_codings, _te_well_formed)
         | _ChunkedFraming => true
         | let e: ParseError => return e
         end
@@ -180,7 +185,9 @@ class _ExpectHeaders is _ParserState
   fun _parse_content_length(value: String val)
     : (USize | InvalidContentLength)
   =>
-    """Parse a Content-Length value as a non-negative `1*DIGIT` integer."""
+    """
+    Parse a Content-Length value as a non-negative `1*DIGIT` integer.
+    """
     if value.size() == 0 then return InvalidContentLength end
     try
       var i: USize = 0
@@ -194,12 +201,10 @@ class _ExpectHeaders is _ParserState
       InvalidContentLength
     end
 
-// ---------------------------------------------------------------------------
-// Fixed-length body
-// ---------------------------------------------------------------------------
-
 class _ExpectFixedBody is _ParserState
-  """Reading a fixed-length body (Content-Length), delivered incrementally."""
+  """
+  Reading a fixed-length body (Content-Length), delivered incrementally.
+  """
   var _remaining: USize
 
   new create(remaining: USize) =>
@@ -221,12 +226,10 @@ class _ExpectFixedBody is _ParserState
       _ParseNeedMore
     end
 
-// ---------------------------------------------------------------------------
-// Chunked transfer encoding
-// ---------------------------------------------------------------------------
-
 class _ExpectChunkHeader is _ParserState
-  """Expecting a chunk-size line: `chunk-size [ chunk-ext ] CRLF`."""
+  """
+  Expecting a chunk-size line: `chunk-size [ chunk-ext ] CRLF`.
+  """
   var _total_body_received: USize
   let _config: _ParserConfig
 
@@ -235,10 +238,11 @@ class _ExpectChunkHeader is _ParserState
     _config = config
 
   fun ref parse(p: _RequestParser ref): _ParseResult =>
-    match _LineScan.next(p.buf, p.pos, _config.max_chunk_header_size)
+    match \exhaustive\ _LineScan.next(
+      p.buf, p.pos, _config.max_chunk_header_size)
     | let line: _Line =>
       if line.is_blank() then return InvalidChunk end
-      match _ChunkHeader.parse(
+      match \exhaustive\ _ChunkHeader.parse(
         p.scanned_line(line))
       | let chunk_size: USize =>
         p.pos = line.next_pos()
@@ -335,7 +339,7 @@ class _ExpectChunkTrailer is _ParserState
 
   fun ref parse(p: _RequestParser ref): _ParseResult =>
     while true do
-      match _LineScan.next(p.buf, p.pos, _config.max_header_size)
+      match \exhaustive\ _LineScan.next(p.buf, p.pos, _config.max_header_size)
       | let line: _Line =>
         if line.is_blank() then
           p.pos = line.next_pos()
@@ -350,7 +354,7 @@ class _ExpectChunkTrailer is _ParserState
           return TooLarge
         end
 
-        match _FieldLine.parse(
+        match \exhaustive\ _FieldLine.parse(
           p.scanned_line(line))
         | let f: _Field =>
           if _ForbiddenTrailers(f.name) then return ForbiddenTrailer end

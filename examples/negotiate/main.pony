@@ -1,17 +1,3 @@
-"""
-Content negotiation server that responds with JSON or plain text based on
-the client's `Accept` header. Returns 406 Not Acceptable when the client
-doesn't accept either format.
-
-Demonstrates `ContentNegotiation.from_request()` for selecting a response
-content type, and matching on `ContentNegotiationResult` to handle both
-the matched type and the no-match case.
-
-Try it:
-  curl -H "Accept: application/json" http://localhost:8080/
-  curl -H "Accept: text/plain" http://localhost:8080/
-  curl -H "Accept: image/png" http://localhost:8080/
-"""
 use stallion = "../../stallion"
 use lori = "lori"
 
@@ -21,6 +7,9 @@ actor Main
     Listener(auth, "0.0.0.0", "8080", env.out)
 
 actor Listener is lori.TCPListenerActor
+  """
+  TCP listener that creates `NegotiateServer` actors for each connection.
+  """
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _out: OutStream
   let _config: stallion.ServerConfig
@@ -57,6 +46,9 @@ actor Listener is lori.TCPListenerActor
     _out.print("Server closed")
 
 actor NegotiateServer is stallion.HTTPServerActor
+  """
+  Selects a response format based on the client's Accept header.
+  """
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
   let _supported: Array[stallion.MediaType val] val
 
@@ -65,18 +57,21 @@ actor NegotiateServer is stallion.HTTPServerActor
     fd: U32,
     config: stallion.ServerConfig)
   =>
-    _supported = [as stallion.MediaType val:
-      stallion.MediaType("application", "json")
-      stallion.MediaType("text", "plain")
-    ]
+    _supported =
+      [ as stallion.MediaType val:
+        stallion.MediaType("application", "json")
+        stallion.MediaType("text", "plain")
+      ]
     _http = stallion.HTTPServer(auth, fd, this, config)
 
   fun ref _http_connection(): stallion.HTTPServer => _http
 
-  fun ref on_request_complete(request': stallion.Request val,
+  fun ref on_request_complete(
+    request': stallion.Request val,
     responder: stallion.Responder)
   =>
-    match stallion.ContentNegotiation.from_request(request', _supported)
+    match \exhaustive\ stallion.ContentNegotiation.from_request(
+      request', _supported)
     | let mt: stallion.MediaType val =>
       _respond_with(mt, responder)
     | stallion.NoAcceptableType =>
@@ -87,11 +82,12 @@ actor NegotiateServer is stallion.HTTPServerActor
     media_type: stallion.MediaType val,
     responder: stallion.Responder ref)
   =>
-    let body: String val = if media_type.subtype == "json" then
-      """{"message": "Hello, World!"}"""
-    else
-      "Hello, World!"
-    end
+    let body: String val =
+      if media_type.subtype == "json" then
+        """{"message": "Hello, World!"}"""
+      else
+        "Hello, World!"
+      end
 
     let response = stallion.ResponseBuilder(stallion.StatusOK)
       .add_header("Content-Type", media_type.string())

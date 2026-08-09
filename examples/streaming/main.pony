@@ -1,22 +1,3 @@
-"""
-HTTP server that streams responses using chunked transfer encoding with
-flow-controlled delivery driven by `on_chunk_sent()` callbacks.
-
-Demonstrates the streaming response API: `start_chunked_response()`,
-`send_chunk()`, `finish_response()`, and `on_chunk_sent()`. The actor sends
-the first chunk in `on_request()`, then each `on_chunk_sent()` callback
-drives the next chunk, so the OS has accepted each chunk before the next one
-goes out — backpressure without timers or manual windowing.
-
-A callback can go missing; see
-`stallion.HTTPServerLifecycleEventReceiver.on_chunk_sent()` for when. This
-actor stops sending when one does, and because it calls `finish_response()`
-from the fifth callback, the response body is left unterminated.
-
-Note: this demonstrates streaming *responses*, not streaming request
-bodies. Request body data arrives via `on_body_chunk()` callbacks — this
-example ignores request bodies.
-"""
 use stallion = "../../stallion"
 use lori = "lori"
 
@@ -26,6 +7,9 @@ actor Main
     Listener(auth, "0.0.0.0", "8080", env.out)
 
 actor Listener is lori.TCPListenerActor
+  """
+  TCP listener that creates `StreamServer` actors for each connection.
+  """
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _out: OutStream
   let _config: stallion.ServerConfig
@@ -62,6 +46,9 @@ actor Listener is lori.TCPListenerActor
     _out.print("Server closed")
 
 actor StreamServer is stallion.HTTPServerActor
+  """
+  Streams a five-chunk response using chunked transfer encoding.
+  """
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
   var _responder: (stallion.Responder | None) = None
   var _chunks_sent: USize = 0
@@ -75,15 +62,17 @@ actor StreamServer is stallion.HTTPServerActor
 
   fun ref _http_connection(): stallion.HTTPServer => _http
 
-  fun ref on_request(request': stallion.Request val,
+  fun ref on_request(
+    request': stallion.Request val,
     responder: stallion.Responder)
   =>
-    let headers = recover val
-      let h = stallion.Headers
-      h.set("content-type", "text/plain")
-      h
-    end
-    match \exhaustive\ responder.start_chunked_response(stallion.StatusOK, headers)
+    let headers =
+      recover val
+        stallion.Headers
+          .> set("content-type", "text/plain")
+      end
+    match \exhaustive\ responder.start_chunked_response(
+      stallion.StatusOK, headers)
     | stallion.StreamingStarted =>
       responder.send_chunk("chunk 1 of 5\n")
       _responder = responder

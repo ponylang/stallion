@@ -2,8 +2,6 @@ use "pony_check"
 use "pony_test"
 use uri_pkg = "uri"
 
-// --- Property-based tests ---
-
 class \nodoc\ iso _PropertyNegotiateRobustness
   is Property1[String val]
   """Arbitrary strings never crash the parser or negotiation."""
@@ -13,12 +11,13 @@ class \nodoc\ iso _PropertyNegotiateRobustness
     Generators.ascii_printable(0, 200)
 
   fun ref property(arg1: String val, ph: PropertyHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("application", "json")
     ]
     // Must not crash — result is always one of the two valid variants
-    match ContentNegotiation(arg1, supported)
+    match \exhaustive\ ContentNegotiation(arg1, supported)
     | let mt: MediaType val =>
       ph.assert_true(
         (mt == MediaType("text", "html")) or
@@ -38,7 +37,8 @@ class \nodoc\ iso _PropertyNegotiateResultFromSupported
     Generators.usize(0, 4)
 
   fun ref property(arg1: USize, ph: PropertyHelper) =>
-    let all_types: Array[MediaType val] val = [as MediaType val:
+    let all_types: Array[MediaType val] val =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("text", "plain")
       MediaType("application", "json")
@@ -46,7 +46,8 @@ class \nodoc\ iso _PropertyNegotiateResultFromSupported
       MediaType("image", "png")
     ]
     // Build supported list of size arg1
-    let supported = recover val
+    let supported =
+      recover val
       let arr = Array[MediaType val]
       var i: USize = 0
       while i < arg1.min(all_types.size()) do
@@ -56,10 +57,11 @@ class \nodoc\ iso _PropertyNegotiateResultFromSupported
       arr
     end
 
-    let result = ContentNegotiation(
+    let result =
+      ContentNegotiation(
       "text/html, application/json;q=0.9, */*;q=0.1", supported)
 
-    match result
+    match \exhaustive\ result
     | let mt: MediaType val =>
       var found = false
       for s in supported.values() do
@@ -82,7 +84,8 @@ class \nodoc\ iso _PropertyNegotiateQZeroExcludes
     Generators.usize(0, 2)
 
   fun ref property(arg1: USize, ph: PropertyHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("application", "json")
       MediaType("text", "plain")
@@ -92,9 +95,10 @@ class \nodoc\ iso _PropertyNegotiateQZeroExcludes
     let accept = excluded.string() + ";q=0, */*;q=0.1"
     let result = ContentNegotiation(consume accept, supported)
 
-    match result
+    match \exhaustive\ result
     | let mt: MediaType val =>
-      ph.assert_false(mt == excluded,
+      ph.assert_false(
+        mt == excluded,
         "Excluded type " + excluded.string() + " should not be returned")
     | NoAcceptableType => None
     end
@@ -109,7 +113,8 @@ class \nodoc\ iso _PropertyNegotiateServerPreference
 
   fun ref property(arg1: USize, ph: PropertyHelper) =>
     // Build a supported list of text/typeN
-    let supported = recover val
+    let supported =
+      recover val
       let arr = Array[MediaType val]
       var i: USize = 0
       while i < arg1 do
@@ -122,10 +127,11 @@ class \nodoc\ iso _PropertyNegotiateServerPreference
     // Accept */* with default quality — all equal
     let result = ContentNegotiation("*/*", supported)
 
-    match result
+    match \exhaustive\ result
     | let mt: MediaType val =>
       try
-        ph.assert_true(mt == supported(0)?,
+        ph.assert_true(
+          mt == supported(0)?,
           "Expected first supported type, got " + mt.string())
       else
         ph.fail("server preference: index error")
@@ -150,11 +156,10 @@ class \nodoc\ iso _PropertyNegotiateQualityBounds
     // never constructs an _AcceptRange with an out-of-range quality.
     let ranges = _AcceptParser(arg1)
     for range in ranges.values() do
-      ph.assert_true(range.quality() <= 1000,
+      ph.assert_true(
+        range.quality() <= 1000,
         "Quality out of range: " + range.quality().string())
     end
-
-// --- Example-based tests ---
 
 class \nodoc\ iso _TestNegotiateKnownGood is UnitTest
   """Verify negotiation for specific Accept headers."""
@@ -188,81 +193,94 @@ class \nodoc\ iso _TestNegotiateKnownGood is UnitTest
     _test_type_wildcard_q_zero_exclusion(h)
 
   fun _test_exact_match(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("application", "json")
     ]
-    match ContentNegotiation("application/json", supported)
+    match \exhaustive\ ContentNegotiation("application/json", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("application", "json"),
+      h.assert_true(
+        mt == MediaType("application", "json"),
         "exact match")
     | NoAcceptableType =>
       h.fail("exact match: expected json")
     end
 
   fun _test_quality_ordering(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("application", "json")
     ]
-    match ContentNegotiation("text/html;q=0.5, application/json;q=0.9",
+    match \exhaustive\ ContentNegotiation(
+      "text/html;q=0.5, application/json;q=0.9",
       supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("application", "json"),
+      h.assert_true(
+        mt == MediaType("application", "json"),
         "quality ordering: expected json")
     | NoAcceptableType =>
       h.fail("quality ordering: expected match")
     end
 
   fun _test_wildcard_match(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("application", "json")
     ]
-    match ContentNegotiation("*/*", supported)
+    match \exhaustive\ ContentNegotiation("*/*", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("application", "json"),
+      h.assert_true(
+        mt == MediaType("application", "json"),
         "wildcard match")
     | NoAcceptableType =>
       h.fail("wildcard match: expected json")
     end
 
   fun _test_type_wildcard(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "plain")
       MediaType("application", "json")
     ]
-    match ContentNegotiation("application/*", supported)
+    match \exhaustive\ ContentNegotiation("application/*", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("application", "json"),
+      h.assert_true(
+        mt == MediaType("application", "json"),
         "type wildcard")
     | NoAcceptableType =>
       h.fail("type wildcard: expected json")
     end
 
   fun _test_q_zero_exclusion(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("application", "json")
     ]
-    match ContentNegotiation(
+    match \exhaustive\ ContentNegotiation(
       "text/html;q=0, application/json", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("application", "json"),
+      h.assert_true(
+        mt == MediaType("application", "json"),
         "q=0 exclusion")
     | NoAcceptableType =>
       h.fail("q=0 exclusion: expected json")
     end
 
   fun _test_specificity_precedence(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("text", "plain")
     ]
     // */* at q=0.1, but text/html specifically at q=0.9
-    match ContentNegotiation(
+    match \exhaustive\ ContentNegotiation(
       "*/*;q=0.1, text/html;q=0.9", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("text", "html"),
+      h.assert_true(
+        mt == MediaType("text", "html"),
         "specificity precedence: expected html")
     | NoAcceptableType =>
       h.fail("specificity precedence: expected match")
@@ -272,63 +290,71 @@ class \nodoc\ iso _TestNegotiateKnownGood is UnitTest
     // from_request with no Accept header — should return first supported
     let headers = recover val Headers end
     let request' = _make_request(headers)
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("application", "json")
       MediaType("text", "html")
     ]
-    match ContentNegotiation.from_request(request', supported)
+    match \exhaustive\ ContentNegotiation.from_request(request', supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("application", "json"),
+      h.assert_true(
+        mt == MediaType("application", "json"),
         "missing accept: expected first supported")
     | NoAcceptableType =>
       h.fail("missing accept: expected match")
     end
 
   fun _test_empty_supported(h: TestHelper) =>
-    match ContentNegotiation("text/html", Array[MediaType val])
+    match \exhaustive\ ContentNegotiation("text/html", Array[MediaType val])
     | NoAcceptableType => None
     | let mt: MediaType val =>
       h.fail("empty supported: expected NoAcceptableType")
     end
 
   fun _test_server_preference_tiebreak(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "plain")
       MediaType("application", "json")
     ]
     // Both at same quality
-    match ContentNegotiation(
+    match \exhaustive\ ContentNegotiation(
       "text/plain, application/json", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("text", "plain"),
+      h.assert_true(
+        mt == MediaType("text", "plain"),
         "tiebreak: expected first supported (text/plain)")
     | NoAcceptableType =>
       h.fail("tiebreak: expected match")
     end
 
   fun _test_case_insensitivity(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("Application", "JSON")
     ]
-    match ContentNegotiation("APPLICATION/json", supported)
+    match \exhaustive\ ContentNegotiation("APPLICATION/json", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("application", "json"),
+      h.assert_true(
+        mt == MediaType("application", "json"),
         "case insensitivity")
     | NoAcceptableType =>
       h.fail("case insensitivity: expected match")
     end
 
   fun _test_browser_accept(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("application", "json")
     ]
     // Typical browser Accept header
     let accept =
       "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
-    match ContentNegotiation(accept, supported)
+    match \exhaustive\ ContentNegotiation(accept, supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("text", "html"),
+      h.assert_true(
+        mt == MediaType("text", "html"),
         "browser accept: expected html")
     | NoAcceptableType =>
       h.fail("browser accept: expected match")
@@ -336,45 +362,50 @@ class \nodoc\ iso _TestNegotiateKnownGood is UnitTest
 
   fun _test_multiple_accept_headers(h: TestHelper) =>
     // Multiple Accept headers should be concatenated
-    let headers = recover val
-      let h' = Headers
-      h'.add("accept", "text/plain;q=0.5")
-      h'.add("accept", "application/json")
-      h'.add("content-type", "text/html")
-      h'
-    end
+    let headers =
+      recover val
+        Headers
+          .> add("accept", "text/plain;q=0.5")
+          .> add("accept", "application/json")
+          .> add("content-type", "text/html")
+      end
     let request' = _make_request(headers)
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "plain")
       MediaType("application", "json")
     ]
-    match ContentNegotiation.from_request(request', supported)
+    match \exhaustive\ ContentNegotiation.from_request(request', supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("application", "json"),
+      h.assert_true(
+        mt == MediaType("application", "json"),
         "multiple accept: expected json (higher quality)")
     | NoAcceptableType =>
       h.fail("multiple accept: expected match")
     end
 
   fun _test_empty_accept_value(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
     ]
     // Empty Accept value — accept anything
-    match ContentNegotiation("", supported)
+    match \exhaustive\ ContentNegotiation("", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("text", "html"),
+      h.assert_true(
+        mt == MediaType("text", "html"),
         "empty accept value: expected first supported")
     | NoAcceptableType =>
       h.fail("empty accept value: expected match")
     end
 
   fun _test_all_excluded(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("application", "json")
     ]
-    match ContentNegotiation(
+    match \exhaustive\ ContentNegotiation(
       "text/html;q=0, application/json;q=0", supported)
     | NoAcceptableType => None
     | let mt: MediaType val =>
@@ -382,167 +413,189 @@ class \nodoc\ iso _TestNegotiateKnownGood is UnitTest
     end
 
   fun _test_whitespace_tolerance(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("application", "json")
     ]
-    match ContentNegotiation(
+    match \exhaustive\ ContentNegotiation(
       "  text/html  ;  q=0.5  ,  application/json  ", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("application", "json"),
+      h.assert_true(
+        mt == MediaType("application", "json"),
         "whitespace tolerance: expected json (higher quality)")
     | NoAcceptableType =>
       h.fail("whitespace tolerance: expected match")
     end
 
   fun _test_malformed_entries_skipped(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
     ]
     // "badentry" has no slash — should be skipped; text/html should match
-    match ContentNegotiation("badentry, text/html", supported)
+    match \exhaustive\ ContentNegotiation("badentry, text/html", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("text", "html"),
+      h.assert_true(
+        mt == MediaType("text", "html"),
         "malformed skipped: expected html")
     | NoAcceptableType =>
       h.fail("malformed skipped: expected match")
     end
 
   fun _test_quality_edge_values(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "a")
       MediaType("text", "b")
       MediaType("text", "c")
     ]
     // q=0.001 (minimum positive), q=0.999, q=1.000
-    match ContentNegotiation(
+    match \exhaustive\ ContentNegotiation(
       "text/a;q=0.001, text/b;q=0.999, text/c;q=1.000", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("text", "c"),
+      h.assert_true(
+        mt == MediaType("text", "c"),
         "quality edge: expected c (q=1.000)")
     | NoAcceptableType =>
       h.fail("quality edge: expected match")
     end
 
   fun _test_bare_dot_quality_not_excluded(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
     ]
     // "q=." is malformed — bare dot with no digits. Must not be treated
     // as q=0 (which would exclude the type). Malformed quality defaults
     // to 1.0.
-    match ContentNegotiation("text/html;q=.", supported)
+    match \exhaustive\ ContentNegotiation("text/html;q=.", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("text", "html"),
+      h.assert_true(
+        mt == MediaType("text", "html"),
         "bare dot quality: expected match (malformed q defaults to 1.0)")
     | NoAcceptableType =>
       h.fail("bare dot quality: q=. must not exclude")
     end
 
   fun _test_quoted_string_comma_protection(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
     ]
     // Comma inside a quoted accept-extension value should not split.
     // The extension param appears after q, so it's discarded for matching
     // but must not cause a spurious comma split.
-    match ContentNegotiation(
+    match \exhaustive\ ContentNegotiation(
       "text/html;q=0.5;ext=\"a,b\"", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("text", "html"),
+      h.assert_true(
+        mt == MediaType("text", "html"),
         "quoted comma protection")
     | NoAcceptableType =>
       h.fail("quoted comma protection: expected match")
     end
 
   fun _test_parameterized_range_no_match(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
     ]
     // Range with media params doesn't match parameterless MediaType
-    match ContentNegotiation("text/html;level=1", supported)
+    match \exhaustive\ ContentNegotiation("text/html;level=1", supported)
     | NoAcceptableType => None
     | let mt: MediaType val =>
       h.fail("parameterized range: expected NoAcceptableType")
     end
 
   fun _test_accept_extensions_ignored(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
     ]
     // Extensions after q are not media parameters — they must not
     // prevent matching (RFC 7231 §5.3.2).
-    match ContentNegotiation("text/html;q=0.9;level=1", supported)
+    match \exhaustive\ ContentNegotiation("text/html;q=0.9;level=1", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("text", "html"),
+      h.assert_true(
+        mt == MediaType("text", "html"),
         "accept extensions: expected match")
     | NoAcceptableType =>
       h.fail("accept extensions: extension after q should not block match")
     end
 
   fun _test_wildcard_subtype_only_rejected(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("text", "plain")
     ]
     // */html is not valid per RFC 7231 — only */* is a valid wildcard.
     // Parser skips it as malformed. When combined with valid ranges,
     // */html must not act as a wildcard match.
-    match ContentNegotiation("*/html;q=0.9, text/plain;q=0.5", supported)
+    match \exhaustive\
+      ContentNegotiation("*/html;q=0.9, text/plain;q=0.5", supported)
     | let mt: MediaType val =>
       // If */html were treated as */* (the bug), text/html would match
       // at q=0.9. With the fix, only text/plain matches at q=0.5.
-      h.assert_true(mt == MediaType("text", "plain"),
+      h.assert_true(
+        mt == MediaType("text", "plain"),
         "wildcard subtype: */html rejected, expected plain")
     | NoAcceptableType =>
       h.fail("wildcard subtype: expected plain to match")
     end
 
   fun _test_specificity_overrides_wildcard_q_zero(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("application", "json")
     ]
     // */* at q=0 excludes everything, but the exact text/html range
     // at q=0.9 is more specific and overrides the wildcard exclusion.
     // application/json has no specific range, so it stays excluded.
-    match ContentNegotiation(
+    match \exhaustive\ ContentNegotiation(
       "*/*;q=0, text/html;q=0.9", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("text", "html"),
+      h.assert_true(
+        mt == MediaType("text", "html"),
         "specificity overrides wildcard q=0: expected html")
     | NoAcceptableType =>
       h.fail("specificity overrides wildcard q=0: expected match")
     end
 
   fun _test_type_wildcard_vs_exact_specificity(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("text", "plain")
     ]
     // text/* at q=0.9 matches both, but text/html has a more specific
     // exact range at q=0.5. The exact match wins for text/html (q=0.5),
     // while text/plain uses the wildcard (q=0.9). So text/plain wins.
-    match ContentNegotiation(
+    match \exhaustive\ ContentNegotiation(
       "text/*;q=0.9, text/html;q=0.5", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("text", "plain"),
+      h.assert_true(
+        mt == MediaType("text", "plain"),
         "type wildcard vs exact: expected plain (q=0.9 > q=0.5)")
     | NoAcceptableType =>
       h.fail("type wildcard vs exact: expected match")
     end
 
   fun _test_type_wildcard_q_zero_exclusion(h: TestHelper) =>
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("application", "json")
     ]
     // text/* at q=0 excludes all text/* types.
     // application/json has an exact match at default quality.
-    match ContentNegotiation(
+    match \exhaustive\ ContentNegotiation(
       "text/*;q=0, application/json", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("application", "json"),
+      h.assert_true(
+        mt == MediaType("application", "json"),
         "type wildcard q=0: expected json")
     | NoAcceptableType =>
       h.fail("type wildcard q=0: expected match")
@@ -551,13 +604,17 @@ class \nodoc\ iso _TestNegotiateKnownGood is UnitTest
   fun _make_request(headers: Headers val): Request val =>
     """Build a minimal Request for testing."""
     let parsed_uri: uri_pkg.URI val =
-      match uri_pkg.ParseURI("/")
+      match \exhaustive\ uri_pkg.ParseURI("/")
       | let u: uri_pkg.URI val => u
       | let _: uri_pkg.URIParseError val =>
         // "/" always parses — use a fallback to satisfy the compiler
         uri_pkg.URI(None, None, "/", None, None)
       end
-    Request(GET, parsed_uri, HTTP11, headers,
+    Request(
+      GET,
+      parsed_uri,
+      HTTP11,
+      headers,
       ParseCookies.from_headers(headers))
 
 class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
@@ -583,11 +640,17 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
     let ranges = _AcceptParser("text/html")
     h.assert_eq[USize](1, ranges.size(), "single: count")
     try
-      h.assert_eq[String val]("text", ranges(0)?.type_name,
+      h.assert_eq[String val](
+        "text",
+        ranges(0)?.type_name,
         "single: type")
-      h.assert_eq[String val]("html", ranges(0)?.subtype,
+      h.assert_eq[String val](
+        "html",
+        ranges(0)?.subtype,
         "single: subtype")
-      h.assert_eq[U16](1000, ranges(0)?.quality(),
+      h.assert_eq[U16](
+        1000,
+        ranges(0)?.quality(),
         "single: quality")
     else
       h.fail("single: index error")
@@ -597,24 +660,37 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
     let ranges = _AcceptParser("text/html, application/json, text/plain")
     h.assert_eq[USize](3, ranges.size(), "multiple: count")
     try
-      h.assert_eq[String val]("text", ranges(0)?.type_name,
+      h.assert_eq[String val](
+        "text",
+        ranges(0)?.type_name,
         "multiple: 0 type")
-      h.assert_eq[String val]("html", ranges(0)?.subtype,
+      h.assert_eq[String val](
+        "html",
+        ranges(0)?.subtype,
         "multiple: 0 subtype")
-      h.assert_eq[String val]("application", ranges(1)?.type_name,
+      h.assert_eq[String val](
+        "application",
+        ranges(1)?.type_name,
         "multiple: 1 type")
-      h.assert_eq[String val]("json", ranges(1)?.subtype,
+      h.assert_eq[String val](
+        "json",
+        ranges(1)?.subtype,
         "multiple: 1 subtype")
-      h.assert_eq[String val]("text", ranges(2)?.type_name,
+      h.assert_eq[String val](
+        "text",
+        ranges(2)?.type_name,
         "multiple: 2 type")
-      h.assert_eq[String val]("plain", ranges(2)?.subtype,
+      h.assert_eq[String val](
+        "plain",
+        ranges(2)?.subtype,
         "multiple: 2 subtype")
     else
       h.fail("multiple: index error")
     end
 
   fun _test_quality_values(h: TestHelper) =>
-    let ranges = _AcceptParser(
+    let ranges =
+      _AcceptParser(
       "text/html;q=0.9, application/json;q=0.5, text/*;q=0.1")
     h.assert_eq[USize](3, ranges.size(), "quality: count")
     try
@@ -629,30 +705,47 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
     let ranges = _AcceptParser("*/*;q=0.1, text/*;q=0.5")
     h.assert_eq[USize](2, ranges.size(), "wildcards: count")
     try
-      h.assert_eq[String val]("*", ranges(0)?.type_name,
+      h.assert_eq[String val](
+        "*",
+        ranges(0)?.type_name,
         "wildcards: 0 type")
-      h.assert_eq[String val]("*", ranges(0)?.subtype,
+      h.assert_eq[String val](
+        "*",
+        ranges(0)?.subtype,
         "wildcards: 0 subtype")
-      h.assert_eq[String val]("text", ranges(1)?.type_name,
+      h.assert_eq[String val](
+        "text",
+        ranges(1)?.type_name,
         "wildcards: 1 type")
-      h.assert_eq[String val]("*", ranges(1)?.subtype,
+      h.assert_eq[String val](
+        "*",
+        ranges(1)?.subtype,
         "wildcards: 1 subtype")
     else
       h.fail("wildcards: index error")
     end
 
   fun _test_whitespace(h: TestHelper) =>
-    let ranges = _AcceptParser(
+    let ranges =
+      _AcceptParser(
       "  text/html  ;  q=0.9  ,  application/json  ")
     h.assert_eq[USize](2, ranges.size(), "whitespace: count")
     try
-      h.assert_eq[String val]("text", ranges(0)?.type_name,
+      h.assert_eq[String val](
+        "text",
+        ranges(0)?.type_name,
         "whitespace: 0 type")
-      h.assert_eq[U16](900, ranges(0)?.quality(),
+      h.assert_eq[U16](
+        900,
+        ranges(0)?.quality(),
         "whitespace: 0 quality")
-      h.assert_eq[String val]("application", ranges(1)?.type_name,
+      h.assert_eq[String val](
+        "application",
+        ranges(1)?.type_name,
         "whitespace: 1 type")
-      h.assert_eq[U16](1000, ranges(1)?.quality(),
+      h.assert_eq[U16](
+        1000,
+        ranges(1)?.quality(),
         "whitespace: 1 quality")
     else
       h.fail("whitespace: index error")
@@ -662,7 +755,9 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
     let ranges = _AcceptParser("badentry, /bad, text/html, /")
     h.assert_eq[USize](1, ranges.size(), "malformed: count")
     try
-      h.assert_eq[String val]("text", ranges(0)?.type_name,
+      h.assert_eq[String val](
+        "text",
+        ranges(0)?.type_name,
         "malformed: type")
     else
       h.fail("malformed: index error")
@@ -677,17 +772,26 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
     // quoted value embeds a slash so that a mis-split would not just mangle
     // the entry but produce a spurious extra range (`x/y"`), making the
     // count assertion discriminating.
-    let ranges = _AcceptParser(
+    let ranges =
+      _AcceptParser(
       "text/html;param=\"a,x/y\", application/json")
     h.assert_eq[USize](2, ranges.size(), "quoted comma: count")
     try
-      h.assert_eq[String val]("text", ranges(0)?.type_name,
+      h.assert_eq[String val](
+        "text",
+        ranges(0)?.type_name,
         "quoted comma: 0 type")
-      h.assert_eq[String val]("html", ranges(0)?.subtype,
+      h.assert_eq[String val](
+        "html",
+        ranges(0)?.subtype,
         "quoted comma: 0 subtype")
-      h.assert_eq[String val]("application", ranges(1)?.type_name,
+      h.assert_eq[String val](
+        "application",
+        ranges(1)?.type_name,
         "quoted comma: 1 type")
-      h.assert_eq[String val]("json", ranges(1)?.subtype,
+      h.assert_eq[String val](
+        "json",
+        ranges(1)?.subtype,
         "quoted comma: 1 subtype")
     else
       h.fail("quoted comma: index error")
@@ -698,17 +802,26 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
     // for the closing quote, so the comma that follows still belongs to the
     // first entry. Without quoted-pair handling the entry is torn apart and
     // the second range parses with a garbage type name.
-    let ranges = _AcceptParser(
+    let ranges =
+      _AcceptParser(
       "text/html;param=\"a\\\",b\", application/json")
     h.assert_eq[USize](2, ranges.size(), "quoted pair: count")
     try
-      h.assert_eq[String val]("text", ranges(0)?.type_name,
+      h.assert_eq[String val](
+        "text",
+        ranges(0)?.type_name,
         "quoted pair: 0 type")
-      h.assert_eq[String val]("html", ranges(0)?.subtype,
+      h.assert_eq[String val](
+        "html",
+        ranges(0)?.subtype,
         "quoted pair: 0 subtype")
-      h.assert_eq[String val]("application", ranges(1)?.type_name,
+      h.assert_eq[String val](
+        "application",
+        ranges(1)?.type_name,
         "quoted pair: 1 type")
-      h.assert_eq[String val]("json", ranges(1)?.subtype,
+      h.assert_eq[String val](
+        "json",
+        ranges(1)?.subtype,
         "quoted pair: 1 subtype")
     else
       h.fail("quoted pair: index error")
@@ -722,9 +835,13 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
     let ranges = _AcceptParser("text/html;param=\"x;q=0.1\";q=0.5")
     h.assert_eq[USize](1, ranges.size(), "quoted semicolon: count")
     try
-      h.assert_eq[String val]("text", ranges(0)?.type_name,
+      h.assert_eq[String val](
+        "text",
+        ranges(0)?.type_name,
         "quoted semicolon: type")
-      h.assert_eq[U16](500, ranges(0)?.quality(),
+      h.assert_eq[U16](
+        500,
+        ranges(0)?.quality(),
         "quoted semicolon: quality")
     else
       h.fail("quoted semicolon: index error")
@@ -735,9 +852,13 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
     let ranges = _AcceptParser("*/html, text/plain")
     h.assert_eq[USize](1, ranges.size(), "*/html skipped: count")
     try
-      h.assert_eq[String val]("text", ranges(0)?.type_name,
+      h.assert_eq[String val](
+        "text",
+        ranges(0)?.type_name,
         "*/html skipped: type")
-      h.assert_eq[String val]("plain", ranges(0)?.subtype,
+      h.assert_eq[String val](
+        "plain",
+        ranges(0)?.subtype,
         "*/html skipped: subtype")
     else
       h.fail("*/html skipped: index error")
@@ -750,11 +871,17 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
     h.assert_eq[USize](1, ranges.size(), "extension params: count")
     try
       // level=1 is before q — it's a media parameter
-      h.assert_eq[USize](1, ranges(0)?.params.size(),
+      h.assert_eq[USize](
+        1,
+        ranges(0)?.params.size(),
         "extension params: only media param, not extension")
-      h.assert_eq[String val]("level",
-        ranges(0)?.params(0)?._1, "extension params: param name")
-      h.assert_eq[U16](900, ranges(0)?.quality(),
+      h.assert_eq[String val](
+        "level",
+        ranges(0)?.params(0)?._1,
+        "extension params: param name")
+      h.assert_eq[U16](
+        900,
+        ranges(0)?.quality(),
         "extension params: quality")
     else
       h.fail("extension params: index error")
@@ -776,14 +903,16 @@ class \nodoc\ iso _TestAcceptParserKnownGood is UnitTest
     // text/plain at q=0.7 should win because 0.7 > 0.5.
     // If the code incorrectly used the second range (q=0.9), text/html
     // would win instead.
-    let supported = [as MediaType val:
+    let supported =
+      [ as MediaType val:
       MediaType("text", "html")
       MediaType("text", "plain")
     ]
-    match ContentNegotiation(
+    match \exhaustive\ ContentNegotiation(
       "text/html;q=0.5, text/html;q=0.9, text/plain;q=0.7", supported)
     | let mt: MediaType val =>
-      h.assert_true(mt == MediaType("text", "plain"),
+      h.assert_true(
+        mt == MediaType("text", "plain"),
         "duplicate: expected plain (q=0.7 > first html q=0.5)")
     | NoAcceptableType =>
       h.fail("duplicate: expected match")

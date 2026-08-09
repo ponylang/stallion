@@ -13,7 +13,8 @@ class \nodoc\ iso _PropertyValidCookieNameAccepted
     _CookieTestGenerators.valid_name()
 
   fun ref property(arg1: String val, ph: PropertyHelper) =>
-    ph.assert_true(_CookieValidator.valid_name(arg1),
+    ph.assert_true(
+      _CookieValidator.valid_name(arg1),
       "Expected valid name: " + arg1)
 
 class \nodoc\ iso _PropertyInvalidCookieNameRejected
@@ -28,7 +29,8 @@ class \nodoc\ iso _PropertyInvalidCookieNameRejected
     _CookieTestGenerators.invalid_name()
 
   fun ref property(arg1: String val, ph: PropertyHelper) =>
-    ph.assert_false(_CookieValidator.valid_name(arg1),
+    ph.assert_false(
+      _CookieValidator.valid_name(arg1),
       "Expected invalid name: " + arg1)
 
 class \nodoc\ iso _PropertyCookieNameBoundary
@@ -44,7 +46,9 @@ class \nodoc\ iso _PropertyCookieNameBoundary
   fun ref property(arg1: (String val, Bool), ph: PropertyHelper) =>
     (let s, let expect_valid) = arg1
     let result = _CookieValidator.valid_name(s)
-    ph.assert_eq[Bool](expect_valid, result,
+    ph.assert_eq[Bool](
+      expect_valid,
+      result,
       "Name '" + s + "' expected " +
         if expect_valid then "valid" else "invalid" end)
 
@@ -60,7 +64,8 @@ class \nodoc\ iso _PropertyValidCookieValueAccepted
     _CookieTestGenerators.valid_value()
 
   fun ref property(arg1: String val, ph: PropertyHelper) =>
-    ph.assert_true(_CookieValidator.valid_value(arg1),
+    ph.assert_true(
+      _CookieValidator.valid_value(arg1),
       "Expected valid value: " + arg1)
 
 class \nodoc\ iso _PropertyInvalidCookieValueRejected
@@ -75,7 +80,8 @@ class \nodoc\ iso _PropertyInvalidCookieValueRejected
     _CookieTestGenerators.invalid_value()
 
   fun ref property(arg1: String val, ph: PropertyHelper) =>
-    ph.assert_false(_CookieValidator.valid_value(arg1),
+    ph.assert_false(
+      _CookieValidator.valid_value(arg1),
       "Expected invalid value: " + arg1)
 
 class \nodoc\ iso _PropertyCookieValueBoundary
@@ -91,7 +97,9 @@ class \nodoc\ iso _PropertyCookieValueBoundary
   fun ref property(arg1: (String val, Bool), ph: PropertyHelper) =>
     (let s, let expect_valid) = arg1
     let result = _CookieValidator.valid_value(s)
-    ph.assert_eq[Bool](expect_valid, result,
+    ph.assert_eq[Bool](
+      expect_valid,
+      result,
       "Value '" + s + "' expected " +
         if expect_valid then "valid" else "invalid" end)
 
@@ -106,7 +114,8 @@ class \nodoc\ iso _PropertyValidAttrValueAccepted
     _CookieTestGenerators.valid_attr_value()
 
   fun ref property(arg1: String val, ph: PropertyHelper) =>
-    ph.assert_true(_CookieValidator.valid_attr_value(arg1),
+    ph.assert_true(
+      _CookieValidator.valid_attr_value(arg1),
       "Expected valid attr value: " + arg1)
 
 class \nodoc\ iso _PropertyInvalidAttrValueRejected
@@ -121,7 +130,8 @@ class \nodoc\ iso _PropertyInvalidAttrValueRejected
     _CookieTestGenerators.invalid_attr_value()
 
   fun ref property(arg1: String val, ph: PropertyHelper) =>
-    ph.assert_false(_CookieValidator.valid_attr_value(arg1),
+    ph.assert_false(
+      _CookieValidator.valid_attr_value(arg1),
       "Expected invalid attr value: " + arg1)
 
 class \nodoc\ iso _PropertyAttrValueBoundary
@@ -137,7 +147,9 @@ class \nodoc\ iso _PropertyAttrValueBoundary
   fun ref property(arg1: (String val, Bool), ph: PropertyHelper) =>
     (let s, let expect_valid) = arg1
     let result = _CookieValidator.valid_attr_value(s)
-    ph.assert_eq[Bool](expect_valid, result,
+    ph.assert_eq[Bool](
+      expect_valid,
+      result,
       "Attr value '" + s + "' expected " +
         if expect_valid then "valid" else "invalid" end)
 
@@ -189,10 +201,10 @@ primitive \nodoc\ _CookieTestGenerators
 
   fun invalid_name(): Generator[String val] =>
     """Generate invalid cookie names containing at least one non-token char."""
-    Generators.frequency[String val]([
-      as WeightedGenerator[String val]:
+    Generators.frequency[String val](
+      [ as WeightedGenerator[String val]:
       // Empty string (always invalid)
-      (1, Generators.repeatedly[String val]({(): String val^ => ""}))
+      (1, Generators.repeatedly[String val]({(): String val^ => "" }))
       // Valid prefix + separator char + valid suffix
       (3, Generators.map2[USize, USize, String val](
         Generators.usize(0, 10),
@@ -221,7 +233,7 @@ primitive \nodoc\ _CookieTestGenerators
         }))
       // Contains comma
       (1, Generators.repeatedly[String val](
-        {(): String val^ => "name,bad"}))
+        {(): String val^ => "name,bad" }))
       // Contains non-ASCII byte (0x80+)
       (1, Generators.map2[USize, USize, String val](
         Generators.usize(0, 5),
@@ -239,12 +251,12 @@ primitive \nodoc\ _CookieTestGenerators
 
   fun name_boundary(): Generator[(String val, Bool)] =>
     """Mixed valid/invalid cookie names with expected validity."""
-    Generators.frequency[(String val, Bool)]([
-      as WeightedGenerator[(String val, Bool)]:
+    Generators.frequency[(String val, Bool)](
+      [ as WeightedGenerator[(String val, Bool)]:
       (1, valid_name().map[(String val, Bool)](
-        {(s: String val): (String val, Bool) => (s, true)}))
+        {(s: String val): (String val, Bool) => (s, true) }))
       (1, invalid_name().map[(String val, Bool)](
-        {(s: String val): (String val, Bool) => (s, false)}))
+        {(s: String val): (String val, Bool) => (s, false) }))
     ])
 
   fun valid_value(): Generator[String val] =>
@@ -267,8 +279,8 @@ primitive \nodoc\ _CookieTestGenerators
 
   fun invalid_value(): Generator[String val] =>
     """Generate invalid cookie values with at least one non-cookie-octet."""
-    Generators.frequency[String val]([
-      as WeightedGenerator[String val]:
+    Generators.frequency[String val](
+      [ as WeightedGenerator[String val]:
       // Contains space (0x20)
       (2, Generators.map2[USize, USize, String val](
         Generators.usize(0, 10),
@@ -297,10 +309,10 @@ primitive \nodoc\ _CookieTestGenerators
         }))
       // Contains comma (0x2C)
       (1, Generators.repeatedly[String val](
-        {(): String val^ => "value,bad"}))
+        {(): String val^ => "value,bad" }))
       // Contains backslash (0x5C)
       (1, Generators.repeatedly[String val](
-        {(): String val^ => "value\\bad"}))
+        {(): String val^ => "value\\bad" }))
       // Contains control character
       (1, Generators.map2[USize, USize, String val](
         Generators.usize(0, 5),
@@ -316,7 +328,7 @@ primitive \nodoc\ _CookieTestGenerators
         }))
       // Contains DEL (0x7F)
       (1, Generators.repeatedly[String val](
-        {(): String val^ => "value\x7Fbad"}))
+        {(): String val^ => "value\x7Fbad" }))
       // Contains non-ASCII byte (0x80+)
       (1, Generators.map2[USize, USize, String val](
         Generators.usize(0, 5),
@@ -334,12 +346,12 @@ primitive \nodoc\ _CookieTestGenerators
 
   fun value_boundary(): Generator[(String val, Bool)] =>
     """Mixed valid/invalid cookie values with expected validity."""
-    Generators.frequency[(String val, Bool)]([
-      as WeightedGenerator[(String val, Bool)]:
+    Generators.frequency[(String val, Bool)](
+      [ as WeightedGenerator[(String val, Bool)]:
       (1, valid_value().map[(String val, Bool)](
-        {(s: String val): (String val, Bool) => (s, true)}))
+        {(s: String val): (String val, Bool) => (s, true) }))
       (1, invalid_value().map[(String val, Bool)](
-        {(s: String val): (String val, Bool) => (s, false)}))
+        {(s: String val): (String val, Bool) => (s, false) }))
     ])
 
   fun _attr_value_chars(): String val =>
@@ -374,8 +386,8 @@ primitive \nodoc\ _CookieTestGenerators
 
   fun invalid_attr_value(): Generator[String val] =>
     """Generate invalid attribute values with a CTL, non-ASCII byte, or ';'."""
-    Generators.frequency[String val]([
-      as WeightedGenerator[String val]:
+    Generators.frequency[String val](
+      [ as WeightedGenerator[String val]:
       // Contains semicolon
       (2, Generators.map2[USize, USize, String val](
         Generators.usize(0, 10),
@@ -417,7 +429,7 @@ primitive \nodoc\ _CookieTestGenerators
         }))
       // Contains CRLF
       (1, Generators.repeatedly[String val](
-        {(): String val^ => "/path\r\nHeader: evil"}))
+        {(): String val^ => "/path\r\nHeader: evil" }))
       // Contains non-ASCII byte (0x80+)
       (1, Generators.map2[USize, USize, String val](
         Generators.usize(0, 5),
@@ -435,10 +447,10 @@ primitive \nodoc\ _CookieTestGenerators
 
   fun attr_value_boundary(): Generator[(String val, Bool)] =>
     """Mixed valid/invalid attribute values with expected validity."""
-    Generators.frequency[(String val, Bool)]([
-      as WeightedGenerator[(String val, Bool)]:
+    Generators.frequency[(String val, Bool)](
+      [ as WeightedGenerator[(String val, Bool)]:
       (1, valid_attr_value().map[(String val, Bool)](
-        {(s: String val): (String val, Bool) => (s, true)}))
+        {(s: String val): (String val, Bool) => (s, true) }))
       (1, invalid_attr_value().map[(String val, Bool)](
-        {(s: String val): (String val, Bool) => (s, false)}))
+        {(s: String val): (String val, Bool) => (s, false) }))
     ])

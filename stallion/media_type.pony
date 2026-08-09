@@ -12,7 +12,9 @@ class val MediaType is (Equatable[MediaType] & Stringable)
   let subtype: String val
 
   new val create(type_name': String val, subtype': String val) =>
-    """Create a media type with the given type and subtype, lowercased."""
+    """
+    Create a media type with the given type and subtype, lowercased.
+    """
     type_name = type_name'.lower()
     subtype = subtype'.lower()
 

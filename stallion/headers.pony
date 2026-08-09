@@ -9,7 +9,9 @@ class Headers
   embed _headers: Array[Header val]
 
   new create() =>
-    """Create an empty header collection."""
+    """
+    Create an empty header collection.
+    """
     _headers = Array[Header val]
 
   fun ref set(name: String, value: String) =>
@@ -92,9 +94,13 @@ class Headers
     end
 
   fun size(): USize =>
-    """Return the number of header entries."""
+    """
+    Return the number of header entries.
+    """
     _headers.size()
 
   fun values(): ArrayValues[Header val, this->Array[Header val]] =>
-    """Iterate over all header entries as `Header val` objects."""
+    """
+    Iterate over all header entries as `Header val` objects.
+    """
     _headers.values()

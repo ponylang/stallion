@@ -1,17 +1,3 @@
-"""
-HTTP server that handles HEAD correctly. A GET request gets a body; a HEAD
-request gets the same headers a GET would, including Content-Length, but no
-body, as required by RFC 9110.
-
-Stallion sends exactly the bytes the handler builds and never rewrites a
-response, so suppressing the body for HEAD is the handler's job. This example
-shows the pattern: build the headers once, then add the body chunk only when
-the method is not HEAD.
-
-Try it:
-  curl -i http://localhost:8080/      # GET: headers and body
-  curl -I http://localhost:8080/      # HEAD: same headers, no body
-"""
 use stallion = "../../stallion"
 use lori = "lori"
 
@@ -21,6 +7,9 @@ actor Main
     Listener(auth, "0.0.0.0", "8080", env.out)
 
 actor Listener is lori.TCPListenerActor
+  """
+  TCP listener that creates `HeadServer` actors for each connection.
+  """
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _out: OutStream
   let _config: stallion.ServerConfig
@@ -57,6 +46,9 @@ actor Listener is lori.TCPListenerActor
     _out.print("Server closed")
 
 actor HeadServer is stallion.HTTPServerActor
+  """
+  Responds to GET with a body and to HEAD with headers only.
+  """
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
 
   new create(
@@ -68,13 +60,14 @@ actor HeadServer is stallion.HTTPServerActor
 
   fun ref _http_connection(): stallion.HTTPServer => _http
 
-  fun ref on_request_complete(request': stallion.Request val,
+  fun ref on_request_complete(
+    request': stallion.Request val,
     responder: stallion.Responder)
   =>
-    // A HEAD response carries the same headers a GET would, including
-    // Content-Length, but no body. Build the headers once, then add the body
-    // chunk only when the method is not HEAD. Stallion sends exactly what we
-    // build, so it is on us to leave the body off for HEAD.
+    """
+    Builds a response with Content-Length, adding the body only for non-HEAD
+    requests.
+    """
     let body: String val = "Hello, World!"
     let response = stallion.ResponseBuilder(stallion.StatusOK)
       .add_header("Content-Type", "text/plain")

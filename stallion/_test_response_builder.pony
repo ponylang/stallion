@@ -18,21 +18,23 @@ class \nodoc\ iso _PropertyBuilderMatchesSerializer
       {(si, nh, bs, h10) => _ResponseInput(si, nh, bs, h10) })
 
   fun ref property(arg1: _ResponseInput, ph: PropertyHelper) =>
-    let statuses: Array[Status val] val =
-      [StatusOK; StatusCreated; StatusNoContent
-       StatusBadRequest; StatusNotFound
-       StatusInternalServerError]
+    let statuses: Array[ Status val] val =
+      [ StatusOK; StatusCreated; StatusNoContent
+        StatusBadRequest; StatusNotFound
+        StatusInternalServerError]
 
-    let status = try
-      statuses(arg1.status_idx % statuses.size())?
-    else
-      StatusOK
-    end
+    let status =
+      try
+        statuses(arg1.status_idx % statuses.size())?
+      else
+        StatusOK
+      end
 
     let version: Version =
       if arg1.use_http10 then HTTP10 else HTTP11 end
 
-    let headers = recover val
+    let headers =
+      recover val
       let h = Headers
       var i: USize = 0
       while i < arg1.num_headers do
@@ -42,19 +44,20 @@ class \nodoc\ iso _PropertyBuilderMatchesSerializer
       h
     end
 
-    let body: (Array[U8] val | None) = if arg1.body_size > 0 then
-      recover val
-        let arr = Array[U8](arg1.body_size)
-        var i: USize = 0
-        while i < arg1.body_size do
-          arr.push('X')
-          i = i + 1
+    let body: (Array[U8] val | None) =
+      if arg1.body_size > 0 then
+        recover val
+          let arr = Array[U8](arg1.body_size)
+          var i: USize = 0
+          while i < arg1.body_size do
+            arr.push('X')
+            i = i + 1
+          end
+          arr
         end
-        arr
+      else
+        None
       end
-    else
-      None
-    end
 
     // Build with _ResponseSerializer
     let serialized: Array[U8] val =
@@ -154,16 +157,22 @@ class \nodoc\ iso _TestRespond is UnitTest
     let flushed = notify.flushed_as_strings()
     h.assert_eq[USize](1, flushed.size(), "expected 1 flush")
     try
-      h.assert_eq[String val](raw, flushed(0)?,
+      h.assert_eq[String val](
+        raw,
+        flushed(0)?,
         "flushed data should match raw input")
     else
       h.fail("Flush index out of bounds")
     end
 
     // Verify response was completed
-    h.assert_eq[USize](1, notify.completions.size(),
+    h.assert_eq[USize](
+      1,
+      notify.completions.size(),
       "expected 1 completion")
-    h.assert_eq[USize](0, queue.pending(),
+    h.assert_eq[USize](
+      0,
+      queue.pending(),
       "queue should have no pending entries")
 
 class \nodoc\ iso _TestRespondIgnoredAfterFirst is UnitTest
@@ -186,9 +195,13 @@ class \nodoc\ iso _TestRespondIgnoredAfterFirst is UnitTest
 
     // Only the first response should have been sent
     let flushed = notify.flushed_as_strings()
-    h.assert_eq[USize](1, flushed.size(),
+    h.assert_eq[USize](
+      1,
+      flushed.size(),
       "only first response should flush")
-    h.assert_eq[USize](1, notify.completions.size(),
+    h.assert_eq[USize](
+      1,
+      notify.completions.size(),
       "only one completion should fire")
 
 class \nodoc\ iso _TestStartChunkedSuccess is UnitTest
@@ -203,15 +216,16 @@ class \nodoc\ iso _TestStartChunkedSuccess is UnitTest
     let queue = _ResponseQueue(notify)
     let id = queue.register(true)
 
-    let headers = recover val
-      let hd = Headers
-      hd.set("content-type", "text/plain")
-      hd
-    end
+    let headers =
+      recover val
+        Headers .> set("content-type", "text/plain")
+      end
     let responder = Responder._create(queue, id, HTTP11)
     let result = responder.start_chunked_response(StatusOK, headers)
 
-    h.assert_is[StartChunkedResponseResult](StreamingStarted, result,
+    h.assert_is[StartChunkedResponseResult](
+      StreamingStarted,
+      result,
       "HTTP/1.1 should return StreamingStarted")
 
     // Verify headers were flushed with Transfer-Encoding: chunked
@@ -219,9 +233,11 @@ class \nodoc\ iso _TestStartChunkedSuccess is UnitTest
     h.assert_eq[USize](1, flushed.size(), "expected 1 flush for headers")
     try
       let header_data = flushed(0)?
-      h.assert_true(header_data.contains("transfer-encoding: chunked"),
+      h.assert_true(
+        header_data.contains("transfer-encoding: chunked"),
         "flushed headers should contain transfer-encoding: chunked")
-      h.assert_true(header_data.contains("200 OK"),
+      h.assert_true(
+        header_data.contains("200 OK"),
         "flushed headers should contain status line")
     else
       h.fail("Flush index out of bounds")
@@ -242,11 +258,15 @@ class \nodoc\ iso _TestStartChunkedHTTP10 is UnitTest
     let responder = Responder._create(queue, id, HTTP10)
     let result = responder.start_chunked_response(StatusOK)
 
-    h.assert_is[StartChunkedResponseResult](ChunkedNotSupported, result,
+    h.assert_is[StartChunkedResponseResult](
+      ChunkedNotSupported,
+      result,
       "HTTP/1.0 should return ChunkedNotSupported")
 
     // No data should have been flushed
-    h.assert_eq[USize](0, notify.flushed_data.size(),
+    h.assert_eq[USize](
+      0,
+      notify.flushed_data.size(),
       "no data should be flushed for HTTP/1.0")
 
 class \nodoc\ iso _TestStartChunkedAlreadyResponded is UnitTest
@@ -265,7 +285,9 @@ class \nodoc\ iso _TestStartChunkedAlreadyResponded is UnitTest
     responder.respond("HTTP/1.1 200 OK\r\n\r\nfirst")
     let result = responder.start_chunked_response(StatusOK)
 
-    h.assert_is[StartChunkedResponseResult](AlreadyResponded, result,
+    h.assert_is[StartChunkedResponseResult](
+      AlreadyResponded,
+      result,
       "should return AlreadyResponded after respond()")
 
 class \nodoc\ iso _TestStartChunkedAlreadyStreaming is UnitTest
@@ -282,16 +304,21 @@ class \nodoc\ iso _TestStartChunkedAlreadyStreaming is UnitTest
 
     let responder = Responder._create(queue, id, HTTP11)
     let first = responder.start_chunked_response(StatusOK)
-    h.assert_is[StartChunkedResponseResult](StreamingStarted, first,
+    h.assert_is[StartChunkedResponseResult](
+      StreamingStarted,
+      first,
       "first call should return StreamingStarted")
 
     let second = responder.start_chunked_response(StatusOK)
-    h.assert_is[StartChunkedResponseResult](AlreadyResponded, second,
+    h.assert_is[StartChunkedResponseResult](
+      AlreadyResponded,
+      second,
       "second call should return AlreadyResponded")
 
 class \nodoc\ iso _TestSendChunkAfterClose is UnitTest
   """
-  Verify that send_chunk() returns None once the queue has closed, and
+  Verify that send_chunk() returns None once the queue has closed,
+  and
   flushes nothing beyond the headers start_chunked_response() already sent.
   """
   fun name(): String => "responder/send_chunk_after_close"
@@ -303,7 +330,9 @@ class \nodoc\ iso _TestSendChunkAfterClose is UnitTest
 
     let responder = Responder._create(queue, id, HTTP11)
     responder.start_chunked_response(StatusOK)
-    h.assert_eq[USize](1, notify.flushed_data.size(),
+    h.assert_eq[USize](
+      1,
+      notify.flushed_data.size(),
       "start_chunked_response should have flushed the headers")
 
     queue.close()
@@ -313,7 +342,9 @@ class \nodoc\ iso _TestSendChunkAfterClose is UnitTest
       h.fail("send_chunk on a closed queue should return None")
     end
 
-    h.assert_eq[USize](1, notify.flushed_data.size(),
+    h.assert_eq[USize](
+      1,
+      notify.flushed_data.size(),
       "send_chunk on a closed queue should flush nothing")
 
 class \nodoc\ iso _TestStartChunkedConnectionClosed is UnitTest
@@ -332,9 +363,13 @@ class \nodoc\ iso _TestStartChunkedConnectionClosed is UnitTest
     let responder = Responder._create(queue, id, HTTP11)
     let result = responder.start_chunked_response(StatusOK)
 
-    h.assert_is[StartChunkedResponseResult](ConnectionClosed, result,
+    h.assert_is[StartChunkedResponseResult](
+      ConnectionClosed,
+      result,
       "a closed queue should return ConnectionClosed")
-    h.assert_eq[USize](0, notify.flushed_data.size(),
+    h.assert_eq[USize](
+      0,
+      notify.flushed_data.size(),
       "no data should be flushed on a closed queue")
 
 class \nodoc\ iso _TestStartChunkedClosedAfterResponded is UnitTest
@@ -352,7 +387,8 @@ class \nodoc\ iso _TestStartChunkedClosedAfterResponded is UnitTest
     responder.respond("HTTP/1.1 200 OK\r\n\r\nfirst")
     queue.close()
 
-    h.assert_is[StartChunkedResponseResult](AlreadyResponded,
+    h.assert_is[StartChunkedResponseResult](
+      AlreadyResponded,
       responder.start_chunked_response(StatusOK),
       "a Responder that already responded should return AlreadyResponded")
 
@@ -371,7 +407,8 @@ class \nodoc\ iso _TestStartChunkedClosedBeatsHTTP10 is UnitTest
 
     let responder = Responder._create(queue, id, HTTP10)
 
-    h.assert_is[StartChunkedResponseResult](ConnectionClosed,
+    h.assert_is[StartChunkedResponseResult](
+      ConnectionClosed,
       responder.start_chunked_response(StatusOK),
       "the closed check should beat the HTTP/1.0 check")
 
@@ -391,7 +428,8 @@ class \nodoc\ iso _TestStartChunkedClosedLeavesState is UnitTest
     let responder = Responder._create(queue, id, HTTP11)
     responder.start_chunked_response(StatusOK)
 
-    h.assert_is[StartChunkedResponseResult](ConnectionClosed,
+    h.assert_is[StartChunkedResponseResult](
+      ConnectionClosed,
       responder.start_chunked_response(StatusOK),
       "ConnectionClosed should leave the Responder unstarted")
 
@@ -411,11 +449,13 @@ class \nodoc\ iso _TestStartChunkedClosedMidCall is UnitTest
 
     let responder = Responder._create(queue, id, HTTP11)
 
-    h.assert_is[StartChunkedResponseResult](ConnectionClosed,
+    h.assert_is[StartChunkedResponseResult](
+      ConnectionClosed,
       responder.start_chunked_response(StatusOK),
       "a close during send_data should report ConnectionClosed")
 
-    h.assert_is[StartChunkedResponseResult](ConnectionClosed,
+    h.assert_is[StartChunkedResponseResult](
+      ConnectionClosed,
       responder.start_chunked_response(StatusOK),
       "nothing was started, so a second call reports ConnectionClosed again")
 

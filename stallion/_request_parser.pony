@@ -105,7 +105,9 @@ class _RequestParser
     out
 
   fun ref extract_string(from: USize, to: USize): String iso^ =>
-    """Copy bytes from buf[from..to) into a new iso String."""
+    """
+    Copy bytes from buf[from..to) into a new iso String.
+    """
     let len = to - from
     let out = recover String.create(len) end
     var i = from

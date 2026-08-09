@@ -1,16 +1,3 @@
-"""
-Request processing deadline using one-shot timers. Sets a 5-second deadline
-on each request, then delegates to a worker actor. If the worker responds
-before the deadline, the timer is cancelled and the result is sent. If the
-deadline fires first, the server responds with 408 Request Timeout.
-
-Demonstrates `HTTPServer.set_timer()`, `HTTPServer.cancel_timer()`, and
-`on_timer()` in a deadline pattern where the timer is a safety net for
-slow or unresponsive async work.
-
-Try it:
-  curl http://localhost:8080/
-"""
 use stallion = "../../stallion"
 use lori = "lori"
 
@@ -21,6 +8,9 @@ actor Main
     Listener(auth, "0.0.0.0", "8080", env.out, worker)
 
 actor Listener is lori.TCPListenerActor
+  """
+  TCP listener that creates `DeadlineServer` actors for each connection.
+  """
   var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
   let _out: OutStream
   let _config: stallion.ServerConfig
@@ -72,9 +62,11 @@ actor Worker
     server.work_complete("Hello! Processed: " + path)
 
 actor DeadlineServer is stallion.HTTPServerActor
+  """
+  Sets a five-second deadline on each request and delegates to a worker.
+  """
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
   let _worker: Worker tag
-
   // These two fields together represent "a deadline is in flight."
   // When both are non-None, we're waiting for either the worker or the
   // timer to complete. Whichever path fires first sets both back to None,
@@ -94,7 +86,8 @@ actor DeadlineServer is stallion.HTTPServerActor
 
   fun ref _http_connection(): stallion.HTTPServer => _http
 
-  fun ref on_request_complete(request': stallion.Request val,
+  fun ref on_request_complete(
+    request': stallion.Request val,
     responder: stallion.Responder)
   =>
     // Create a 5-second deadline. MakeTimerDuration validates the
@@ -103,7 +96,7 @@ actor DeadlineServer is stallion.HTTPServerActor
     | let d: lori.TimerDuration =>
       // set_timer returns a TimerToken on success, or a SetTimerError
       // if the connection isn't open or a timer is already active.
-      match _http.set_timer(d)
+      match \exhaustive\ _http.set_timer(d)
       | let t: lori.TimerToken =>
         // Arm the deadline: store the token and responder so both
         // work_complete and on_timer can check whether a deadline is
@@ -114,7 +107,9 @@ actor DeadlineServer is stallion.HTTPServerActor
       | lori.SetTimerAlreadyActive =>
         // Only one timer per connection. A previous request's timer
         // is still active — respond immediately instead of queuing.
-        _respond(responder, stallion.StatusOK,
+        _respond(
+          responder,
+          stallion.StatusOK,
           "Timer busy — immediate response")
       | lori.SetTimerNotOpen =>
         None
@@ -152,7 +147,9 @@ actor DeadlineServer is stallion.HTTPServerActor
       _respond(r, stallion.StatusRequestTimeout, "Request timed out")
     end
 
-  fun _respond(responder: stallion.Responder ref, status: stallion.Status,
+  fun _respond(
+    responder: stallion.Responder ref,
+    status: stallion.Status,
     body: String val)
   =>
     let response = stallion.ResponseBuilder(status)

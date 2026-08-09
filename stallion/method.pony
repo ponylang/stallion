@@ -1,56 +1,80 @@
 interface val Method is (Equatable[Method] & Stringable)
-  """An HTTP request method (RFC 7231)."""
+  """
+  An HTTP request method (RFC 7231).
+  """
 
 primitive GET is Method
-  """HTTP GET method."""
+  """
+  HTTP GET method.
+  """
   fun string(): String iso^ => "GET".clone()
   fun eq(that: Method): Bool => that is this
 
 primitive HEAD is Method
-  """HTTP HEAD method."""
+  """
+  HTTP HEAD method.
+  """
   fun string(): String iso^ => "HEAD".clone()
   fun eq(that: Method): Bool => that is this
 
 primitive POST is Method
-  """HTTP POST method."""
+  """
+  HTTP POST method.
+  """
   fun string(): String iso^ => "POST".clone()
   fun eq(that: Method): Bool => that is this
 
 primitive PUT is Method
-  """HTTP PUT method."""
+  """
+  HTTP PUT method.
+  """
   fun string(): String iso^ => "PUT".clone()
   fun eq(that: Method): Bool => that is this
 
 primitive DELETE is Method
-  """HTTP DELETE method."""
+  """
+  HTTP DELETE method.
+  """
   fun string(): String iso^ => "DELETE".clone()
   fun eq(that: Method): Bool => that is this
 
 primitive CONNECT is Method
-  """HTTP CONNECT method."""
+  """
+  HTTP CONNECT method.
+  """
   fun string(): String iso^ => "CONNECT".clone()
   fun eq(that: Method): Bool => that is this
 
 primitive OPTIONS is Method
-  """HTTP OPTIONS method."""
+  """
+  HTTP OPTIONS method.
+  """
   fun string(): String iso^ => "OPTIONS".clone()
   fun eq(that: Method): Bool => that is this
 
 primitive TRACE is Method
-  """HTTP TRACE method."""
+  """
+  HTTP TRACE method.
+  """
   fun string(): String iso^ => "TRACE".clone()
   fun eq(that: Method): Bool => that is this
 
 primitive PATCH is Method
-  """HTTP PATCH method."""
+  """
+  HTTP PATCH method.
+  """
   fun string(): String iso^ => "PATCH".clone()
   fun eq(that: Method): Bool => that is this
 
 primitive Methods
-  """Parse HTTP method strings and enumerate known methods."""
+  """
+  Parse HTTP method strings and enumerate known methods.
+  """
 
   fun parse(data: String): (Method | None) =>
-    """Parse a string into an HTTP method, or None if not recognized."""
+    """
+    Parse a string into an HTTP method, or None if not recognized.
+    """
     match data
     | "GET" => GET
     | "HEAD" => HEAD
@@ -66,5 +90,7 @@ primitive Methods
     end
 
   fun valid(): Array[Method] val =>
-    """Return all standard HTTP methods."""
+    """
+    Return all standard HTTP methods.
+    """
     [GET; HEAD; POST; PUT; DELETE; CONNECT; OPTIONS; TRACE; PATCH]

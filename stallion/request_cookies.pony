@@ -11,7 +11,9 @@ class val RequestCookies
   let _cookies: Array[RequestCookie val] val
 
   new val _create(cookies: Array[RequestCookie val] val) =>
-    """Create a cookie collection. Package-private."""
+    """
+    Create a cookie collection. Package-private.
+    """
     _cookies = cookies
 
   fun get(name: String): (String val | None) =>
@@ -28,9 +30,13 @@ class val RequestCookies
   fun values(): ArrayValues[RequestCookie val,
     Array[RequestCookie val] val]
   =>
-    """Iterate over all parsed cookies."""
+    """
+    Iterate over all parsed cookies.
+    """
     _cookies.values()
 
   fun size(): USize =>
-    """Return the number of parsed cookies."""
+    """
+    Return the number of parsed cookies.
+    """
     _cookies.size()

@@ -27,7 +27,9 @@ type MakeMaxRequestsPerConnection is
   """
 
 primitive _MaxRequestsPerConnectionValidator is Validator[USize]
-  """Validates that the max requests value is at least 1."""
+  """
+  Validates that the max requests value is at least 1.
+  """
   fun apply(value: USize): ValidationResult =>
     recover val
       if value >= 1 then

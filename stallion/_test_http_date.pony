@@ -43,17 +43,22 @@ class \nodoc\ iso _PropertyHTTPDateFormat is Property1[I64]
     let result = _HTTPDate(arg1)
 
     // Length should be 29 characters: "Thu, 01 Jan 1970 00:00:00 GMT"
-    ph.assert_eq[USize](29, result.size(),
+    ph.assert_eq[USize](
+      29,
+      result.size(),
       "Expected 29 chars, got " + result.size().string() +
         ": '" + result + "'")
 
     // Ends with " GMT"
-    ph.assert_true(result.contains(" GMT"),
+    ph.assert_true(
+      result.contains(" GMT"),
       "Should end with GMT: " + result)
 
     // Has comma at position 3
     try
-      ph.assert_eq[U8](',', result(3)?,
+      ph.assert_eq[U8](
+        ',',
+        result(3)?,
         "Position 3 should be comma: " + result)
     else
       ph.fail("Result too short: " + result)
@@ -61,9 +66,13 @@ class \nodoc\ iso _PropertyHTTPDateFormat is Property1[I64]
 
     // Has colons at positions 19 and 22 (time separators)
     try
-      ph.assert_eq[U8](':', result(19)?,
+      ph.assert_eq[U8](
+        ':',
+        result(19)?,
         "Position 19 should be colon: " + result)
-      ph.assert_eq[U8](':', result(22)?,
+      ph.assert_eq[U8](
+        ':',
+        result(22)?,
         "Position 22 should be colon: " + result)
     else
       ph.fail("Result too short for time check: " + result)

@@ -19,7 +19,9 @@ primitive _Token
   """
 
   fun apply(b: U8): Bool =>
-    """Whether `b` is a `tchar` (a valid token character)."""
+    """
+    Whether `b` is a `tchar` (a valid token character).
+    """
     if (b < 0x21) or (b > 0x7E) then return false end
     match b
     | '(' | ')' | '<' | '>' | '@'
@@ -31,7 +33,9 @@ primitive _Token
     end
 
   fun valid(s: String box): Bool =>
-    """Whether `s` is a non-empty token (`1*tchar`)."""
+    """
+    Whether `s` is a non-empty token (`1*tchar`).
+    """
     if s.size() == 0 then return false end
     for b in s.values() do
       if not apply(b) then return false end

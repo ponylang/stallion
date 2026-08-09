@@ -15,11 +15,15 @@ primitive _FieldValue
   """
 
   fun forbidden(b: U8): Bool =>
-    """Whether `b` is forbidden in a field value (CR, LF, or NUL)."""
+    """
+    Whether `b` is forbidden in a field value (CR, LF, or NUL).
+    """
     (b == '\r') or (b == '\n') or (b == 0)
 
   fun valid(s: String box): Bool =>
-    """Whether `s` is free of the forbidden field-value bytes (CR, LF, NUL)."""
+    """
+    Whether `s` is free of the forbidden field-value bytes (CR, LF, NUL).
+    """
     for b in s.values() do
       if forbidden(b) then return false end
     end

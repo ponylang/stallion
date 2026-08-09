@@ -9,6 +9,8 @@ class val Header
   let value: String val
 
   new val create(name': String val, value': String val) =>
-    """Create a header with the given name and value."""
+    """
+    Create a header with the given name and value.
+    """
     name = name'
     value = value'

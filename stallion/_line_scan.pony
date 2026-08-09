@@ -15,11 +15,15 @@ class val _Line
     content_end = content_end'
 
   fun is_blank(): Bool =>
-    """Whether this is the empty line (a bare CRLF with no content)."""
+    """
+    Whether this is the empty line (a bare CRLF with no content).
+    """
     content_start == content_end
 
   fun next_pos(): USize =>
-    """Buffer position immediately after this line's CRLF terminator."""
+    """
+    Buffer position immediately after this line's CRLF terminator.
+    """
     content_end + 2
 
 class val _ScannedLine
@@ -31,8 +35,8 @@ class val _ScannedLine
   rather than a raw `String` so a caller cannot hand them bytes that skipped the
   line policy — the line invariant the rewrite rests on. The only intended
   construction is `_RequestParser.scanned_line` from a `_LineScan` `_Line`;
-  wrapping an arbitrary string here is a deliberate, greppable assertion that the
-  bytes are CR/LF-clean.
+  wrapping an arbitrary string here is a deliberate, greppable assertion
+  that the bytes are CR/LF-clean.
   """
   let content: String val
 
@@ -40,7 +44,9 @@ class val _ScannedLine
     content = content'
 
 primitive _LineTooLong
-  """A line's content reached the size limit before any CRLF terminator."""
+  """
+  A line's content reached the size limit before any CRLF terminator.
+  """
 
 primitive _LineNeedMore
   """
