@@ -1063,17 +1063,46 @@ primitive \nodoc\ _PermutationGenerator
           consume result
         })
 
-class \nodoc\ iso _TestQueueIsClosed is UnitTest
+class \nodoc\ iso _TestQueueHasEntry is UnitTest
   """
-  Verify is_closed() reports false on a fresh queue and true after close().
+  Verify has_entry returns true for a registered ID and false after close().
   """
-  fun name(): String => "response-queue/is_closed"
+  fun name(): String => "response-queue/has-entry"
 
   fun apply(h: TestHelper) =>
     let queue = _ResponseQueue(_TestQueueNotify)
+    let id = queue.register(true)
 
-    h.assert_false(queue.is_closed(), "a fresh queue is not closed")
+    h.assert_true(queue.has_entry(id), "registered ID has an entry")
+    h.assert_false(queue.has_entry(id + 10), "unregistered ID has no entry")
 
     queue.close()
 
-    h.assert_true(queue.is_closed(), "a queue is closed after close()")
+    h.assert_false(queue.has_entry(id), "no entry after close")
+
+class \nodoc\ iso _TestQueueCloseDiscardsEntries is UnitTest
+  """
+  Verify that close() clears all entries: send_data and finish report
+  `_QueueEntryGone` afterward.
+  """
+  fun name(): String => "response-queue/close-discards-entries"
+
+  fun apply(h: TestHelper) =>
+    let queue = _ResponseQueue(_TestQueueNotify)
+    let id = queue.register(true)
+
+    h.assert_is[_QueueResult](
+      _QueueAccepted,
+      queue.send_data(id, "data"),
+      "send_data accepts before close")
+
+    queue.close()
+
+    h.assert_is[_QueueResult](
+      _QueueEntryGone,
+      queue.send_data(id, "data"),
+      "send_data reports entry gone after close")
+    h.assert_is[_QueueResult](
+      _QueueEntryGone,
+      queue.finish(id),
+      "finish reports entry gone after close")

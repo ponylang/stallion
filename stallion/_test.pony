@@ -208,7 +208,8 @@ actor \nodoc\ Main is TestList
     test(_TestQueueTokenNoneForInternalSends)
     test(_TestQueueTokenThrottle)
     test(_TestQueueTokenClose)
-    test(_TestQueueIsClosed)
+    test(_TestQueueHasEntry)
+    test(_TestQueueCloseDiscardsEntries)
 
     // Pipelining and streaming integration tests
     test(_TestPipelineCorrectness)
