@@ -410,9 +410,6 @@ class HTTPServer is
     `on_chunk_sent()` is delivered for this connection — and delivers
     `on_closed()` to the receiver.
     """
-    match _parser
-    | let p: _RequestParser => p.stop()
-    end
     match _queue
     | let q: _ResponseQueue => q.close()
     end
@@ -587,8 +584,8 @@ class HTTPServer is
     Safe to call from within queue callbacks (e.g., `_response_complete`
     with `keep_alive=false`): a second close is a no-op in every state
     that is not `_Active`. After this, any Responders the actor still
-    holds become inert — their methods call through to the queue, which
-    is closed and no-ops everything.
+    holds become inert — their methods submit to a queue whose entries
+    are gone and get `_QueueEntryGone` back.
     """
     _state.close(this)
 
@@ -598,9 +595,6 @@ class HTTPServer is
 
     Reached only from `_Active`, so this runs at most once per connection.
     """
-    match _parser
-    | let p: _RequestParser => p.stop()
-    end
     match _queue
     | let q: _ResponseQueue => q.close()
     end

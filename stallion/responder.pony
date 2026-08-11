@@ -84,9 +84,11 @@ class ref Responder
     """
     match _state
     | _ResponderNotResponded =>
-      _state = _ResponderComplete
-      _queue.send_data(_id, raw)
-      _queue.finish(_id)
+      match _queue.send_data(_id, raw)
+      | _QueueAccepted =>
+        _state = _ResponderComplete
+        _queue.finish(_id)
+      end
     end
 
   fun ref start_chunked_response(
@@ -117,9 +119,7 @@ class ref Responder
     """
     match _state
     | _ResponderNotResponded =>
-      if _queue.is_closed() then return ConnectionClosed end
-
-      // HTTP/1.0 does not support chunked transfer encoding
+      if not _queue.has_entry(_id) then return ConnectionClosed end
       if _version is HTTP10 then return ChunkedNotSupported end
 
       _state = _ResponderStreaming
@@ -136,15 +136,12 @@ class ref Responder
           new_h
         end
       let response = _ResponseSerializer(status, h, None, _version)
-      _queue.send_data(_id, consume response)
-      // send_data can close the connection on its way out: a send error
-      // closes the queue before it returns. Nothing was started in that
-      // case, so report it and leave the Responder where it began.
-      if _queue.is_closed() then
+      match \exhaustive\ _queue.send_data(_id, consume response)
+      | _QueueAccepted => StreamingStarted
+      | _QueueEntryGone =>
         _state = _ResponderNotResponded
-        return ConnectionClosed
+        ConnectionClosed
       end
-      StreamingStarted
     else
       AlreadyResponded
     end
@@ -170,7 +167,6 @@ class ref Responder
     """
     match _state
     | _ResponderStreaming =>
-      if _queue.is_closed() then return None end
       let size: USize =
         match \exhaustive\ data
         | let s: String val => s.size()
@@ -179,12 +175,10 @@ class ref Responder
       if size == 0 then return None end
       let token = _queue.create_chunk_token()
       let chunk = _ChunkedEncoder.chunk(data)
-      _queue.send_data(_id, consume chunk, token)
-      // send_data can close the connection on its way out: a send error
-      // closes the queue before it returns. The chunk went nowhere, so hand
-      // back no token rather than one that will never be reported.
-      if _queue.is_closed() then return None end
-      token
+      match \exhaustive\ _queue.send_data(_id, consume chunk, token)
+      | _QueueAccepted => token
+      | _QueueEntryGone => None
+      end
     else
       None
     end
@@ -198,7 +192,9 @@ class ref Responder
     """
     match _state
     | _ResponderStreaming =>
-      _state = _ResponderComplete
-      _queue.send_data(_id, _ChunkedEncoder.final_chunk())
-      _queue.finish(_id)
+      match _queue.send_data(_id, _ChunkedEncoder.final_chunk())
+      | _QueueAccepted =>
+        _state = _ResponderComplete
+        _queue.finish(_id)
+      end
     end

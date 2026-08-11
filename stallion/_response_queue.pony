@@ -1,3 +1,8 @@
+type _QueueResult is (_QueueAccepted | _QueueEntryGone)
+
+primitive _QueueAccepted
+primitive _QueueEntryGone
+
 class ref _QueueEntry
   """
   Per-request buffered response data.
@@ -25,16 +30,22 @@ class ref _ResponseQueue
   callback (unless throttled). For non-head entries, data is buffered until
   the entry becomes the head.
 
+  The queue carries no connection-lifecycle state. `close()` is pure
+  teardown: it clears entries, and subsequent operations report
+  `_QueueEntryGone` because the entry array is empty. The connection state
+  machine (`HTTPServer._state`) is the sole authority on whether the
+  connection is alive.
+
   **Re-entrancy contract**: both `close()` and `throttle()` may be called
   from within `_flush_data`. `_flush_data` calls `TCPConnection.send()`,
   which synchronously fires `_on_throttled` (on a partial write) — that
   re-enters as `throttle()` — or, on a send error, closes the connection,
   which re-enters as `close()`. `_response_complete` may likewise re-enter
   as `close()` (e.g., keep-alive=false). `_pump_head` is the single place
-  head data is flushed: it re-checks both `_closed` and `_throttled` after
-  every `_flush_data` and in its outer loop, so a re-throttle leaves the
-  unsent chunks buffered for the next `unthrottle()` and a close stops the
-  cascade safely.
+  head data is flushed: it re-checks `_entries.size()` and `_throttled`
+  after every `_flush_data` and in its outer loop, so a re-throttle leaves
+  the unsent chunks buffered for the next `unthrottle()` and a close (which
+  clears entries) stops the cascade safely.
   """
   let _notify: _ResponseQueueNotify ref
   var _head_id: U64 = 0
@@ -42,7 +53,6 @@ class ref _ResponseQueue
   var _next_chunk_token_id: U64 = 0
   embed _entries: Array[_QueueEntry]
   var _throttled: Bool = false
-  var _closed: Bool = false
 
   new create(notify: _ResponseQueueNotify ref) =>
     """
@@ -77,10 +87,21 @@ class ref _ResponseQueue
     _entries.push(_QueueEntry(keep_alive))
     id
 
+  fun has_entry(id: U64): Bool =>
+    """
+    Check whether the entry for a request ID still exists.
+
+    Returns `true` when the entry is present in the queue, `false` when it
+    has been cleared by `close()`. Pure read — no side effects.
+    """
+    let index = (id - _head_id).usize()
+    index < _entries.size()
+
   fun ref send_data(
     id: U64,
     data: ByteSeq,
     token: (ChunkSendToken | None) = None)
+    : _QueueResult
   =>
     """
     Submit response data for a request.
@@ -89,22 +110,33 @@ class ref _ResponseQueue
     data is sent immediately via `_flush_data`. Otherwise, data is buffered
     in the entry for later flushing. The optional `token` travels alongside
     the data — `ChunkSendToken` for user chunks, `None` for internal sends.
+
+    Returns `_QueueAccepted` when the data was buffered or sent, or
+    `_QueueEntryGone` when the entry no longer exists (the queue was torn
+    down by `close()`).
     """
-    if _closed then return end
     let index = (id - _head_id).usize()
     try
       let entry = _entries(index)?
       if (id == _head_id) and (not _throttled) then
         _notify._flush_data(data, token)
+        // Re-entrant close from _flush_data may have cleared entries.
+        if _entries.size() == 0 then return _QueueEntryGone end
       else
         entry.data.push(data)
         entry.tokens.push(token)
       end
+      _QueueAccepted
     else
-      _Unreachable()
+      if _entries.size() == 0 then
+        _QueueEntryGone
+      else
+        _Unreachable()
+        _QueueEntryGone
+      end
     end
 
-  fun ref finish(id: U64) =>
+  fun ref finish(id: U64): _QueueResult =>
     """
     Mark a request's response as complete.
 
@@ -115,8 +147,11 @@ class ref _ResponseQueue
     deferred: it stays at the head and advances on the next `unthrottle()`,
     so its data is never dropped. A non-head entry is flushed when it
     becomes the head.
+
+    Returns `_QueueAccepted` when the entry was marked finished, or
+    `_QueueEntryGone` when the entry no longer exists (the queue was torn
+    down by `close()`).
     """
-    if _closed then return end
     let index = (id - _head_id).usize()
     try
       let entry = _entries(index)?
@@ -124,8 +159,14 @@ class ref _ResponseQueue
       if id == _head_id then
         _pump_head()
       end
+      _QueueAccepted
     else
-      _Unreachable()
+      if _entries.size() == 0 then
+        _QueueEntryGone
+      else
+        _Unreachable()
+        _QueueEntryGone
+      end
     end
 
   fun ref throttle() =>
@@ -139,24 +180,20 @@ class ref _ResponseQueue
     Release backpressure — flush any buffered data for the head entry.
     """
     _throttled = false
-    if _closed then return end
     _pump_head()
 
   fun ref close() =>
     """
-    Discard all pending entries. All subsequent operations become no-ops.
+    Discard all pending entries.
+
+    Pure teardown — clears the entry array. Subsequent `send_data` and
+    `finish` calls report `_QueueEntryGone` because the entries are gone.
 
     Safe to call from within `_response_complete` or `_flush_data`
-    callbacks — the `_closed` flag stops cascading flushes.
+    callbacks — the empty entries array stops cascading flushes in
+    `_pump_head`.
     """
-    _closed = true
     _entries.clear()
-
-  fun is_closed(): Bool =>
-    """
-    Whether the queue is closed. A closed queue discards all work.
-    """
-    _closed
 
   fun pending(): USize =>
     """
@@ -190,7 +227,8 @@ class ref _ResponseQueue
 
     THE single place head data is flushed. Stops early on:
 
-    - close (`_closed`) — the connection is gone, nothing more to send;
+    - entries gone (`_entries.size() == 0`) — `close()` cleared the array,
+      nothing more to send;
     - re-throttle (`_throttled`) — `TCPConnection.send()`, called inside
       `_flush_data`, synchronously fires `_on_throttled` on a partial write
       / EWOULDBLOCK, which re-enters as `throttle()` and re-sets `_throttled`
@@ -201,21 +239,17 @@ class ref _ResponseQueue
     or close. `_advance_head` is only reached here, only when the buffer is
     empty and we are not throttled.
     """
-    while (not _closed) and (not _throttled) and (_entries.size() > 0) do
+    while (not _throttled) and (_entries.size() > 0) do
       try
         let entry = _entries(0)?
-        // Flush buffered data (data and tokens in lockstep) until drained,
-        // closed, or re-throttled.
         while entry.data.size() > 0 do
           try
             _notify._flush_data(entry.data.shift()?, entry.tokens.shift()?)
           else
             _Unreachable()
           end
-          if _closed or _throttled then return end
+          if (_entries.size() == 0) or _throttled then return end
         end
-        // Buffer drained. Advance if finished; otherwise wait for more
-        // send_data/finish on this head.
         if entry.finished then
           _advance_head()
         else
