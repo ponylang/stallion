@@ -122,8 +122,8 @@ class \nodoc\ iso _TestServerDuplicateHostWithBody is UnitTest
           _TestHTTPClient(
           h',
           port',
-          "POST / HTTP/1.1\r\nHost: a\r\nHost: b\r\n"
-            + "Content-Length: 3\r\n\r\nabc",
+          "POST / HTTP/1.1\r\nHost: a\r\nHost: b\r\n" +
+            "Content-Length: 3\r\n\r\nabc",
           "400 Bad Request",
           None)
         h'.dispose_when_done(client)
@@ -471,8 +471,8 @@ class \nodoc\ iso _TestServerAbsoluteFormPortMatch is UnitTest
           _TestHTTPClient(
           h',
           port',
-          "GET http://example.com:8080/ HTTP/1.1\r\n"
-            + "Host: example.com:8080\r\n\r\n",
+          "GET http://example.com:8080/ HTTP/1.1\r\n" +
+            "Host: example.com:8080\r\n\r\n",
           "200 OK",
           None)
         h'.dispose_when_done(client)
@@ -499,8 +499,8 @@ class \nodoc\ iso _TestServerAbsoluteFormPortMismatch is UnitTest
           _TestHTTPClient(
           h',
           port',
-          "GET http://example.com:8080/ HTTP/1.1\r\n"
-            + "Host: example.com:9090\r\n\r\n",
+          "GET http://example.com:8080/ HTTP/1.1\r\n" +
+            "Host: example.com:9090\r\n\r\n",
           "400 Bad Request",
           None)
         h'.dispose_when_done(client)
@@ -641,8 +641,8 @@ class \nodoc\ iso _TestServerConnectUserinfo is UnitTest
           _TestHTTPClient(
           h',
           port',
-          "CONNECT user@example.com:443 HTTP/1.1\r\n"
-            + "Host: example.com:443\r\n\r\n",
+          "CONNECT user@example.com:443 HTTP/1.1\r\n" +
+            "Host: example.com:443\r\n\r\n",
           "400 Bad Request",
           None)
         h'.dispose_when_done(client)

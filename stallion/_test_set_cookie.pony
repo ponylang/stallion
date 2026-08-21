@@ -152,8 +152,8 @@ class \nodoc\ iso _TestSetCookieKnownGood is UnitTest
       h.fail("__Host- with Domain: expected CookiePrefixViolation")
     | let e: CookiePrefixViolation => None // expected
     | let e: SetCookieBuildError =>
-      h.fail("__Host- with Domain: expected CookiePrefixViolation, got "
-        + e.string())
+      h.fail("__Host- with Domain: expected CookiePrefixViolation, got " +
+        e.string())
     end
 
     // Invalid: __Host- without Path="/"
@@ -164,8 +164,8 @@ class \nodoc\ iso _TestSetCookieKnownGood is UnitTest
       h.fail("__Host- with Path=/app: expected CookiePrefixViolation")
     | let e: CookiePrefixViolation => None
     | let e: SetCookieBuildError =>
-      h.fail("__Host- with Path=/app: expected CookiePrefixViolation, got "
-        + e.string())
+      h.fail("__Host- with Path=/app: expected CookiePrefixViolation, got " +
+        e.string())
     end
 
     // Invalid: __Host- without Secure
@@ -177,8 +177,8 @@ class \nodoc\ iso _TestSetCookieKnownGood is UnitTest
       h.fail("__Host- without Secure: expected CookiePrefixViolation")
     | let e: CookiePrefixViolation => None
     | let e: SetCookieBuildError =>
-      h.fail("__Host- without Secure: expected CookiePrefixViolation, got "
-        + e.string())
+      h.fail("__Host- without Secure: expected CookiePrefixViolation, got " +
+        e.string())
     end
 
     // Invalid: __Host- without any Path set (defaults to None)
@@ -187,8 +187,8 @@ class \nodoc\ iso _TestSetCookieKnownGood is UnitTest
       h.fail("__Host- no path: expected CookiePrefixViolation")
     | let e: CookiePrefixViolation => None
     | let e: SetCookieBuildError =>
-      h.fail("__Host- no path: expected CookiePrefixViolation, got "
-        + e.string())
+      h.fail("__Host- no path: expected CookiePrefixViolation, got " +
+        e.string())
     end
 
   fun _test_secure_prefix(h: TestHelper) =>
@@ -211,8 +211,8 @@ class \nodoc\ iso _TestSetCookieKnownGood is UnitTest
       h.fail("__Secure- without Secure: expected CookiePrefixViolation")
     | let e: CookiePrefixViolation => None
     | let e: SetCookieBuildError =>
-      h.fail("__Secure- without Secure: expected CookiePrefixViolation, got "
-        + e.string())
+      h.fail("__Secure- without Secure: expected CookiePrefixViolation, got " +
+        e.string())
     end
 
   fun _test_omit_same_site(h: TestHelper) =>
@@ -267,8 +267,8 @@ class \nodoc\ iso _TestSetCookieErrors is UnitTest
     | let _: InvalidCookiePath => None // expected
     | let sc: SetCookie val => h.fail("invalid path CRLF: expected error")
     | let e: SetCookieBuildError =>
-      h.fail("invalid path CRLF: expected InvalidCookiePath, got "
-        + e.string())
+      h.fail("invalid path CRLF: expected InvalidCookiePath, got " +
+        e.string())
     end
 
     // Invalid domain (semicolon injection)
@@ -278,8 +278,8 @@ class \nodoc\ iso _TestSetCookieErrors is UnitTest
     | let _: InvalidCookieDomain => None // expected
     | let sc: SetCookie val => h.fail("invalid domain: expected error")
     | let e: SetCookieBuildError =>
-      h.fail("invalid domain: expected InvalidCookieDomain, got "
-        + e.string())
+      h.fail("invalid domain: expected InvalidCookieDomain, got " +
+        e.string())
     end
 
     // Invalid domain (control character)
@@ -289,8 +289,8 @@ class \nodoc\ iso _TestSetCookieErrors is UnitTest
     | let _: InvalidCookieDomain => None // expected
     | let sc: SetCookie val => h.fail("invalid domain CTL: expected error")
     | let e: SetCookieBuildError =>
-      h.fail("invalid domain CTL: expected InvalidCookieDomain, got "
-        + e.string())
+      h.fail("invalid domain CTL: expected InvalidCookieDomain, got " +
+        e.string())
     end
 
     // SameSite=None without Secure
@@ -302,8 +302,8 @@ class \nodoc\ iso _TestSetCookieErrors is UnitTest
     | let sc: SetCookie val =>
       h.fail("SameSite=None no Secure: expected error")
     | let e: SetCookieBuildError =>
-      h.fail("SameSite=None no Secure: expected SameSiteRequiresSecure, got "
-        + e.string())
+      h.fail("SameSite=None no Secure: expected SameSiteRequiresSecure, got " +
+        e.string())
     end
 
 class \nodoc\ iso _PropertySetCookieValidBuild

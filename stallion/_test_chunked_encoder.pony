@@ -33,8 +33,8 @@ class \nodoc\ iso _PropertyChunkedEncoderFormat
     var found = false
     while crlf_pos < (encoded_val.size() - 1) do
       try
-        if (encoded_val(crlf_pos)? == '\r')
-          and (encoded_val(crlf_pos + 1)? == '\n')
+        if (encoded_val(crlf_pos)? == '\r') and
+          (encoded_val(crlf_pos + 1)? == '\n')
         then
           found = true
           break

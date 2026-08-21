@@ -13,20 +13,20 @@ primitive _ErrorResponse
     """
     match err
     | TooLarge =>
-      "HTTP/1.1 431 Request Header Fields Too Large\r\n"
-        + "Connection: close\r\nContent-Length: 0\r\n\r\n"
+      "HTTP/1.1 431 Request Header Fields Too Large\r\n" +
+        "Connection: close\r\nContent-Length: 0\r\n\r\n"
     | BodyTooLarge =>
-      "HTTP/1.1 413 Payload Too Large\r\n"
-        + "Connection: close\r\nContent-Length: 0\r\n\r\n"
+      "HTTP/1.1 413 Payload Too Large\r\n" +
+        "Connection: close\r\nContent-Length: 0\r\n\r\n"
     | InvalidVersion =>
-      "HTTP/1.1 505 HTTP Version Not Supported\r\n"
-        + "Connection: close\r\nContent-Length: 0\r\n\r\n"
+      "HTTP/1.1 505 HTTP Version Not Supported\r\n" +
+        "Connection: close\r\nContent-Length: 0\r\n\r\n"
     | UnsupportedTransferEncoding | UnknownMethod =>
-      "HTTP/1.1 501 Not Implemented\r\n"
-        + "Connection: close\r\nContent-Length: 0\r\n\r\n"
+      "HTTP/1.1 501 Not Implemented\r\n" +
+        "Connection: close\r\nContent-Length: 0\r\n\r\n"
     else
-      "HTTP/1.1 400 Bad Request\r\n"
-        + "Connection: close\r\nContent-Length: 0\r\n\r\n"
+      "HTTP/1.1 400 Bad Request\r\n" +
+        "Connection: close\r\nContent-Length: 0\r\n\r\n"
     end
 
   fun no_response(): String val =>
@@ -35,5 +35,5 @@ primitive _ErrorResponse
 
     This is a server error (500) — the connection closes after sending.
     """
-    "HTTP/1.1 500 Internal Server Error\r\n"
-      + "Connection: close\r\nContent-Length: 0\r\n\r\n"
+    "HTTP/1.1 500 Internal Server Error\r\n" +
+      "Connection: close\r\nContent-Length: 0\r\n\r\n"

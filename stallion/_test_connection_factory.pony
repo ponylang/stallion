@@ -147,8 +147,8 @@ actor \nodoc\ _TestHTTPClient is
 
     // Verify status line contains expected status
     if not response.contains(_expected_status) then
-      _h.fail("Expected status '" + _expected_status
-        + "' not found in response:\n" + response)
+      _h.fail("Expected status '" + _expected_status +
+        "' not found in response:\n" + response)
       _h.complete(false)
       return
     end
@@ -157,8 +157,8 @@ actor \nodoc\ _TestHTTPClient is
     match _expected_body
     | let body: String val =>
       if not response.contains(body) then
-        _h.fail("Expected body '" + body
-          + "' not found in response:\n" + response)
+        _h.fail("Expected body '" + body +
+          "' not found in response:\n" + response)
         _h.complete(false)
         return
       end
@@ -202,8 +202,8 @@ actor \nodoc\ _TestHTTPClientExpectClose is
       if response.contains(_expected_status) then
         _response_ok = true
       else
-        _h.fail("Expected status '" + _expected_status
-          + "' not found in response:\n" + response)
+        _h.fail("Expected status '" + _expected_status +
+          "' not found in response:\n" + response)
         _h.complete(false)
       end
     end

@@ -296,8 +296,8 @@ actor \nodoc\ _TestChunkCountServer is HTTPServerActor
       try
         _h.assert_true(
           expected == _delivered(i)?,
-          "on_chunk_sent() token " + i.string() + " should be the token "
-            + "send_chunk() returned for that chunk")
+          "on_chunk_sent() token " + i.string() + " should be the token " +
+            "send_chunk() returned for that chunk")
       else
         _h.fail("missing on_chunk_sent() for chunk " + i.string())
       end
