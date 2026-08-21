@@ -554,6 +554,9 @@ actor \nodoc\ _TestPlainTCPClient is
 
   fun ref _connection(): lori.TCPConnection => _tcp_connection
 
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+    None
+
   fun ref _on_connected() =>
     _tcp_connection.send("NOT AN SSL HANDSHAKE\r\n")
 
