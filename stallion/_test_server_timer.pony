@@ -197,9 +197,9 @@ class \nodoc\ iso _PropertyKeepAliveDecision
             let normalized = s.clone()
             normalized.strip(" \t")
             let nlower = normalized.lower()
-            (s, (not s.contains(","))
-              and (nlower != "close")
-              and (nlower != "keep-alive"))})
+            (s, (not s.contains(",")) and
+              (nlower != "close") and
+              (nlower != "keep-alive"))})
         .map[(String val | None)](
           {(s: String val): (String val | None) => s })
 

@@ -129,8 +129,8 @@ class _ExpectHeaders is _ParserState
     elseif f.name == "transfer-encoding" then
       _has_transfer_encoding = true
       _te_well_formed =
-        _TransferEncoding.append_codings(f.value, _te_codings)
-          and _te_well_formed
+        _TransferEncoding.append_codings(f.value, _te_codings) and
+          _te_well_formed
     end
     None
 

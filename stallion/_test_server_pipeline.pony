@@ -271,9 +271,9 @@ actor \nodoc\ _TestPipelineClient is
         if (pos0 < pos1) and (pos1 < pos2) then
           _h.complete(true)
         else
-          _h.fail("Responses arrived out of order: pos0="
-            + pos0.string() + " pos1=" + pos1.string()
-            + " pos2=" + pos2.string())
+          _h.fail("Responses arrived out of order: pos0=" +
+            pos0.string() + " pos1=" + pos1.string() +
+            " pos2=" + pos2.string())
           _h.complete(false)
         end
       else
@@ -374,8 +374,8 @@ actor \nodoc\ _TestStreamClient is
     if r.contains("0\r\n\r\n") then
       _completed = true
       // Verify Transfer-Encoding: chunked header (case-insensitive check)
-      if not (r.contains("Transfer-Encoding: chunked")
-        or r.contains("transfer-encoding: chunked"))
+      if not (r.contains("Transfer-Encoding: chunked") or
+        r.contains("transfer-encoding: chunked"))
       then
         _h.fail(
           "Missing Transfer-Encoding: chunked header in:\n" + r)
@@ -383,8 +383,8 @@ actor \nodoc\ _TestStreamClient is
         return lori.KeepReading
       end
       // Verify chunk data is present
-      if not (r.contains("chunk1") and r.contains("chunk2")
-        and r.contains("chunk3"))
+      if not (r.contains("chunk1") and r.contains("chunk2") and
+        r.contains("chunk3"))
       then
         _h.fail("Missing chunk data in:\n" + r)
         _h.complete(false)
@@ -398,8 +398,8 @@ actor \nodoc\ _TestStreamClient is
     // A close after the test's outcome is decided is not a failure.
     if not _completed then
       _h.fail(
-        "Connection closed before the chunked response completed:\n"
-          + _response)
+        "Connection closed before the chunked response completed:\n" +
+          _response)
       _h.complete(false)
     end
 
@@ -653,8 +653,8 @@ actor \nodoc\ _TestChunkSentClient is
     // Check for terminal chunk
     if r.contains("0\r\n\r\n") then
       _completed = true
-      if not (r.contains("Transfer-Encoding: chunked")
-        or r.contains("transfer-encoding: chunked"))
+      if not (r.contains("Transfer-Encoding: chunked") or
+        r.contains("transfer-encoding: chunked"))
       then
         _h.fail(
           "Missing Transfer-Encoding: chunked header in:\n" + r)
@@ -662,8 +662,8 @@ actor \nodoc\ _TestChunkSentClient is
         return lori.KeepReading
       end
       // Verify all 3 chunks arrived
-      if not (r.contains("cs-chunk-1") and r.contains("cs-chunk-2")
-        and r.contains("cs-chunk-3"))
+      if not (r.contains("cs-chunk-1") and r.contains("cs-chunk-2") and
+        r.contains("cs-chunk-3"))
       then
         _h.fail("Missing chunk data in:\n" + r)
         _h.complete(false)
@@ -677,8 +677,8 @@ actor \nodoc\ _TestChunkSentClient is
     // A close after the test's outcome is decided is not a failure.
     if not _completed then
       _h.fail(
-        "Connection closed before the chunked response completed:\n"
-          + _response)
+        "Connection closed before the chunked response completed:\n" +
+          _response)
       _h.complete(false)
     end
 

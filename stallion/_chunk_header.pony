@@ -64,8 +64,8 @@ primitive _ChunkHeader
     if s.size() == 0 then return false end
     match \exhaustive\ try s.find("=")?.usize() else None end
     | let eq: USize =>
-      _Token.valid(_OWS.trim(s.trim(0, eq)))
-        and _valid_ext_val(_OWS.trim(s.trim(eq + 1)))
+      _Token.valid(_OWS.trim(s.trim(0, eq))) and
+        _valid_ext_val(_OWS.trim(s.trim(eq + 1)))
     | None =>
       _Token.valid(s)
     end
@@ -104,18 +104,18 @@ primitive _ChunkHeader
     false
 
   fun _is_hexdig(b: U8): Bool =>
-    ((b >= '0') and (b <= '9'))
-      or ((b >= 'a') and (b <= 'f'))
-      or ((b >= 'A') and (b <= 'F'))
+    ((b >= '0') and (b <= '9')) or
+      ((b >= 'a') and (b <= 'f')) or
+      ((b >= 'A') and (b <= 'F'))
 
   fun _qdtext(c: U8): Bool =>
     """
     HTAB / SP / %x21 / %x23-5B / %x5D-7E / obs-text.
     """
-    (c == 0x09) or (c == 0x20) or (c == 0x21)
-      or ((c >= 0x23) and (c <= 0x5B))
-      or ((c >= 0x5D) and (c <= 0x7E))
-      or (c >= 0x80)
+    (c == 0x09) or (c == 0x20) or (c == 0x21) or
+      ((c >= 0x23) and (c <= 0x5B)) or
+      ((c >= 0x5D) and (c <= 0x7E)) or
+      (c >= 0x80)
 
   fun _quoted_pair_octet(c: U8): Bool =>
     """

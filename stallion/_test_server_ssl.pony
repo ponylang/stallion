@@ -264,8 +264,8 @@ actor \nodoc\ _TestSSLHTTPClient is
     let response: String val = _response.clone()
 
     if not response.contains(_expected_status) then
-      _h.fail("Expected status '" + _expected_status
-        + "' not found in response:\n" + response)
+      _h.fail("Expected status '" + _expected_status +
+        "' not found in response:\n" + response)
       _h.complete(false)
       return
     end
@@ -273,8 +273,8 @@ actor \nodoc\ _TestSSLHTTPClient is
     match _expected_body
     | let body: String val =>
       if not response.contains(body) then
-        _h.fail("Expected body '" + body
-          + "' not found in response:\n" + response)
+        _h.fail("Expected body '" + body +
+          "' not found in response:\n" + response)
         _h.complete(false)
         return
       end
@@ -319,8 +319,8 @@ actor \nodoc\ _TestSSLHTTPClientExpectClose is
       if response.contains(_expected_status) then
         _response_ok = true
       else
-        _h.fail("Expected status '" + _expected_status
-          + "' not found in response:\n" + response)
+        _h.fail("Expected status '" + _expected_status +
+          "' not found in response:\n" + response)
         _h.complete(false)
       end
     end
@@ -431,16 +431,16 @@ actor \nodoc\ _TestSSLStreamClient is
     let r: String val = _response.clone()
     if r.contains("0\r\n\r\n") then
       _completed = true
-      if not (r.contains("Transfer-Encoding: chunked")
-        or r.contains("transfer-encoding: chunked"))
+      if not (r.contains("Transfer-Encoding: chunked") or
+        r.contains("transfer-encoding: chunked"))
       then
         _h.fail(
           "Missing Transfer-Encoding: chunked header in:\n" + r)
         _h.complete(false)
         return lori.KeepReading
       end
-      if not (r.contains("chunk1") and r.contains("chunk2")
-        and r.contains("chunk3"))
+      if not (r.contains("chunk1") and r.contains("chunk2") and
+        r.contains("chunk3"))
       then
         _h.fail("Missing chunk data in:\n" + r)
         _h.complete(false)
@@ -454,8 +454,8 @@ actor \nodoc\ _TestSSLStreamClient is
     // A close after the test's outcome is decided is not a failure.
     if not _completed then
       _h.fail(
-        "Connection closed before the chunked response completed:\n"
-          + _response)
+        "Connection closed before the chunked response completed:\n" +
+          _response)
       _h.complete(false)
     end
 

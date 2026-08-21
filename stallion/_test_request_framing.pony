@@ -79,8 +79,8 @@ class \nodoc\ val _Signature
     body = notify.collected_body_string()
 
   fun eq(other: _Signature): Bool =>
-    (requests == other.requests) and (completed == other.completed)
-      and (errors == other.errors) and (body == other.body)
+    (requests == other.requests) and (completed == other.completed) and
+      (errors == other.errors) and (body == other.body)
 
   fun show(): String =>
     "requests=" + requests.string() + " completed=" + completed.string() +

@@ -77,9 +77,9 @@ primitive _RequestLine
     """
     if s.size() != 8 then return None end
     try
-      if (s(0)? == 'H') and (s(1)? == 'T') and (s(2)? == 'T')
-        and (s(3)? == 'P') and (s(4)? == '/') and (s(5)? == '1')
-        and (s(6)? == '.')
+      if (s(0)? == 'H') and (s(1)? == 'T') and (s(2)? == 'T') and
+        (s(3)? == 'P') and (s(4)? == '/') and (s(5)? == '1') and
+        (s(6)? == '.')
       then
         match s(7)?
         | '1' => HTTP11
