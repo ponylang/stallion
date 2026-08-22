@@ -2,8 +2,8 @@ use lori = "lori"
 use ssl_net = "ssl/net"
 use uri_pkg = "uri"
 
-class HTTPServer is
-  (lori.ServerLifecycleEventReceiver & _RequestParserNotify
+class HTTPServer[TCP: lori.TCPBackend ref = lori.RuntimeBackend] is
+  (lori.ServerLifecycleEventReceiver[TCP] & _RequestParserNotify
     & _ResponseQueueNotify)
   """
   HTTP protocol handler that manages parsing, response queuing, and
@@ -31,11 +31,15 @@ class HTTPServer is
     =>
       _http = HTTPServer(auth, fd, this, config)
   ```
+
+  The `TCP` type parameter matches lori's `TCPConnection[TCP]` backend.
+  Leave it defaulted; it exists primarily for stallion's own pure-test
+  suite, which substitutes a fake backend.
   """
   let _lifecycle_event_receiver: (HTTPServerLifecycleEventReceiver ref | None)
   let _config: (ServerConfig | None)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
-  var _state: _ConnectionState = _Active
+  var _tcp_connection: lori.TCPConnection[TCP] = lori.TCPConnection[TCP].none()
+  var _state: _ConnectionState[TCP] ref = _Active[TCP]
   var _queue: (_ResponseQueue | None) = None
   var _current_request: (Request val | None) = None
   var _current_responder: (Responder | None) = None
@@ -44,6 +48,7 @@ class HTTPServer is
   var _parser: (_RequestParser | None) = None
   embed _pending_sent_tokens: Array[(ChunkSendToken | None)]
   var _next_chunk_token: (ChunkSendToken | None) = None
+  var _send_capture: (_SendCaptureNotify ref | None) = None
 
   new none() =>
     """
@@ -61,7 +66,7 @@ class HTTPServer is
   new create(
     auth: lori.TCPServerAuth,
     fd: U32,
-    server_actor: HTTPServerActor ref,
+    server_actor: HTTPServerActor[TCP] ref,
     config: ServerConfig)
   =>
     """
@@ -77,7 +82,7 @@ class HTTPServer is
     _queue = _ResponseQueue(this)
     _parser = _RequestParser(this, config._parser_config())
     _tcp_connection =
-      lori.TCPConnection.server(
+      lori.TCPConnection[TCP].server(
         auth, fd, server_actor, this
         where read_buffer_size = config.read_buffer_size)
 
@@ -85,7 +90,7 @@ class HTTPServer is
     auth: lori.TCPServerAuth,
     ssl_ctx: ssl_net.SSLContext val,
     fd: U32,
-    server_actor: HTTPServerActor ref,
+    server_actor: HTTPServerActor[TCP] ref,
     config: ServerConfig)
   =>
     """
@@ -101,11 +106,11 @@ class HTTPServer is
     _queue = _ResponseQueue(this)
     _parser = _RequestParser(this, config._parser_config())
     _tcp_connection =
-      lori.TCPConnection.ssl_server(
+      lori.TCPConnection[TCP].ssl_server(
         auth, ssl_ctx, fd, server_actor, this
         where read_buffer_size = config.read_buffer_size)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): lori.TCPConnection[TCP] =>
     """
     Return the underlying TCP connection.
     """
@@ -128,7 +133,7 @@ class HTTPServer is
     // Set _Closed before delivering, for the reason _handle_closed does: an
     // actor that calls close() from the callback re-enters
     // _close_connection(), and the state guard makes that a no-op.
-    _state = _Closed
+    _state = _Closed[TCP]
     match \exhaustive\ _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref => r.on_start_failure(reason)
     | None => _Unreachable()
@@ -150,6 +155,17 @@ class HTTPServer is
     data: (ByteSeq | ByteSeqIter))
   =>
     _pending_sent_tokens.push(_next_chunk_token)
+    match _send_capture
+    | let c: _SendCaptureNotify ref => c._record(data)
+    end
+
+  fun ref _install_send_capture(cap: _SendCaptureNotify ref) =>
+    """
+    Install a capture object that receives every ByteSeq / ByteSeqIter
+    handed to lori's `send()` on this connection, in send order. For
+    pure tests running with a fake `TCPBackend` to inspect wire output.
+    """
+    _send_capture = cap
 
   fun ref _on_idle_timeout() =>
     _state.on_idle_timeout(this)
@@ -417,7 +433,7 @@ class HTTPServer is
     // Set _Closed before delivering on_closed: an actor that calls close()
     // from on_closed re-enters _close_connection(), and the state guard makes
     // that a no-op.
-    _state = _Closed
+    _state = _Closed[TCP]
     match \exhaustive\ _lifecycle_event_receiver
     | let r: HTTPServerLifecycleEventReceiver ref => r.on_closed()
     | None => _Unreachable()
@@ -601,5 +617,5 @@ class HTTPServer is
     // Set _Closing before close(): on a muted connection close() hard-closes
     // synchronously and re-enters _on_closed; _Closing.on_closed delivers
     // on_closed once and moves to _Closed.
-    _state = _Closing
+    _state = _Closing[TCP]
     _tcp_connection.close()

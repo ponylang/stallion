@@ -208,6 +208,51 @@ class \nodoc\ iso _TestSSLStreamingResponse is UnitTest
       where ssl_ctx = sslctx)
     h.dispose_when_done(listener)
 
+class \nodoc\ val _TestStreamServerFactory is _TestConnectionFactory
+  """
+  Factory for `_TestStreamServer`.
+  """
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None)
+  ): lori.TCPConnectionActor =>
+    _TestStreamServer(auth, fd, config, ssl_ctx)
+
+actor \nodoc\ _TestStreamServer is HTTPServerActor
+  """
+  Server that answers each request with a three-chunk chunked response.
+  """
+  var _http: HTTPServer = HTTPServer.none()
+
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None))
+  =>
+    _http =
+      match ssl_ctx
+      | let ctx: ssl_net.SSLContext val =>
+        HTTPServer.ssl(auth, ctx, fd, this, config)
+      else
+        HTTPServer(auth, fd, this, config)
+      end
+
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
+    let headers =
+      recover val
+        Headers .> set("content-type", "text/plain")
+      end
+    responder.start_chunked_response(StatusOK, headers)
+    responder.send_chunk("chunk1")
+    responder.send_chunk("chunk2")
+    responder.send_chunk("chunk3")
+    responder.finish_response()
+
 actor \nodoc\ _TestSSLHTTPClient is
   (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
   var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
