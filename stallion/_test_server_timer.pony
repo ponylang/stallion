@@ -353,3 +353,172 @@ class \nodoc\ iso _TestKeepAliveMultiToken is UnitTest
         "version=" + version.string() + " connection=" + shown)
     end
 
+class \nodoc\ iso _TestTimerFiresWhileClosing is UnitTest
+  """
+  A timer set while the connection was active still fires after the server
+  starts closing. The client mutes itself after sending, so it never reads
+  the server's close and the server stays in its closing state; the timer
+  then fires there and the server completes from `on_timer()`.
+  """
+  fun name(): String => "server/timer fires while closing"
+
+  fun apply(h: TestHelper) =>
+    h.long_test(5_000_000_000)
+    let port = "45898"
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    let config = ServerConfig(host, port)
+    let listener =
+      _TestClosingTimerListener(
+      h,
+      port,
+      _TestClosingTimerServerFactory(h),
+      config,
+      {(h': TestHelper, port': String) =>
+        let client =
+          _TestClosingTimerMutingClient(
+          h',
+          port',
+          "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+        h'.dispose_when_done(client)
+      })
+    h.dispose_when_done(listener)
+
+actor \nodoc\ _TestClosingTimerListener is lori.TCPListenerActor
+  """
+  Test listener that keeps every server actor it accepts and disposes them
+  when it closes.
+  """
+  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  let _server_auth: lori.TCPServerAuth
+  let _connection_factory: _TestConnectionFactory
+  let _config: ServerConfig
+  let _h: TestHelper
+  let _port: String
+  let _start_client: {(TestHelper, String)} val
+  embed _connections: Array[lori.TCPConnectionActor]
+
+  new create(
+    h: TestHelper,
+    port: String,
+    connection_factory: _TestConnectionFactory,
+    config: ServerConfig,
+    start_client: {(TestHelper, String)} val)
+  =>
+    _h = h
+    _port = port
+    _connection_factory = connection_factory
+    _config = config
+    _start_client = start_client
+    _connections = Array[lori.TCPConnectionActor]
+    let listen_auth = lori.TCPListenAuth(_h.env.root)
+    _server_auth = lori.TCPServerAuth(listen_auth)
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+
+  fun ref _listener(): lori.TCPListener =>
+    _tcp_listener
+
+  fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
+    let conn = _connection_factory(_server_auth, fd, _config, None)
+    _connections.push(conn)
+    conn
+
+  fun ref _on_listening() =>
+    _start_client(_h, _port)
+
+  fun ref _on_listen_failure() =>
+    _h.fail("Listener failed to start on port " + _port)
+    _h.complete(false)
+
+  fun ref _on_closed() =>
+    for conn in _connections.values() do
+      conn.dispose()
+    end
+    _connections.clear()
+
+class \nodoc\ val _TestClosingTimerServerFactory is _TestConnectionFactory
+  let _h: TestHelper
+
+  new val create(h: TestHelper) =>
+    _h = h
+
+  fun apply(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    ssl_ctx: (ssl_net.SSLContext val | None)
+  ): lori.TCPConnectionActor =>
+    _TestClosingTimerServer(auth, fd, config, _h)
+
+actor \nodoc\ _TestClosingTimerServer is HTTPServerActor
+  var _http: HTTPServer = HTTPServer.none()
+  let _h: TestHelper
+  var _armed: Bool = false
+
+  new create(
+    auth: lori.TCPServerAuth,
+    fd: U32,
+    config: ServerConfig,
+    h: TestHelper)
+  =>
+    _h = h
+    _http = HTTPServer(auth, fd, this, config)
+
+  fun ref _http_connection(): HTTPServer => _http
+
+  fun ref on_request_complete(request': Request val, responder: Responder) =>
+    // Arm before responding: responding is what starts the close, and a
+    // timer cannot be set once the connection is closing.
+    match lori.MakeTimerDuration(200)
+    | let d: lori.TimerDuration =>
+      match _http.set_timer(d)
+      | let t: lori.TimerToken => _armed = true
+      end
+    end
+    if not _armed then
+      _h.fail("could not set a timer on an active connection")
+      _h.complete(false)
+      return
+    end
+    let resp_body: String val = "Hello, World!"
+    responder.respond(
+      ResponseBuilder(StatusOK)
+        .add_header("content-type", "text/plain")
+        .add_header("Content-Length", resp_body.size().string())
+        .finish_headers()
+        .add_chunk(resp_body)
+        .build())
+
+  fun ref on_timer(token: lori.TimerToken) =>
+    _h.complete(true)
+
+actor \nodoc\ _TestClosingTimerMutingClient is
+  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
+  """
+  Client that sends a request and then mutes, so it never reads the
+  response or the server's close. Holds the server in its closing state
+  for as long as the test needs.
+  """
+  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  let _h: TestHelper
+  let _request: String val
+
+  new create(h: TestHelper, port: String, request: String val) =>
+    _h = h
+    _request = request
+    let host = ifdef linux then "127.0.0.2" else "localhost" end
+    _tcp_connection =
+      lori.TCPConnection.client(
+      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+
+  fun ref _connection(): lori.TCPConnection =>
+    _tcp_connection
+
+  fun ref _on_connected() =>
+    _tcp_connection.send(_request)
+    _tcp_connection.mute()
+
+  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+    _h.fail("Client connection failed")
+    _h.complete(false)
+
