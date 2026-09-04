@@ -12,7 +12,7 @@ class \nodoc\ iso _PropertyChunkedEncoderFormat
 
   fun gen(): Generator[Array[U8] val] =>
     Generators.array_of[U8](Generators.u8()
-      where min = 1, max = 200)
+      where from = 1, to = 200)
       .map[Array[U8] val](
         {(a: Array[U8] ref): Array[U8] val =>
           var result = recover iso Array[U8](a.size()) end

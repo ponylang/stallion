@@ -70,7 +70,7 @@ actor HelloServer is stallion.HTTPServerActor
     """
     var name: String val = "World"
     match request'.uri.query_params()
-    | let params: uri.QueryParams val =>
+    | let params: uri.FormURLEncoded val =>
       match params.get("name")
       | let n: String => name = n
       end

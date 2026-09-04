@@ -1034,7 +1034,7 @@ primitive \nodoc\ _PermutationGenerator
   fun apply(n: USize): Generator[Array[USize] val] =>
     // Generate n random USize values to use as shuffle entropy
     Generators.array_of[USize](Generators.usize(0, USize.max_value())
-      where min = n, max = n)
+      where from = n, to = n)
       .map[Array[USize] val](
         {(entropy: Array[USize] ref): Array[USize] val =>
           // Create identity permutation
