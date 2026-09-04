@@ -10,7 +10,7 @@ stallion is beta quality software that will change frequently. Expect breaking c
 
 * Requires ponyc 0.69.1 or later.
 * Install [corral](https://github.com/ponylang/corral)
-* `corral add github.com/ponylang/stallion.git --version 0.10.0`
+* `corral add github.com/ponylang/stallion.git --version 0.11.0`
 * `corral fetch` to fetch your dependencies
 * `use "stallion"` to include this package
 * `corral run -- ponyc` to compile your application
