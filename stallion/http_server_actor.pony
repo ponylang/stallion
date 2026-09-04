@@ -1,7 +1,7 @@
 use lori = "lori"
 
-trait tag HTTPServerActor is
-  (lori.TCPConnectionActor & HTTPServerLifecycleEventReceiver)
+trait tag HTTPServerActor[TCP: lori.TCPBackend ref = lori.RuntimeBackend] is
+  (lori.TCPConnectionActor[TCP] & HTTPServerLifecycleEventReceiver)
   """
   Trait for actors that serve HTTP connections.
 
@@ -36,9 +36,13 @@ trait tag HTTPServerActor is
   The `none()` default ensures all fields are initialized before the
   constructor body runs, so `this` is `ref` when passed to
   `HTTPServer.create()` or `HTTPServer.ssl()`.
+
+  The `TCP` type parameter matches lori's `TCPConnection[TCP]` backend.
+  Leave it defaulted; it exists primarily for stallion's own pure-test
+  suite, which substitutes a fake backend.
   """
 
-  fun ref _http_connection(): HTTPServer
+  fun ref _http_connection(): HTTPServer[TCP]
     """
     Return the protocol instance owned by this actor.
 
@@ -46,7 +50,7 @@ trait tag HTTPServerActor is
     the same instance every time.
     """
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): lori.TCPConnection[TCP] =>
     """
     Delegates to the protocol's TCP connection.
     """
