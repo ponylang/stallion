@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file. This projec
 
 ### Changed
 
+- SSLContext now comes from lori instead of ponylang/ssl ([PR #177](https://github.com/ponylang/stallion/pull/177))
 
 ## [0.11.0] - 2026-09-04
 
