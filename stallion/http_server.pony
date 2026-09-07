@@ -1,5 +1,4 @@
 use lori = "lori"
-use ssl_net = "ssl/net"
 use uri_pkg = "uri"
 
 class HTTPServer is
@@ -83,7 +82,7 @@ class HTTPServer is
 
   new ssl(
     auth: lori.TCPServerAuth,
-    ssl_ctx: ssl_net.SSLContext val,
+    ssl_ctx: lori.SSLContext val,
     fd: U32,
     server_actor: HTTPServerActor ref,
     config: ServerConfig)

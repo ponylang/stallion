@@ -1,6 +1,5 @@
 use "pony_test"
 use lori = "lori"
-use ssl_net = "ssl/net"
 
 class \nodoc\ iso _TestChunkSentBeforeClose is UnitTest
   """
@@ -243,7 +242,7 @@ class \nodoc\ val _TestChunkCountServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestChunkCountServer(auth, fd, config, _h, _chunks)
 
@@ -314,7 +313,7 @@ class \nodoc\ val _TestOnClosedTimingServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestOnClosedTimingServer(auth, fd, config, _h)
 
@@ -368,7 +367,7 @@ class \nodoc\ val _TestPipelinedChunkServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestPipelinedChunkServer(auth, fd, config, _h)
 
@@ -466,7 +465,7 @@ class \nodoc\ val _TestClosingTimerServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestClosingTimerServer(auth, fd, config, _h)
 

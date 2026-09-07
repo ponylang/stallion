@@ -1,6 +1,5 @@
 use "pony_test"
 use lori = "lori"
-use ssl_net = "ssl/net"
 use uri = "uri"
 
 class \nodoc\ iso _TestURIParsing is UnitTest
@@ -40,7 +39,7 @@ class \nodoc\ val _TestURIParsingServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestURIParsingServer(auth, fd, config, ssl_ctx)
 
@@ -51,11 +50,11 @@ actor \nodoc\ _TestURIParsingServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None))
+    ssl_ctx: (lori.SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: ssl_net.SSLContext val =>
+      | let ctx: lori.SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -115,7 +114,7 @@ class \nodoc\ val _TestConnectURIServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestConnectURIServer(auth, fd, config, ssl_ctx)
 
@@ -126,11 +125,11 @@ actor \nodoc\ _TestConnectURIServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None))
+    ssl_ctx: (lori.SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: ssl_net.SSLContext val =>
+      | let ctx: lori.SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -197,7 +196,7 @@ class \nodoc\ val _TestBodyServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestBodyServer(auth, fd, config, ssl_ctx)
 
@@ -210,11 +209,11 @@ actor \nodoc\ _TestBodyServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None))
+    ssl_ctx: (lori.SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: ssl_net.SSLContext val =>
+      | let ctx: lori.SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -374,7 +373,7 @@ class \nodoc\ val _TestCookieServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestCookieServer(auth, fd, config, ssl_ctx)
 
@@ -385,11 +384,11 @@ actor \nodoc\ _TestCookieServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None))
+    ssl_ctx: (lori.SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: ssl_net.SSLContext val =>
+      | let ctx: lori.SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)

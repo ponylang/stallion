@@ -114,13 +114,12 @@ an `SSLContext val` in the listener and pass it through in `_on_accept`:
 ```pony
 use stallion = "stallion"
 use "files"
-use "ssl/net"
 use lori = "lori"
 
 actor Main
   new create(env: Env) =>
     let sslctx = recover val
-      SSLContext
+      lori.SSLContext
         .> set_cert(
           FilePath(FileAuth(env.root), "cert.pem"),
           FilePath(FileAuth(env.root), "key.pem"))?

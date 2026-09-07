@@ -1,7 +1,6 @@
 use "pony_check"
 use "pony_test"
 use lori = "lori"
-use ssl_net = "ssl/net"
 
 class \nodoc\ iso _TestServerTimerFires is UnitTest
   """
@@ -75,7 +74,7 @@ class \nodoc\ val _TestTimerServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestTimerServer(auth, fd, config, _worker)
 

@@ -1,7 +1,6 @@
 use "files"
 use "pony_test"
 use lori = "lori"
-use ssl_net = "ssl/net"
 
 primitive \nodoc\ _TestSSLContext
   """
@@ -10,10 +9,10 @@ primitive \nodoc\ _TestSSLContext
   Used by both server and client: SSLContext is val, so server() and client()
   create independent SSL sessions from the shared context.
   """
-  fun apply(auth: AmbientAuth): ssl_net.SSLContext val ? =>
+  fun apply(auth: AmbientAuth): lori.SSLContext val ? =>
     let file_auth = FileAuth(auth)
     recover val
-      ssl_net.SSLContext
+      lori.SSLContext
         .> set_authority(
           FilePath(file_auth, "assets/cert.pem"))?
         .> set_cert(
@@ -220,7 +219,7 @@ actor \nodoc\ _TestSSLHTTPClient is
 
   new create(
     h: TestHelper,
-    ssl_ctx: ssl_net.SSLContext val,
+    ssl_ctx: lori.SSLContext val,
     port: String,
     request: String val,
     expected_status: String val,
@@ -293,7 +292,7 @@ actor \nodoc\ _TestSSLHTTPClientExpectClose is
 
   new create(
     h: TestHelper,
-    ssl_ctx: ssl_net.SSLContext val,
+    ssl_ctx: lori.SSLContext val,
     port: String,
     request: String val,
     expected_status: String val)
@@ -353,7 +352,7 @@ actor \nodoc\ _TestSSLKeepAliveClient is
 
   new create(
     h: TestHelper,
-    ssl_ctx: ssl_net.SSLContext val,
+    ssl_ctx: lori.SSLContext val,
     port: String)
   =>
     _h = h
@@ -410,7 +409,7 @@ actor \nodoc\ _TestSSLStreamClient is
 
   new create(
     h: TestHelper,
-    ssl_ctx: ssl_net.SSLContext val,
+    ssl_ctx: lori.SSLContext val,
     port: String)
   =>
     _h = h
@@ -507,7 +506,7 @@ class \nodoc\ val _TestStartFailureServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestStartFailureServer(auth, fd, config, ssl_ctx, _h)
 
@@ -519,13 +518,13 @@ actor \nodoc\ _TestStartFailureServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None),
+    ssl_ctx: (lori.SSLContext val | None),
     h: TestHelper)
   =>
     _h = h
     _http =
       match ssl_ctx
-      | let ctx: ssl_net.SSLContext val =>
+      | let ctx: lori.SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)

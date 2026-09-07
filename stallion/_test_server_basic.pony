@@ -1,7 +1,6 @@
 use "constrained_types"
 use "pony_test"
 use lori = "lori"
-use ssl_net = "ssl/net"
 
 class \nodoc\ iso _TestServerHelloWorld is UnitTest
   """
@@ -305,7 +304,7 @@ class \nodoc\ val _TestNeverRespondsServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestNeverRespondsServer(auth, fd, config, ssl_ctx)
 
@@ -316,11 +315,11 @@ actor \nodoc\ _TestNeverRespondsServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None))
+    ssl_ctx: (lori.SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: ssl_net.SSLContext val =>
+      | let ctx: lori.SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)

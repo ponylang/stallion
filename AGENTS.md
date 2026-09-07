@@ -43,7 +43,7 @@ make test-one t=TestName ssl=3.0.x   # run a single test by name
 make clean
 ```
 
-`ssl=` is required because stallion and lori depend on the `ssl` package.
+`ssl=` is required because lori links against OpenSSL/LibreSSL.
 
 ## RFC conformance
 
