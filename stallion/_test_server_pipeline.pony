@@ -1,6 +1,5 @@
 use "pony_test"
 use lori = "lori"
-use ssl_net = "ssl/net"
 
 class \nodoc\ iso _TestPipelineCorrectness is UnitTest
   """
@@ -149,7 +148,7 @@ class \nodoc\ val _TestPipelineServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestPipelineServer(auth, fd, config, ssl_ctx)
 
@@ -161,12 +160,12 @@ actor \nodoc\ _TestPipelineServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None))
+    ssl_ctx: (lori.SSLContext val | None))
   =>
     _responders = Array[Responder]
     _http =
       match ssl_ctx
-      | let ctx: ssl_net.SSLContext val =>
+      | let ctx: lori.SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -200,7 +199,7 @@ class \nodoc\ val _TestStreamServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestStreamServer(auth, fd, config, ssl_ctx)
 
@@ -211,11 +210,11 @@ actor \nodoc\ _TestStreamServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None))
+    ssl_ctx: (lori.SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: ssl_net.SSLContext val =>
+      | let ctx: lori.SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -412,7 +411,7 @@ class \nodoc\ val _TestPartialRespondServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestPartialRespondServer(auth, fd, config, ssl_ctx)
 
@@ -424,11 +423,11 @@ actor \nodoc\ _TestPartialRespondServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None))
+    ssl_ctx: (lori.SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: ssl_net.SSLContext val =>
+      | let ctx: lori.SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -504,7 +503,7 @@ class \nodoc\ val _TestChunkedFallbackServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestChunkedFallbackServer(auth, fd, config, ssl_ctx)
 
@@ -515,11 +514,11 @@ actor \nodoc\ _TestChunkedFallbackServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None))
+    ssl_ctx: (lori.SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: ssl_net.SSLContext val =>
+      | let ctx: lori.SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -579,7 +578,7 @@ class \nodoc\ val _TestChunkSentServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestChunkSentServer(auth, fd, config, ssl_ctx)
 
@@ -592,11 +591,11 @@ actor \nodoc\ _TestChunkSentServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None))
+    ssl_ctx: (lori.SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: ssl_net.SSLContext val =>
+      | let ctx: lori.SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)

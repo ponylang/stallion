@@ -1,5 +1,4 @@
 use "files"
-use "ssl/net"
 use stallion = "../../stallion"
 use lori = "lori"
 
@@ -9,7 +8,7 @@ actor Main
     let sslctx =
       try
         recover val
-          SSLContext
+          lori.SSLContext
             .> set_authority(
               FilePath(file_auth, "assets/cert.pem"))?
             .> set_cert(
@@ -34,14 +33,14 @@ actor Listener is lori.TCPListenerActor
   let _out: OutStream
   let _config: stallion.ServerConfig
   let _server_auth: lori.TCPServerAuth
-  let _ssl_ctx: SSLContext val
+  let _ssl_ctx: lori.SSLContext val
 
   new create(
     auth: lori.TCPListenAuth,
     host: String,
     port: String,
     out: OutStream,
-    ssl_ctx: SSLContext val)
+    ssl_ctx: lori.SSLContext val)
   =>
     _out = out
     _ssl_ctx = ssl_ctx
@@ -78,7 +77,7 @@ actor HelloServer is stallion.HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: stallion.ServerConfig,
-    ssl_ctx: SSLContext val)
+    ssl_ctx: lori.SSLContext val)
   =>
     _http = stallion.HTTPServer.ssl(auth, ssl_ctx, fd, this, config)
 

@@ -1,13 +1,12 @@
 use "pony_test"
 use lori = "lori"
-use ssl_net = "ssl/net"
 
 interface \nodoc\ val _TestConnectionFactory
   fun apply(
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor
 
 class \nodoc\ val _TestHelloServerFactory is _TestConnectionFactory
@@ -15,7 +14,7 @@ class \nodoc\ val _TestHelloServerFactory is _TestConnectionFactory
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None)
+    ssl_ctx: (lori.SSLContext val | None)
   ): lori.TCPConnectionActor =>
     _TestHelloServer(auth, fd, config, ssl_ctx)
 
@@ -26,11 +25,11 @@ actor \nodoc\ _TestHelloServer is HTTPServerActor
     auth: lori.TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (ssl_net.SSLContext val | None))
+    ssl_ctx: (lori.SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: ssl_net.SSLContext val =>
+      | let ctx: lori.SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -53,7 +52,7 @@ actor \nodoc\ _TestServerListener is lori.TCPListenerActor
   let _server_auth: lori.TCPServerAuth
   let _connection_factory: _TestConnectionFactory
   let _config: ServerConfig
-  let _ssl_ctx: (ssl_net.SSLContext val | None)
+  let _ssl_ctx: (lori.SSLContext val | None)
   let _h: TestHelper
   let _port: String
   let _start_client: {(TestHelper, String)} val
@@ -64,7 +63,7 @@ actor \nodoc\ _TestServerListener is lori.TCPListenerActor
     connection_factory: _TestConnectionFactory,
     config: ServerConfig,
     start_client: {(TestHelper, String)} val,
-    ssl_ctx: (ssl_net.SSLContext val | None) = None)
+    ssl_ctx: (lori.SSLContext val | None) = None)
   =>
     _h = h
     _port = port
