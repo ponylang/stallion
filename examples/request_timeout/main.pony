@@ -1,24 +1,24 @@
 use stallion = "../../stallion"
-use lori = "lori"
+use "net"
 
 actor Main
   new create(env: Env) =>
-    let auth = lori.TCPListenAuth(env.root)
+    let auth = TCPListenAuth(env.root)
     let worker = Worker
     Listener(auth, "0.0.0.0", "8080", env.out, worker)
 
-actor Listener is lori.TCPListenerActor
+actor Listener is TCPListenerActor
   """
   TCP listener that creates `DeadlineServer` actors for each connection.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  var _tcp_listener: TCPListener = TCPListener.none()
   let _out: OutStream
   let _config: stallion.ServerConfig
-  let _server_auth: lori.TCPServerAuth
+  let _server_auth: TCPServerAuth
   let _worker: Worker tag
 
   new create(
-    auth: lori.TCPListenAuth,
+    auth: TCPListenAuth,
     host: String,
     port: String,
     out: OutStream,
@@ -26,13 +26,13 @@ actor Listener is lori.TCPListenerActor
   =>
     _out = out
     _worker = worker
-    _server_auth = lori.TCPServerAuth(auth)
+    _server_auth = TCPServerAuth(auth)
     _config = stallion.ServerConfig(host, port)
-    _tcp_listener = lori.TCPListener(auth, host, port, this)
+    _tcp_listener = TCPListener(auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener => _tcp_listener
+  fun ref _listener(): TCPListener => _tcp_listener
 
-  fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
+  fun ref _on_accept(fd: U32): TCPConnectionActor =>
     DeadlineServer(_server_auth, fd, _config, _worker)
 
   fun ref _on_listening() =>
@@ -73,10 +73,10 @@ actor DeadlineServer is stallion.HTTPServerActor
   // which prevents the other path's match from succeeding — that's how
   // we ensure exactly one response per request.
   var _responder: (stallion.Responder | None) = None
-  var _timer_token: (lori.TimerToken | None) = None
+  var _timer_token: (TimerToken | None) = None
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: stallion.ServerConfig,
     worker: Worker tag)
@@ -92,26 +92,26 @@ actor DeadlineServer is stallion.HTTPServerActor
   =>
     // Create a 5-second deadline. MakeTimerDuration validates the
     // millisecond value and returns a TimerDuration on success.
-    match lori.MakeTimerDuration(5_000)
-    | let d: lori.TimerDuration =>
+    match MakeTimerDuration(5_000)
+    | let d: TimerDuration =>
       // set_timer returns a TimerToken on success, or a SetTimerError
       // if the connection isn't open or a timer is already active.
       match \exhaustive\ _http.set_timer(d)
-      | let t: lori.TimerToken =>
+      | let t: TimerToken =>
         // Arm the deadline: store the token and responder so both
         // work_complete and on_timer can check whether a deadline is
         // in flight and respond if they're the first to arrive.
         _responder = responder
         _timer_token = t
         _worker.process(this, request'.uri.path)
-      | lori.SetTimerAlreadyActive =>
+      | SetTimerAlreadyActive =>
         // Only one timer per connection. A previous request's timer
         // is still active — respond immediately instead of queuing.
         _respond(
           responder,
           stallion.StatusOK,
           "Timer busy — immediate response")
-      | lori.SetTimerNotOpen =>
+      | SetTimerNotOpen =>
         None
       end
     end
@@ -121,25 +121,25 @@ actor DeadlineServer is stallion.HTTPServerActor
     // by matching on both fields — if either is None, the timer already
     // fired and responded, so there's nothing to do.
     match (_timer_token, _responder)
-    | (let t: lori.TimerToken, let r: stallion.Responder) =>
+    | (let t: TimerToken, let r: stallion.Responder) =>
       // We won the race. Cancel the timer so on_timer doesn't fire,
       // then clear both fields to disarm the deadline. Even if
       // cancel_timer didn't exist, clearing the fields would be enough
       // — on_timer's match would fail. But cancelling avoids a
-      // needless callback from lori.
+      // needless callback from net.
       _http.cancel_timer(t)
       _timer_token = None
       _responder = None
       _respond(r, stallion.StatusOK, result)
     end
 
-  fun ref on_timer(token: lori.TimerToken) =>
+  fun ref on_timer(token: TimerToken) =>
     // The deadline expired. Check whether a deadline is still in flight.
     // The `if t == token` guard adds an extra check: it ensures we're
     // acting on the current timer, not a stale token left over from a
     // previous request whose work_complete already cleared and re-armed.
     match (_timer_token, _responder)
-    | (let t: lori.TimerToken, let r: stallion.Responder) if t == token =>
+    | (let t: TimerToken, let r: stallion.Responder) if t == token =>
       // We won the race. Clear both fields to disarm the deadline so
       // that if work_complete arrives later, its match fails silently.
       _timer_token = None

@@ -1,6 +1,6 @@
 use "constrained_types"
 use "pony_test"
-use lori = "lori"
+use "net"
 
 class \nodoc\ iso _TestServerHelloWorld is UnitTest
   """
@@ -247,8 +247,8 @@ class \nodoc\ iso _TestIdleTimeout is UnitTest
     let port = "45879"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let idle_timeout =
-      match lori.MakeIdleTimeout(1_000)
-      | let t: lori.IdleTimeout => t
+      match MakeIdleTimeout(1_000)
+      | let t: IdleTimeout => t
     end
     let config = ServerConfig(host, port where idle_timeout' = idle_timeout)
     let listener =
@@ -282,8 +282,8 @@ class \nodoc\ iso _TestIdleTimeoutClosesStalledConnection is UnitTest
     let port = "45896"
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     let idle_timeout =
-      match lori.MakeIdleTimeout(1_000)
-      | let t: lori.IdleTimeout => t
+      match MakeIdleTimeout(1_000)
+      | let t: IdleTimeout => t
     end
     let config = ServerConfig(host, port where idle_timeout' = idle_timeout)
     let listener =
@@ -301,25 +301,25 @@ class \nodoc\ iso _TestIdleTimeoutClosesStalledConnection is UnitTest
 
 class \nodoc\ val _TestNeverRespondsServerFactory is _TestConnectionFactory
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestNeverRespondsServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestNeverRespondsServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None))
+    ssl_ctx: (SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: lori.SSLContext val =>
+      | let ctx: SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -333,8 +333,8 @@ actor \nodoc\ _TestNeverRespondsServer is HTTPServerActor
     None
 
 actor \nodoc\ _TestExpectIdleClose is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   let _request: String val
 
@@ -343,24 +343,24 @@ actor \nodoc\ _TestExpectIdleClose is
     _request = request
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     // The server never produces a response; ignore anything that arrives.
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     // The idle timeout closed the stalled connection — the fix works.
     _h.complete(true)
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("client connection failed")
     _h.complete(false)
 
@@ -400,8 +400,8 @@ class \nodoc\ iso _TestMaxRequestsPerConnection is UnitTest
     h.dispose_when_done(listener)
 
 actor \nodoc\ _TestMaxRequestsClient is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   var _response: String ref = String
 
@@ -409,10 +409,10 @@ actor \nodoc\ _TestMaxRequestsClient is
     _h = h
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
@@ -422,9 +422,9 @@ actor \nodoc\ _TestMaxRequestsClient is
       "GET /2 HTTP/1.1\r\nHost: localhost\r\n\r\n" +
       "GET /3 HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     _response.append(consume data)
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     let r: String val = _response.clone()
@@ -454,7 +454,7 @@ actor \nodoc\ _TestMaxRequestsClient is
       _h.complete(true)
     end
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 

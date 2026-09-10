@@ -1,4 +1,4 @@
-use lori = "lori"
+use "net"
 
 trait ref HTTPServerLifecycleEventReceiver
   """
@@ -72,19 +72,19 @@ trait ref HTTPServerLifecycleEventReceiver
     here holds them until the peer closes.
 
     To close without waiting on the peer, call `dispose()` on the actor:
-    `HTTPServerActor` is a `lori.TCPConnectionActor`, whose `dispose()`
+    `HTTPServerActor` is a `TCPConnectionActor`, whose `dispose()`
     hard-closes the connection and delivers `on_closed()` in the dispose
     turn.
     """
     None
 
-  fun ref on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref on_start_failure(reason: StartFailureReason) =>
     """
     Called when a connection fails before starting.
 
     Fires when the TCP connection was accepted but never reached the
     HTTP-ready state — for example, when an SSL handshake fails. The
-    `reason` identifies the cause (currently `lori.StartFailedSSL`).
+    `reason` identifies the cause (currently `StartFailedSSL`).
 
     Neither `on_request()` nor `on_closed()` will fire for this
     connection. This is the only notification the actor receives.
@@ -117,9 +117,9 @@ trait ref HTTPServerLifecycleEventReceiver
     No callback fires until the chunk's bytes reach the OS, and even then it
     can be lost: when the connection's close is reported first, any callback
     queued behind that report never reaches the actor. One way that happens
-    is a delivery and the close landing in the same actor turn, where lori
+    is a delivery and the close landing in the same actor turn, where net
     reports the close synchronously and the delivery is queued behind it
-    (`ponylang/lori#345`).
+    (`https://github.com/ponylang/lori/issues/345`).
 
     Use this for flow-controlled streaming: send a chunk, wait for the
     callback, then send the next chunk. Multiple chunks can be in flight
@@ -138,7 +138,7 @@ trait ref HTTPServerLifecycleEventReceiver
     """
     None
 
-  fun ref on_timer(token: lori.TimerToken) =>
+  fun ref on_timer(token: TimerToken) =>
     """
     Called when a one-shot timer created by `HTTPServer.set_timer()` fires.
 

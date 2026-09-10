@@ -1,6 +1,6 @@
 use "pony_check"
 use "pony_test"
-use lori = "lori"
+use "net"
 
 class \nodoc\ iso _TestServerTimerFires is UnitTest
   """
@@ -71,11 +71,11 @@ class \nodoc\ val _TestTimerServerFactory is _TestConnectionFactory
     _worker = worker
 
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestTimerServer(auth, fd, config, _worker)
 
 actor \nodoc\ _TestTimerWorker
@@ -97,10 +97,10 @@ actor \nodoc\ _TestTimerServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
   let _worker: _TestTimerWorker tag
   var _responder: (Responder | None) = None
-  var _timer_token: (lori.TimerToken | None) = None
+  var _timer_token: (TimerToken | None) = None
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
     worker: _TestTimerWorker tag)
@@ -113,10 +113,10 @@ actor \nodoc\ _TestTimerServer is HTTPServerActor
   fun ref on_request_complete(request': Request val, responder: Responder) =>
     // 2-second deadline. The worker's behavior (respond or hang)
     // determines which path wins — not the timer duration.
-    match lori.MakeTimerDuration(2_000)
-    | let d: lori.TimerDuration =>
+    match MakeTimerDuration(2_000)
+    | let d: TimerDuration =>
       match _http.set_timer(d)
-      | let t: lori.TimerToken =>
+      | let t: TimerToken =>
         _responder = responder
         _timer_token = t
         _worker.process(this)
@@ -126,7 +126,7 @@ actor \nodoc\ _TestTimerServer is HTTPServerActor
   be work_complete(result: String val) =>
     // Worker finished before the deadline — cancel timer and respond
     match (_timer_token, _responder)
-    | (let t: lori.TimerToken, let r: Responder) =>
+    | (let t: TimerToken, let r: Responder) =>
       _http.cancel_timer(t)
       _timer_token = None
       _responder = None
@@ -140,10 +140,10 @@ actor \nodoc\ _TestTimerServer is HTTPServerActor
       r.respond(response)
     end
 
-  fun ref on_timer(token: lori.TimerToken) =>
+  fun ref on_timer(token: TimerToken) =>
     // Deadline expired — worker didn't finish in time
     match (_timer_token, _responder)
-    | (let t: lori.TimerToken, let r: Responder) if t == token =>
+    | (let t: TimerToken, let r: Responder) if t == token =>
       _timer_token = None
       _responder = None
       let resp_body: String val = "Request timed out"

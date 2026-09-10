@@ -1,5 +1,5 @@
 use "pony_test"
-use lori = "lori"
+use "net"
 
 class \nodoc\ iso _TestChunkSentBeforeClose is UnitTest
   """
@@ -128,20 +128,20 @@ class \nodoc\ iso _TestChunkSentPipelinedNonHead is UnitTest
       })
     h.dispose_when_done(listener)
 
-actor \nodoc\ _TestTrackingListener is lori.TCPListenerActor
+actor \nodoc\ _TestTrackingListener is TCPListenerActor
   """
   Test listener that keeps every server actor it accepts and disposes them
   when it closes. `_TestServerListener` keeps none, and it is shared by every
   other server test, so the tests that need disposal use this one.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+  var _tcp_listener: TCPListener = TCPListener.none()
+  let _server_auth: TCPServerAuth
   let _connection_factory: _TestConnectionFactory
   let _config: ServerConfig
   let _h: TestHelper
   let _port: String
   let _start_client: {(TestHelper, String)} val
-  embed _connections: Array[lori.TCPConnectionActor]
+  embed _connections: Array[TCPConnectionActor]
 
   new create(
     h: TestHelper,
@@ -155,16 +155,16 @@ actor \nodoc\ _TestTrackingListener is lori.TCPListenerActor
     _connection_factory = connection_factory
     _config = config
     _start_client = start_client
-    _connections = Array[lori.TCPConnectionActor]
-    let listen_auth = lori.TCPListenAuth(_h.env.root)
-    _server_auth = lori.TCPServerAuth(listen_auth)
+    _connections = Array[TCPConnectionActor]
+    let listen_auth = TCPListenAuth(_h.env.root)
+    _server_auth = TCPServerAuth(listen_auth)
     let host = ifdef linux then "127.0.0.2" else "localhost" end
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _tcp_listener = TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): TCPListener =>
     _tcp_listener
 
-  fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
+  fun ref _on_accept(fd: U32): TCPConnectionActor =>
     let conn = _connection_factory(_server_auth, fd, _config, None)
     _connections.push(conn)
     conn
@@ -183,7 +183,7 @@ actor \nodoc\ _TestTrackingListener is lori.TCPListenerActor
     _connections.clear()
 
 actor \nodoc\ _TestPassiveClient is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
   """
   Test client that sends a request and then holds its socket open, discarding
   whatever comes back. It never closes first: a client that half-closes right
@@ -193,7 +193,7 @@ actor \nodoc\ _TestPassiveClient is
   `on_closed()` fire; the tests that use this client assert and complete
   there.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   let _request: String val
   var _bytes_received: USize = 0
@@ -203,18 +203,18 @@ actor \nodoc\ _TestPassiveClient is
     _request = request
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     _bytes_received = _bytes_received + data.size()
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     // The server completes these tests from its own `on_closed()`, which it
@@ -226,7 +226,7 @@ actor \nodoc\ _TestPassiveClient is
       _h.complete(false)
     end
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
@@ -239,11 +239,11 @@ class \nodoc\ val _TestChunkCountServerFactory is _TestConnectionFactory
     _chunks = chunks
 
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestChunkCountServer(auth, fd, config, _h, _chunks)
 
 actor \nodoc\ _TestChunkCountServer is HTTPServerActor
@@ -254,7 +254,7 @@ actor \nodoc\ _TestChunkCountServer is HTTPServerActor
   embed _delivered: Array[ChunkSendToken]
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
     h: TestHelper,
@@ -310,11 +310,11 @@ class \nodoc\ val _TestOnClosedTimingServerFactory is _TestConnectionFactory
     _h = h
 
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestOnClosedTimingServer(auth, fd, config, _h)
 
 actor \nodoc\ _TestOnClosedTimingServer is HTTPServerActor
@@ -324,7 +324,7 @@ actor \nodoc\ _TestOnClosedTimingServer is HTTPServerActor
   var _closed_count: USize = 0
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
     h: TestHelper)
@@ -364,11 +364,11 @@ class \nodoc\ val _TestPipelinedChunkServerFactory is _TestConnectionFactory
     _h = h
 
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestPipelinedChunkServer(auth, fd, config, _h)
 
 actor \nodoc\ _TestPipelinedChunkServer is HTTPServerActor
@@ -379,7 +379,7 @@ actor \nodoc\ _TestPipelinedChunkServer is HTTPServerActor
   var _callbacks: USize = 0
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
     h: TestHelper)
@@ -462,11 +462,11 @@ class \nodoc\ val _TestClosingTimerServerFactory is _TestConnectionFactory
     _h = h
 
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestClosingTimerServer(auth, fd, config, _h)
 
 actor \nodoc\ _TestClosingTimerServer is HTTPServerActor
@@ -475,7 +475,7 @@ actor \nodoc\ _TestClosingTimerServer is HTTPServerActor
   var _armed: Bool = false
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
     h: TestHelper)
@@ -488,10 +488,10 @@ actor \nodoc\ _TestClosingTimerServer is HTTPServerActor
   fun ref on_request_complete(request': Request val, responder: Responder) =>
     // Arm before responding: responding is what starts the close, and a
     // timer cannot be set once the connection is closing.
-    match lori.MakeTimerDuration(200)
-    | let d: lori.TimerDuration =>
+    match MakeTimerDuration(200)
+    | let d: TimerDuration =>
       match _http.set_timer(d)
-      | let t: lori.TimerToken => _armed = true
+      | let t: TimerToken => _armed = true
       end
     end
     if not _armed then
@@ -508,17 +508,17 @@ actor \nodoc\ _TestClosingTimerServer is HTTPServerActor
         .add_chunk(resp_body)
         .build())
 
-  fun ref on_timer(token: lori.TimerToken) =>
+  fun ref on_timer(token: TimerToken) =>
     _h.complete(true)
 
 actor \nodoc\ _TestMutingClient is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
   """
   Test client that sends a request and then mutes, so it never reads the
   response or the server's close. That holds the server in its closing state
   for as long as the test needs.
   """
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   let _request: String val
 
@@ -527,16 +527,16 @@ actor \nodoc\ _TestMutingClient is
     _request = request
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
     _tcp_connection.mute()
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)

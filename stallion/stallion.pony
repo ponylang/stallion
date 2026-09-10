@@ -1,7 +1,7 @@
 """
-HTTP server for Pony, built on lori.
+HTTP server for Pony.
 
-A listener actor implements `lori.TCPListenerActor` and creates
+A listener actor implements `TCPListenerActor` and creates
 `stallion.HTTPServerActor` instances in `_on_accept`. Each connection actor owns
 a `stallion.HTTPServer` that handles HTTP parsing and response management,
 delivering HTTP events via
@@ -9,32 +9,32 @@ delivering HTTP events via
 
 ```pony
 use stallion = "stallion"
-use lori = "lori"
+use "net"
 
 actor Main
   new create(env: Env) =>
-    let auth = lori.TCPListenAuth(env.root)
+    let auth = TCPListenAuth(env.root)
     MyListener(auth, "localhost", "8080")
 
-actor MyListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor MyListener is TCPListenerActor
+  var _tcp_listener: TCPListener = TCPListener.none()
+  let _server_auth: TCPServerAuth
   let _config: stallion.ServerConfig
 
-  new create(auth: lori.TCPListenAuth, host: String, port: String) =>
-    _server_auth = lori.TCPServerAuth(auth)
+  new create(auth: TCPListenAuth, host: String, port: String) =>
+    _server_auth = TCPServerAuth(auth)
     _config = stallion.ServerConfig(host, port)
-    _tcp_listener = lori.TCPListener(auth, host, port, this)
+    _tcp_listener = TCPListener(auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener => _tcp_listener
+  fun ref _listener(): TCPListener => _tcp_listener
 
-  fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
+  fun ref _on_accept(fd: U32): TCPConnectionActor =>
     MyServer(_server_auth, fd, _config)
 
 actor MyServer is stallion.HTTPServerActor
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
 
-  new create(auth: lori.TCPServerAuth, fd: U32,
+  new create(auth: TCPServerAuth, fd: U32,
     config: stallion.ServerConfig)
   =>
     _http = stallion.HTTPServer(auth, fd, this, config)
@@ -103,8 +103,9 @@ fun ref on_request_complete(request': stallion.Request val,
 No callback fires until the chunk's bytes reach the OS, and even then it can
 be lost: when the connection's close is reported first, any callback queued
 behind that report never reaches the actor. One way that happens is a delivery
-and the close landing in the same actor turn, where lori reports the close
-synchronously and the delivery is queued behind it (`ponylang/lori#345`). An
+and the close landing in the same actor turn, where net reports the close
+synchronously and the delivery is queued behind it
+(`https://github.com/ponylang/lori/issues/345`). An
 actor that sends the next chunk only after the previous one's callback can
 therefore stop making progress.
 
@@ -114,38 +115,38 @@ an `SSLContext val` in the listener and pass it through in `_on_accept`:
 ```pony
 use stallion = "stallion"
 use "files"
-use lori = "lori"
+use "net"
 
 actor Main
   new create(env: Env) =>
     let sslctx = recover val
-      lori.SSLContext
+      SSLContext
         .> set_cert(
           FilePath(FileAuth(env.root), "cert.pem"),
           FilePath(FileAuth(env.root), "key.pem"))?
         .> set_client_verify(false)
         .> set_server_verify(false)
     end
-    let auth = lori.TCPListenAuth(env.root)
+    let auth = TCPListenAuth(env.root)
     MyListener(auth, "localhost", "8443", sslctx)
 
-actor MyListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor MyListener is TCPListenerActor
+  var _tcp_listener: TCPListener = TCPListener.none()
+  let _server_auth: TCPServerAuth
   let _config: stallion.ServerConfig
   let _ssl_ctx: SSLContext val
 
-  new create(auth: lori.TCPListenAuth, host: String, port: String,
+  new create(auth: TCPListenAuth, host: String, port: String,
     ssl_ctx: SSLContext val)
   =>
     _ssl_ctx = ssl_ctx
-    _server_auth = lori.TCPServerAuth(auth)
+    _server_auth = TCPServerAuth(auth)
     _config = stallion.ServerConfig(host, port)
-    _tcp_listener = lori.TCPListener(auth, host, port, this)
+    _tcp_listener = TCPListener(auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener => _tcp_listener
+  fun ref _listener(): TCPListener => _tcp_listener
 
-  fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
+  fun ref _on_accept(fd: U32): TCPConnectionActor =>
     MyServer(_server_auth, fd, _config, _ssl_ctx)
 ```
 
@@ -237,7 +238,7 @@ timer, delegate work to another actor, and race the result against the deadline:
 actor MyServer is stallion.HTTPServerActor
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
   let _database: Database tag
-  var _timer: (lori.TimerToken | None) = None
+  var _timer: (TimerToken | None) = None
   var _responder: (stallion.Responder | None) = None
 
   // ... constructor ...
@@ -247,21 +248,21 @@ actor MyServer is stallion.HTTPServerActor
   fun ref on_request_complete(request': stallion.Request val,
     responder: stallion.Responder)
   =>
-    match lori.MakeTimerDuration(5_000)
-    | let d: lori.TimerDuration =>
+    match MakeTimerDuration(5_000)
+    | let d: TimerDuration =>
       match _http.set_timer(d)
-      | let t: lori.TimerToken =>
+      | let t: TimerToken =>
         _timer = t
         _responder = responder
         _database.query(request', this)
-      | let err: lori.SetTimerError => None
+      | let err: SetTimerError => None
       end
     end
 
   be query_result(data: String val) =>
     // Work completed before the deadline — cancel timer and respond
     match (_timer, _responder)
-    | (let t: lori.TimerToken, let r: stallion.Responder) =>
+    | (let t: TimerToken, let r: stallion.Responder) =>
       _http.cancel_timer(t)
       _timer = None
       _responder = None
@@ -273,10 +274,10 @@ actor MyServer is stallion.HTTPServerActor
       r.respond(response)
     end
 
-  fun ref on_timer(token: lori.TimerToken) =>
+  fun ref on_timer(token: TimerToken) =>
     // Deadline expired — worker didn't finish in time
     match (_timer, _responder)
-    | (let t: lori.TimerToken, let r: stallion.Responder) if t == token =>
+    | (let t: TimerToken, let r: stallion.Responder) if t == token =>
       _timer = None
       _responder = None
       let body: String val = "Request timed out"

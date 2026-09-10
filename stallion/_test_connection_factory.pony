@@ -1,35 +1,35 @@
 use "pony_test"
-use lori = "lori"
+use "net"
 
 interface \nodoc\ val _TestConnectionFactory
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor
 
 class \nodoc\ val _TestHelloServerFactory is _TestConnectionFactory
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestHelloServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestHelloServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None))
+    ssl_ctx: (SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: lori.SSLContext val =>
+      | let ctx: SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -47,12 +47,12 @@ actor \nodoc\ _TestHelloServer is HTTPServerActor
       .build()
     responder.respond(response)
 
-actor \nodoc\ _TestServerListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor \nodoc\ _TestServerListener is TCPListenerActor
+  var _tcp_listener: TCPListener = TCPListener.none()
+  let _server_auth: TCPServerAuth
   let _connection_factory: _TestConnectionFactory
   let _config: ServerConfig
-  let _ssl_ctx: (lori.SSLContext val | None)
+  let _ssl_ctx: (SSLContext val | None)
   let _h: TestHelper
   let _port: String
   let _start_client: {(TestHelper, String)} val
@@ -63,7 +63,7 @@ actor \nodoc\ _TestServerListener is lori.TCPListenerActor
     connection_factory: _TestConnectionFactory,
     config: ServerConfig,
     start_client: {(TestHelper, String)} val,
-    ssl_ctx: (lori.SSLContext val | None) = None)
+    ssl_ctx: (SSLContext val | None) = None)
   =>
     _h = h
     _port = port
@@ -71,15 +71,15 @@ actor \nodoc\ _TestServerListener is lori.TCPListenerActor
     _config = config
     _ssl_ctx = ssl_ctx
     _start_client = start_client
-    let listen_auth = lori.TCPListenAuth(_h.env.root)
-    _server_auth = lori.TCPServerAuth(listen_auth)
+    let listen_auth = TCPListenAuth(_h.env.root)
+    _server_auth = TCPServerAuth(listen_auth)
     let host = ifdef linux then "127.0.0.2" else "localhost" end
-    _tcp_listener = lori.TCPListener(listen_auth, host, port, this)
+    _tcp_listener = TCPListener(listen_auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener =>
+  fun ref _listener(): TCPListener =>
     _tcp_listener
 
-  fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
+  fun ref _on_accept(fd: U32): TCPConnectionActor =>
     _connection_factory(_server_auth, fd, _config, _ssl_ctx)
 
   fun ref _on_listening() =>
@@ -90,8 +90,8 @@ actor \nodoc\ _TestServerListener is lori.TCPListenerActor
     _h.complete(false)
 
 actor \nodoc\ _TestHTTPClient is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   let _request: String val
   let _expected_status: String val
@@ -112,22 +112,22 @@ actor \nodoc\ _TestHTTPClient is
     _expected_body = expected_body
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     _response.append(consume data)
     // Check if we have a complete response (headers end with \r\n\r\n)
     if _response.contains("\r\n\r\n") then
       _verify_response()
     end
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     // A close after the test's outcome is decided is not a failure.
@@ -136,7 +136,7 @@ actor \nodoc\ _TestHTTPClient is
       _h.complete(false)
     end
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
@@ -166,8 +166,8 @@ actor \nodoc\ _TestHTTPClient is
     _h.complete(true)
 
 actor \nodoc\ _TestHTTPClientExpectClose is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   let _request: String val
   let _expected_status: String val
@@ -185,16 +185,16 @@ actor \nodoc\ _TestHTTPClientExpectClose is
     _expected_status = expected_status
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     _response.append(consume data)
     if _response.contains("\r\n\r\n") then
       let response: String val = _response.clone()
@@ -206,7 +206,7 @@ actor \nodoc\ _TestHTTPClientExpectClose is
         _h.complete(false)
       end
     end
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     if _response_ok then
@@ -222,13 +222,13 @@ actor \nodoc\ _TestHTTPClientExpectClose is
       end
     end
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
 actor \nodoc\ _TestKeepAliveClient is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   var _response: String ref = String
   var _requests_sent: USize = 0
@@ -238,10 +238,10 @@ actor \nodoc\ _TestKeepAliveClient is
     _h = h
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
@@ -249,7 +249,7 @@ actor \nodoc\ _TestKeepAliveClient is
     _tcp_connection.send(
       "GET /1 HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
 
@@ -270,7 +270,7 @@ actor \nodoc\ _TestKeepAliveClient is
         _h.complete(true)
       end
     end
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     // A close after the test's outcome is decided is not a failure.
@@ -279,7 +279,7 @@ actor \nodoc\ _TestKeepAliveClient is
       _h.complete(false)
     end
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 

@@ -1,5 +1,5 @@
 use "pony_test"
-use lori = "lori"
+use "net"
 
 // HTTPServer-level (protocol-layer) conformance (Discussion #123 boundary).
 //

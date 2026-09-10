@@ -1,35 +1,35 @@
 use stallion = "../../stallion"
 use uri = "uri"
-use lori = "lori"
+use "net"
 
 actor Main
   new create(env: Env) =>
-    let auth = lori.TCPListenAuth(env.root)
+    let auth = TCPListenAuth(env.root)
     Listener(auth, "0.0.0.0", "8080", env.out)
 
-actor Listener is lori.TCPListenerActor
+actor Listener is TCPListenerActor
   """
   TCP listener that creates `HelloServer` actors for each connection.
   """
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
+  var _tcp_listener: TCPListener = TCPListener.none()
   let _out: OutStream
   let _config: stallion.ServerConfig
-  let _server_auth: lori.TCPServerAuth
+  let _server_auth: TCPServerAuth
 
   new create(
-    auth: lori.TCPListenAuth,
+    auth: TCPListenAuth,
     host: String,
     port: String,
     out: OutStream)
   =>
     _out = out
-    _server_auth = lori.TCPServerAuth(auth)
+    _server_auth = TCPServerAuth(auth)
     _config = stallion.ServerConfig(host, port)
-    _tcp_listener = lori.TCPListener(auth, host, port, this)
+    _tcp_listener = TCPListener(auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener => _tcp_listener
+  fun ref _listener(): TCPListener => _tcp_listener
 
-  fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
+  fun ref _on_accept(fd: U32): TCPConnectionActor =>
     HelloServer(_server_auth, fd, _config)
 
   fun ref _on_listening() =>
@@ -53,7 +53,7 @@ actor HelloServer is stallion.HTTPServerActor
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: stallion.ServerConfig)
   =>
