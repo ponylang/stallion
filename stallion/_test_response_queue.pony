@@ -17,7 +17,7 @@ class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
   // returns to its caller. Cleared as it fires, so it closes once.
   var close_on_next_flush: Bool = false
   // One-shot re-throttle hook: when the cumulative flush count reaches
-  // `throttle_after`, call throttle() once and clear the hook. Simulates lori
+  // `throttle_after`, call throttle() once and clear the hook. Simulates net
   // re-applying backpressure synchronously inside send() (a partial write
   // fires _on_throttled re-entrantly mid-flush). Cleared before firing so it
   // re-throttles exactly once per arming. The count is cumulative over this

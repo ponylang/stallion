@@ -1,5 +1,5 @@
 use "pony_test"
-use lori = "lori"
+use "net"
 use uri = "uri"
 
 class \nodoc\ iso _TestURIParsing is UnitTest
@@ -36,25 +36,25 @@ class \nodoc\ iso _TestURIParsing is UnitTest
 
 class \nodoc\ val _TestURIParsingServerFactory is _TestConnectionFactory
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestURIParsingServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestURIParsingServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None))
+    ssl_ctx: (SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: lori.SSLContext val =>
+      | let ctx: SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -111,25 +111,25 @@ class \nodoc\ iso _TestConnectURIParsing is UnitTest
 
 class \nodoc\ val _TestConnectURIServerFactory is _TestConnectionFactory
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestConnectURIServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestConnectURIServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None))
+    ssl_ctx: (SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: lori.SSLContext val =>
+      | let ctx: SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -193,11 +193,11 @@ class \nodoc\ iso _TestBody is UnitTest
 
 class \nodoc\ val _TestBodyServerFactory is _TestConnectionFactory
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestBodyServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestBodyServer is HTTPServerActor
@@ -206,14 +206,14 @@ actor \nodoc\ _TestBodyServer is HTTPServerActor
   var _has_body: Bool = false
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None))
+    ssl_ctx: (SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: lori.SSLContext val =>
+      | let ctx: SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -370,25 +370,25 @@ class \nodoc\ iso _TestServerCookieParsing is UnitTest
 
 class \nodoc\ val _TestCookieServerFactory is _TestConnectionFactory
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestCookieServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestCookieServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None))
+    ssl_ctx: (SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: lori.SSLContext val =>
+      | let ctx: SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -419,8 +419,8 @@ actor \nodoc\ _TestCookieServer is HTTPServerActor
     responder.respond(response)
 
 actor \nodoc\ _TestPipelinedBodiesClient is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   let _request: String val
   var _response: String ref = String
@@ -432,16 +432,16 @@ actor \nodoc\ _TestPipelinedBodiesClient is
     _request = request
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     if (not _got_first) and r.contains("first") then
@@ -450,7 +450,7 @@ actor \nodoc\ _TestPipelinedBodiesClient is
     if (not _got_second) and r.contains("second") then
       _got_second = true
     end
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     if _got_first and _got_second then
@@ -477,7 +477,7 @@ actor \nodoc\ _TestPipelinedBodiesClient is
       _h.complete(false)
     end
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 

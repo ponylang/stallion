@@ -2,7 +2,7 @@ class _RequestParser
   """
   HTTP/1.1 request parser.
 
-  Data is fed in as chunks via `parse()` (matching lori's delivery model).
+  Data is fed in as chunks via `parse()` (matching net's delivery model).
   Parsed requests are delivered via the `_RequestParserNotify` callback
   interface. The parser handles arbitrary chunk boundaries, pipelining
   (multiple requests in one buffer), and both fixed-length and chunked

@@ -1,12 +1,12 @@
-use lori = "lori"
+use "net"
 
 trait ref _ConnectionState
   """
   Connection lifecycle state.
 
-  Routes lori's events to the server methods that are valid in the current
+  Routes net's events to the server methods that are valid in the current
   state: `_Active` (processing requests, including idle keep-alive periods),
-  `_Closing` (stallion has stopped taking new work, and lori can still report
+  `_Closing` (stallion has stopped taking new work, and net can still report
   send outcomes for data already handed to it), and `_Closed` (every
   operation is a no-op).
   """
@@ -31,14 +31,14 @@ trait ref _ConnectionState
     Handle backpressure released notification.
     """
 
-  fun ref on_sent(server: HTTPServer ref, token: lori.SendToken)
+  fun ref on_sent(server: HTTPServer ref, token: SendToken)
     """
-    Handle send completion notification from lori.
+    Handle send completion notification from net.
     """
 
-  fun ref on_send_failed(server: HTTPServer ref, token: lori.SendToken)
+  fun ref on_send_failed(server: HTTPServer ref, token: SendToken)
     """
-    Handle send failure notification from lori.
+    Handle send failure notification from net.
     """
 
   fun ref on_idle_timeout(server: HTTPServer ref)
@@ -46,7 +46,7 @@ trait ref _ConnectionState
     Handle connection going idle.
     """
 
-  fun ref on_timer(server: HTTPServer ref, token: lori.TimerToken)
+  fun ref on_timer(server: HTTPServer ref, token: TimerToken)
     """
     Handle one-shot timer firing.
     """
@@ -83,16 +83,16 @@ class ref _Active is _ConnectionState
   fun ref on_unthrottled(server: HTTPServer ref) =>
     server._handle_unthrottled()
 
-  fun ref on_sent(server: HTTPServer ref, token: lori.SendToken) =>
+  fun ref on_sent(server: HTTPServer ref, token: SendToken) =>
     server._handle_sent(token)
 
-  fun ref on_send_failed(server: HTTPServer ref, token: lori.SendToken) =>
+  fun ref on_send_failed(server: HTTPServer ref, token: SendToken) =>
     server._handle_send_failed(token)
 
   fun ref on_idle_timeout(server: HTTPServer ref) =>
     server._handle_idle_timeout()
 
-  fun ref on_timer(server: HTTPServer ref, token: lori.TimerToken) =>
+  fun ref on_timer(server: HTTPServer ref, token: TimerToken) =>
     server._handle_timer(token)
 
   fun ref on_idle_timer_failure(server: HTTPServer ref) =>
@@ -106,15 +106,15 @@ class ref _Active is _ConnectionState
 
 class ref _Closing is _ConnectionState
   """
-  Connection is closing — stallion has stopped taking new work, and lori can
+  Connection is closing — stallion has stopped taking new work, and net can
   still report send outcomes for data already handed to it.
 
-  Entered when stallion starts a close. Left when lori reports the connection
-  closed. Also left when lori reports a start failure:
+  Entered when stallion starts a close. Left when net reports the connection
+  closed. Also left when net reports a start failure:
   `HTTPServer._on_start_failure` sets `_Closed` directly rather than routing
   through this state machine.
 
-  Send outcomes, lori's report that the connection closed, and the actor's own
+  Send outcomes, net's report that the connection closed, and the actor's own
   timer are all handled here. The timer matters: this state can last as long as
   the peer takes to close its half, and an actor that set a deadline with
   `HTTPServer.set_timer()` has no other way to hear from the connection until
@@ -133,16 +133,16 @@ class ref _Closing is _ConnectionState
   fun ref on_unthrottled(server: HTTPServer ref) =>
     None
 
-  fun ref on_sent(server: HTTPServer ref, token: lori.SendToken) =>
+  fun ref on_sent(server: HTTPServer ref, token: SendToken) =>
     server._handle_sent(token)
 
-  fun ref on_send_failed(server: HTTPServer ref, token: lori.SendToken) =>
+  fun ref on_send_failed(server: HTTPServer ref, token: SendToken) =>
     server._handle_send_failed(token)
 
   fun ref on_idle_timeout(server: HTTPServer ref) =>
     None
 
-  fun ref on_timer(server: HTTPServer ref, token: lori.TimerToken) =>
+  fun ref on_timer(server: HTTPServer ref, token: TimerToken) =>
     server._handle_timer(token)
 
   fun ref on_idle_timer_failure(server: HTTPServer ref) =>
@@ -171,16 +171,16 @@ class ref _Closed is _ConnectionState
   fun ref on_unthrottled(server: HTTPServer ref) =>
     None
 
-  fun ref on_sent(server: HTTPServer ref, token: lori.SendToken) =>
+  fun ref on_sent(server: HTTPServer ref, token: SendToken) =>
     None
 
-  fun ref on_send_failed(server: HTTPServer ref, token: lori.SendToken) =>
+  fun ref on_send_failed(server: HTTPServer ref, token: SendToken) =>
     None
 
   fun ref on_idle_timeout(server: HTTPServer ref) =>
     None
 
-  fun ref on_timer(server: HTTPServer ref, token: lori.TimerToken) =>
+  fun ref on_timer(server: HTTPServer ref, token: TimerToken) =>
     None
 
   fun ref on_idle_timer_failure(server: HTTPServer ref) =>

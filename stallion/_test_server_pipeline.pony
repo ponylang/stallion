@@ -1,5 +1,5 @@
 use "pony_test"
-use lori = "lori"
+use "net"
 
 class \nodoc\ iso _TestPipelineCorrectness is UnitTest
   """
@@ -145,11 +145,11 @@ class \nodoc\ iso _TestHTTP10ChunkedRejection is UnitTest
 
 class \nodoc\ val _TestPipelineServerFactory is _TestConnectionFactory
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestPipelineServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestPipelineServer is HTTPServerActor
@@ -157,15 +157,15 @@ actor \nodoc\ _TestPipelineServer is HTTPServerActor
   embed _responders: Array[Responder]
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None))
+    ssl_ctx: (SSLContext val | None))
   =>
     _responders = Array[Responder]
     _http =
       match ssl_ctx
-      | let ctx: lori.SSLContext val =>
+      | let ctx: SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -196,25 +196,25 @@ actor \nodoc\ _TestPipelineServer is HTTPServerActor
 
 class \nodoc\ val _TestStreamServerFactory is _TestConnectionFactory
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestStreamServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestStreamServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None))
+    ssl_ctx: (SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: lori.SSLContext val =>
+      | let ctx: SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -234,8 +234,8 @@ actor \nodoc\ _TestStreamServer is HTTPServerActor
     responder.finish_response()
 
 actor \nodoc\ _TestPipelineClient is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   var _response: String ref = String
   var _completed: Bool = false
@@ -244,10 +244,10 @@ actor \nodoc\ _TestPipelineClient is
     _h = h
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
@@ -257,7 +257,7 @@ actor \nodoc\ _TestPipelineClient is
       "GET /1 HTTP/1.1\r\nHost: localhost\r\n\r\n" +
       "GET /2 HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     // Check if we have all 3 responses
@@ -280,7 +280,7 @@ actor \nodoc\ _TestPipelineClient is
         _h.complete(false)
       end
     end
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     // A close after the test's outcome is decided is not a failure.
@@ -290,13 +290,13 @@ actor \nodoc\ _TestPipelineClient is
       _h.complete(false)
     end
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
 actor \nodoc\ _TestPipelineCloseClient is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   let _request: String val
   var _response: String ref = String
@@ -307,16 +307,16 @@ actor \nodoc\ _TestPipelineCloseClient is
     _request = request
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     // Look for 2 occurrences of "Hello, World!"
@@ -324,7 +324,7 @@ actor \nodoc\ _TestPipelineCloseClient is
       r.find("Hello, World!", 0, 1)?  // Find 2nd occurrence (0-indexed nth)
       _got_responses = true
     end
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     if _got_responses then
@@ -341,13 +341,13 @@ actor \nodoc\ _TestPipelineCloseClient is
       end
     end
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
 actor \nodoc\ _TestStreamClient is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   var _response: String ref = String
   var _completed: Bool = false
@@ -356,17 +356,17 @@ actor \nodoc\ _TestStreamClient is
     _h = h
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
     _tcp_connection.send(
       "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     // Check for terminal chunk
@@ -379,7 +379,7 @@ actor \nodoc\ _TestStreamClient is
         _h.fail(
           "Missing Transfer-Encoding: chunked header in:\n" + r)
         _h.complete(false)
-        return lori.KeepReading
+        return KeepReading
       end
       // Verify chunk data is present
       if not (r.contains("chunk1") and r.contains("chunk2") and
@@ -387,11 +387,11 @@ actor \nodoc\ _TestStreamClient is
       then
         _h.fail("Missing chunk data in:\n" + r)
         _h.complete(false)
-        return lori.KeepReading
+        return KeepReading
       end
       _h.complete(true)
     end
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     // A close after the test's outcome is decided is not a failure.
@@ -402,17 +402,17 @@ actor \nodoc\ _TestStreamClient is
       _h.complete(false)
     end
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
 class \nodoc\ val _TestPartialRespondServerFactory is _TestConnectionFactory
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestPartialRespondServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestPartialRespondServer is HTTPServerActor
@@ -420,14 +420,14 @@ actor \nodoc\ _TestPartialRespondServer is HTTPServerActor
   var _count: USize = 0
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None))
+    ssl_ctx: (SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: lori.SSLContext val =>
+      | let ctx: SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -450,8 +450,8 @@ actor \nodoc\ _TestPartialRespondServer is HTTPServerActor
     // Subsequent requests: intentionally never respond
 
 actor \nodoc\ _TestMaxPendingClient is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   let _request: String val
   var _response: String ref = String
@@ -463,16 +463,16 @@ actor \nodoc\ _TestMaxPendingClient is
     _request = request
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
     _tcp_connection.send(_request)
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     if (not _got_ok) and r.contains("first-ok") then
@@ -481,7 +481,7 @@ actor \nodoc\ _TestMaxPendingClient is
     if (not _got_500) and r.contains("500 Internal Server Error") then
       _got_500 = true
     end
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     if _got_ok and _got_500 then
@@ -494,31 +494,31 @@ actor \nodoc\ _TestMaxPendingClient is
       _h.complete(false)
     end
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 
 class \nodoc\ val _TestChunkedFallbackServerFactory is _TestConnectionFactory
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestChunkedFallbackServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestChunkedFallbackServer is HTTPServerActor
   var _http: HTTPServer = HTTPServer.none()
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None))
+    ssl_ctx: (SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: lori.SSLContext val =>
+      | let ctx: SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -575,11 +575,11 @@ class \nodoc\ iso _TestChunkSentCallback is UnitTest
 
 class \nodoc\ val _TestChunkSentServerFactory is _TestConnectionFactory
   fun apply(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None)
-  ): lori.TCPConnectionActor =>
+    ssl_ctx: (SSLContext val | None)
+  ): TCPConnectionActor =>
     _TestChunkSentServer(auth, fd, config, ssl_ctx)
 
 actor \nodoc\ _TestChunkSentServer is HTTPServerActor
@@ -588,14 +588,14 @@ actor \nodoc\ _TestChunkSentServer is HTTPServerActor
   var _chunks_sent: USize = 0
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     config: ServerConfig,
-    ssl_ctx: (lori.SSLContext val | None))
+    ssl_ctx: (SSLContext val | None))
   =>
     _http =
       match ssl_ctx
-      | let ctx: lori.SSLContext val =>
+      | let ctx: SSLContext val =>
       HTTPServer.ssl(auth, ctx, fd, this, config)
     else
       HTTPServer(auth, fd, this, config)
@@ -626,8 +626,8 @@ actor \nodoc\ _TestChunkSentServer is HTTPServerActor
     end
 
 actor \nodoc\ _TestChunkSentClient is
-  (lori.TCPConnectionActor & lori.ClientLifecycleEventReceiver)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  (TCPConnectionActor & ClientLifecycleEventReceiver)
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   let _h: TestHelper
   var _response: String ref = String
   var _completed: Bool = false
@@ -636,17 +636,17 @@ actor \nodoc\ _TestChunkSentClient is
     _h = h
     let host = ifdef linux then "127.0.0.2" else "localhost" end
     _tcp_connection =
-      lori.TCPConnection.client(
-      lori.TCPConnectAuth(_h.env.root), host, port, "", this, this)
+      TCPConnection.client(
+      TCPConnectAuth(_h.env.root), host, port, "", this, this)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     _tcp_connection
 
   fun ref _on_connected() =>
     _tcp_connection.send(
       "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n")
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     _response.append(consume data)
     let r: String val = _response.clone()
     // Check for terminal chunk
@@ -658,7 +658,7 @@ actor \nodoc\ _TestChunkSentClient is
         _h.fail(
           "Missing Transfer-Encoding: chunked header in:\n" + r)
         _h.complete(false)
-        return lori.KeepReading
+        return KeepReading
       end
       // Verify all 3 chunks arrived
       if not (r.contains("cs-chunk-1") and r.contains("cs-chunk-2") and
@@ -666,11 +666,11 @@ actor \nodoc\ _TestChunkSentClient is
       then
         _h.fail("Missing chunk data in:\n" + r)
         _h.complete(false)
-        return lori.KeepReading
+        return KeepReading
       end
       _h.complete(true)
     end
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     // A close after the test's outcome is decided is not a failure.
@@ -681,7 +681,7 @@ actor \nodoc\ _TestChunkSentClient is
       _h.complete(false)
     end
 
-  fun ref _on_connection_failure(reason: lori.ConnectionFailureReason) =>
+  fun ref _on_connection_failure(reason: ConnectionFailureReason) =>
     _h.fail("Client connection failed")
     _h.complete(false)
 

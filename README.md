@@ -1,6 +1,6 @@
 # stallion
 
-An HTTP server for Pony, built on [lori](https://github.com/ponylang/lori). Your actor IS the connection — no hidden internal actors, no notify objects. Responses are built with `ResponseBuilder` for complete responses, or streamed with flow-controlled chunked transfer encoding.
+An HTTP server for Pony. Your actor IS the connection — no hidden internal actors, no notify objects. Responses are built with `ResponseBuilder` for complete responses, or streamed with flow-controlled chunked transfer encoding.
 
 ## Status
 
@@ -8,7 +8,7 @@ stallion is beta quality software that will change frequently. Expect breaking c
 
 ## Installation
 
-* Requires ponyc 0.70.0 or later.
+* Requires ponyc 0.72.0 or later.
 * Install [corral](https://github.com/ponylang/corral)
 * `corral add github.com/ponylang/stallion.git --version 0.12.0`
 * `corral fetch` to fetch your dependencies
@@ -19,36 +19,36 @@ This library depends on [ponylang/ssl](https://github.com/ponylang/ssl). It requ
 
 ## Usage
 
-A stallion server has two actor types: a listener and one or more connection actors. The listener implements `lori.TCPListenerActor` and creates connection actors in `_on_accept`. Each connection actor implements `stallion.HTTPServerActor`, owns a `stallion.HTTPServer`, and overrides callbacks to handle requests:
+A stallion server has two actor types: a listener and one or more connection actors. The listener implements `TCPListenerActor` and creates connection actors in `_on_accept`. Each connection actor implements `stallion.HTTPServerActor`, owns a `stallion.HTTPServer`, and overrides callbacks to handle requests:
 
 ```pony
 use stallion = "stallion"
-use lori = "lori"
+use "net"
 
 actor Main
   new create(env: Env) =>
-    let auth = lori.TCPListenAuth(env.root)
+    let auth = TCPListenAuth(env.root)
     MyListener(auth, "localhost", "8080")
 
-actor MyListener is lori.TCPListenerActor
-  var _tcp_listener: lori.TCPListener = lori.TCPListener.none()
-  let _server_auth: lori.TCPServerAuth
+actor MyListener is TCPListenerActor
+  var _tcp_listener: TCPListener = TCPListener.none()
+  let _server_auth: TCPServerAuth
   let _config: stallion.ServerConfig
 
-  new create(auth: lori.TCPListenAuth, host: String, port: String) =>
-    _server_auth = lori.TCPServerAuth(auth)
+  new create(auth: TCPListenAuth, host: String, port: String) =>
+    _server_auth = TCPServerAuth(auth)
     _config = stallion.ServerConfig(host, port)
-    _tcp_listener = lori.TCPListener(auth, host, port, this)
+    _tcp_listener = TCPListener(auth, host, port, this)
 
-  fun ref _listener(): lori.TCPListener => _tcp_listener
+  fun ref _listener(): TCPListener => _tcp_listener
 
-  fun ref _on_accept(fd: U32): lori.TCPConnectionActor =>
+  fun ref _on_accept(fd: U32): TCPConnectionActor =>
     MyServer(_server_auth, fd, _config)
 
 actor MyServer is stallion.HTTPServerActor
   var _http: stallion.HTTPServer = stallion.HTTPServer.none()
 
-  new create(auth: lori.TCPServerAuth, fd: U32,
+  new create(auth: TCPServerAuth, fd: U32,
     config: stallion.ServerConfig)
   =>
     _http = stallion.HTTPServer(auth, fd, this, config)

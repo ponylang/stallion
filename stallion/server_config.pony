@@ -1,12 +1,12 @@
-use lori = "lori"
+use "net"
 
 primitive DefaultIdleTimeout
   """
   60-second idle timeout, the default for HTTP connections.
   """
-  fun apply(): (lori.IdleTimeout | None) =>
-    match lori.MakeIdleTimeout(60_000)
-    | let t: lori.IdleTimeout => t
+  fun apply(): (IdleTimeout | None) =>
+    match MakeIdleTimeout(60_000)
+    | let t: IdleTimeout => t
     else
       _Unreachable()
       None
@@ -32,8 +32,8 @@ class val ServerConfig
   ServerConfig("localhost", "8080")
 
   // Custom timeout via MakeIdleTimeout (milliseconds)
-  let timeout = match lori.MakeIdleTimeout(30_000)
-  | let t: lori.IdleTimeout => t
+  let timeout = match MakeIdleTimeout(30_000)
+  | let t: IdleTimeout => t
   end
   ServerConfig("0.0.0.0", "80" where
     max_body_size' = 10_485_760,  // 10 MB
@@ -56,9 +56,9 @@ class val ServerConfig
   let max_chunk_header_size: USize
   let max_body_size: USize
   let max_pending_responses: USize
-  let idle_timeout: (lori.IdleTimeout | None)
+  let idle_timeout: (IdleTimeout | None)
   let max_requests_per_connection: (MaxRequestsPerConnection | None)
-  let read_buffer_size: lori.ReadBufferSize
+  let read_buffer_size: ReadBufferSize
 
   new val create(
     host': String,
@@ -68,9 +68,9 @@ class val ServerConfig
     max_chunk_header_size': USize = 128,
     max_body_size': USize = 1_048_576,
     max_pending_responses': USize = 100,
-    idle_timeout': (lori.IdleTimeout | None) = DefaultIdleTimeout(),
+    idle_timeout': (IdleTimeout | None) = DefaultIdleTimeout(),
     max_requests_per_connection': (MaxRequestsPerConnection | None) = None,
-    read_buffer_size': lori.ReadBufferSize = lori.DefaultReadBufferSize())
+    read_buffer_size': ReadBufferSize = DefaultReadBufferSize())
   =>
     """
     Create server configuration.
@@ -78,7 +78,7 @@ class val ServerConfig
     `host'` and `port'` specify the listen address. Parser limits default to
     sensible values. `idle_timeout'` is an `IdleTimeout` (milliseconds) or
     `None` to disable idle timeout. Defaults to 60 seconds. Use
-    `lori.MakeIdleTimeout(ms)` to create custom timeout values.
+    `MakeIdleTimeout(ms)` to create custom timeout values.
     `max_pending_responses'` limits the number of pipelined
     requests that can be outstanding before the connection closes — this
     prevents unbounded memory growth from actors that never respond.
@@ -89,7 +89,7 @@ class val ServerConfig
     `read_buffer_size'` is how many bytes a connection reads before it
     hands the scheduler back and resumes on a later turn. Smaller values
     bound how much one connection does per turn, at the cost of more
-    turns. Defaults to 16KB. Use `lori.MakeReadBufferSize(bytes)` to
+    turns. Defaults to 16KB. Use `MakeReadBufferSize(bytes)` to
     create custom values.
     """
     host = host'

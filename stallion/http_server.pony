@@ -1,8 +1,8 @@
-use lori = "lori"
+use "net"
 use uri_pkg = "uri"
 
 class HTTPServer is
-  (lori.ServerLifecycleEventReceiver & _RequestParserNotify
+  (ServerLifecycleEventReceiver & _RequestParserNotify
     & _ResponseQueueNotify)
   """
   HTTP protocol handler that manages parsing, response queuing, and
@@ -14,7 +14,7 @@ class HTTPServer is
   HTTP events to the actor via `HTTPServerLifecycleEventReceiver`
   callbacks.
 
-  The protocol class implements lori's `ServerLifecycleEventReceiver`
+  The protocol class implements net's `ServerLifecycleEventReceiver`
   to receive TCP-level events from the connection, processes them through
   the HTTP parser, and forwards HTTP-level events to the owning actor.
 
@@ -25,7 +25,7 @@ class HTTPServer is
   actor MyServer is HTTPServerActor
     var _http: HTTPServer = HTTPServer.none()
 
-    new create(auth: lori.TCPServerAuth, fd: U32,
+    new create(auth: TCPServerAuth, fd: U32,
       config: ServerConfig)
     =>
       _http = HTTPServer(auth, fd, this, config)
@@ -33,7 +33,7 @@ class HTTPServer is
   """
   let _lifecycle_event_receiver: (HTTPServerLifecycleEventReceiver ref | None)
   let _config: (ServerConfig | None)
-  var _tcp_connection: lori.TCPConnection = lori.TCPConnection.none()
+  var _tcp_connection: TCPConnection = TCPConnection.none()
   var _state: _ConnectionState = _Active
   var _queue: (_ResponseQueue | None) = None
   var _current_request: (Request val | None) = None
@@ -58,7 +58,7 @@ class HTTPServer is
     _pending_sent_tokens = Array[(ChunkSendToken | None)]
 
   new create(
-    auth: lori.TCPServerAuth,
+    auth: TCPServerAuth,
     fd: U32,
     server_actor: HTTPServerActor ref,
     config: ServerConfig)
@@ -76,13 +76,13 @@ class HTTPServer is
     _queue = _ResponseQueue(this)
     _parser = _RequestParser(this, config._parser_config())
     _tcp_connection =
-      lori.TCPConnection.server(
+      TCPConnection.server(
         auth, fd, server_actor, this
         where read_buffer_size = config.read_buffer_size)
 
   new ssl(
-    auth: lori.TCPServerAuth,
-    ssl_ctx: lori.SSLContext val,
+    auth: TCPServerAuth,
+    ssl_ctx: SSLContext val,
     fd: U32,
     server_actor: HTTPServerActor ref,
     config: ServerConfig)
@@ -100,11 +100,11 @@ class HTTPServer is
     _queue = _ResponseQueue(this)
     _parser = _RequestParser(this, config._parser_config())
     _tcp_connection =
-      lori.TCPConnection.ssl_server(
+      TCPConnection.ssl_server(
         auth, ssl_ctx, fd, server_actor, this
         where read_buffer_size = config.read_buffer_size)
 
-  fun ref _connection(): lori.TCPConnection =>
+  fun ref _connection(): TCPConnection =>
     """
     Return the underlying TCP connection.
     """
@@ -116,14 +116,14 @@ class HTTPServer is
       _tcp_connection.idle_timeout(c.idle_timeout)
     end
 
-  fun ref _on_received(data: Array[U8] iso): lori.ReadAction =>
+  fun ref _on_received(data: Array[U8] iso): ReadAction =>
     _state.on_received(this, consume data)
-    lori.KeepReading
+    KeepReading
 
   fun ref _on_closed() =>
     _state.on_closed(this)
 
-  fun ref _on_start_failure(reason: lori.StartFailureReason) =>
+  fun ref _on_start_failure(reason: StartFailureReason) =>
     // Set _Closed before delivering, for the reason _handle_closed does: an
     // actor that calls close() from the callback re-enters
     // _close_connection(), and the state guard makes that a no-op.
@@ -139,13 +139,13 @@ class HTTPServer is
   fun ref _on_unthrottled() =>
     _state.on_unthrottled(this)
 
-  fun ref _on_sent(token: lori.SendToken) =>
+  fun ref _on_sent(token: SendToken) =>
     _state.on_sent(this, token)
 
-  fun ref _on_send_failed(token: lori.SendToken) =>
+  fun ref _on_send_failed(token: SendToken) =>
     _state.on_send_failed(this, token)
 
-  fun ref _on_send_accepted(token: lori.SendToken,
+  fun ref _on_send_accepted(token: SendToken,
     data: (ByteSeq | ByteSeqIter))
   =>
     _pending_sent_tokens.push(_next_chunk_token)
@@ -153,7 +153,7 @@ class HTTPServer is
   fun ref _on_idle_timeout() =>
     _state.on_idle_timeout(this)
 
-  fun ref _on_timer(token: lori.TimerToken) =>
+  fun ref _on_timer(token: TimerToken) =>
     _state.on_timer(this, token)
 
   fun ref _on_idle_timer_failure() =>
@@ -355,8 +355,8 @@ class HTTPServer is
     """
     _next_chunk_token = token
     match \exhaustive\ _tcp_connection.send(data)
-    | lori.SendAccepted => None
-    | let _: lori.SendError =>
+    | SendAccepted => None
+    | let _: SendError =>
       _close_connection()
     end
 
@@ -403,7 +403,7 @@ class HTTPServer is
 
   fun ref _handle_closed() =>
     """
-    Handle lori's report that the connection has closed.
+    Handle net's report that the connection has closed.
 
     Discards the chunk tokens still waiting on a send outcome — no further
     `on_chunk_sent()` is delivered for this connection — and delivers
@@ -448,9 +448,9 @@ class HTTPServer is
     | None => _Unreachable()
     end
 
-  fun ref _handle_sent(token: lori.SendToken) =>
+  fun ref _handle_sent(token: SendToken) =>
     """
-    Correlate a lori send completion back to an HTTP-level chunk token.
+    Correlate a net send completion back to an HTTP-level chunk token.
 
     Pops the next entry from the FIFO. A `ChunkSendToken` reaches the actor
     as `on_chunk_sent(token)`. A `None` entry was an internal send with
@@ -468,9 +468,9 @@ class HTTPServer is
       _Unreachable()
     end
 
-  fun ref _handle_send_failed(token: lori.SendToken) =>
+  fun ref _handle_send_failed(token: SendToken) =>
     """
-    Drop the FIFO entry for a send lori could not deliver.
+    Drop the FIFO entry for a send net could not deliver.
 
     Stallion reports delivery only, so a chunk whose bytes never reached
     the OS produces no callback. No path through stallion reaches here with
@@ -486,14 +486,14 @@ class HTTPServer is
     Close the connection on idle timeout.
 
     "Idle" means no socket activity for the configured timeout, matching
-    lori's idle timer — not "between requests". A connection that stalls
+    net's idle timer — not "between requests". A connection that stalls
     mid-request or mid-response with no activity is closed like any other
     idle connection. A client that keeps trickling data resets the timer
     and is not closed; only fully-stalled connections are.
     """
     _close_connection()
 
-  fun ref _handle_timer(token: lori.TimerToken) =>
+  fun ref _handle_timer(token: TimerToken) =>
     """
     Forward one-shot timer firing to the receiver.
     """
@@ -536,8 +536,8 @@ class HTTPServer is
     """
     _close_connection()
 
-  fun ref set_timer(duration: lori.TimerDuration)
-    : (lori.TimerToken | lori.SetTimerError)
+  fun ref set_timer(duration: TimerDuration)
+    : (TimerToken | SetTimerError)
   =>
     """
     Create a one-shot timer that fires `on_timer()` after the configured
@@ -558,11 +558,11 @@ class HTTPServer is
     A successfully returned `TimerToken` may still fail asynchronously if
     the underlying ASIO subscription is lost — see `on_timer_failure()`.
 
-    Use `lori.MakeTimerDuration(milliseconds)` to create the duration value.
+    Use `MakeTimerDuration(milliseconds)` to create the duration value.
     """
     _tcp_connection.set_timer(duration)
 
-  fun ref cancel_timer(token: lori.TimerToken) =>
+  fun ref cancel_timer(token: TimerToken) =>
     """
     Cancel an active timer. No-op if the token doesn't match the active timer
     (already fired, already cancelled, wrong token). Safe to call with stale
@@ -577,7 +577,7 @@ class HTTPServer is
     Under backpressure the close is a hard close that finishes inside
     this call, so `_handle_closed` has already run by the time this
     returns. A close at any other time leaves the connection open until
-    the peer closes its half, and `_handle_closed` runs when lori reports
+    the peer closes its half, and `_handle_closed` runs when net reports
     the close.
 
     Safe to call from within queue callbacks (e.g., `_response_complete`
@@ -590,7 +590,7 @@ class HTTPServer is
 
   fun ref _start_close() =>
     """
-    Stop taking work and hand the connection to lori.
+    Stop taking work and hand the connection to net.
 
     Reached only from `_Active`, so this runs at most once per connection.
     """
