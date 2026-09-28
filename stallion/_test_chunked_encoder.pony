@@ -1,8 +1,7 @@
-use "pony_check"
 use "pony_test"
 
 class \nodoc\ iso _PropertyChunkedEncoderFormat
-  is Property1[Array[U8] val]
+  is Property[Array[U8] val]
   """
   Chunked encoding produces valid wire format: hex size prefix,
   CRLF delimiters, data preserved exactly, and declared size matches

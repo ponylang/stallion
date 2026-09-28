@@ -1,4 +1,3 @@
-use "pony_check"
 use "pony_test"
 use "net"
 
@@ -158,7 +157,7 @@ actor \nodoc\ _TestTimerServer is HTTPServerActor
     end
 
 class \nodoc\ iso _PropertyKeepAliveDecision
-  is Property1[(Version, (String val | None))]
+  is Property[(Version, (String val | None))]
   """
   The keep-alive decision matches the HTTP/1.x spec:
   - HTTP/1.1 + no header -> keep-alive
@@ -244,7 +243,7 @@ class \nodoc\ iso _PropertyKeepAliveDecision
     end
 
 class \nodoc\ iso _PropertyKeepAliveCloseAlwaysWins
-  is Property1[(String val, Array[String val] ref, USize, Version)]
+  is Property[(String val, Array[String val] ref, USize, Version)]
   """
   A `close` token anywhere in the Connection list closes the connection,
   regardless of HTTP version, token position, case, surrounding whitespace,

@@ -1,5 +1,4 @@
 use "pony_test"
-use "pony_check"
 use "net"
 actor \nodoc\ Main is TestList
   new create(env: Env) =>
@@ -7,10 +6,9 @@ actor \nodoc\ Main is TestList
 
   fun tag tests(test: PonyTest) =>
     // Method tests
-    test(Property1UnitTest[String val](_PropertyValidMethodParsesCorrectly))
-    test(Property1UnitTest[String val](_PropertyInvalidMethodReturnsNone))
-    test(Property1UnitTest[(String val, Bool)](
-      _PropertyMethodParseBoundary))
+    test.property(_PropertyValidMethodParsesCorrectly)
+    test.property(_PropertyInvalidMethodReturnsNone)
+    test.property(_PropertyMethodParseBoundary)
 
     // OWS tests
     test(_TestOWS)
@@ -38,16 +36,11 @@ actor \nodoc\ Main is TestList
     test(_TestQuotedSplit)
 
     // Headers tests
-    test(Property1UnitTest[(String val, String val)](
-      _PropertyHeadersCaseInsensitive))
-    test(Property1UnitTest[(String val, String val, String val)](
-      _PropertyHeadersSetReplaces))
-    test(Property1UnitTest[(String val, String val, String val)](
-      _PropertyHeadersAddPreserves))
-    test(Property1UnitTest[(String val, Array[String val] ref)](
-      _PropertyGetCombinesListField))
-    test(Property1UnitTest[(String val, Array[String val] ref)](
-      _PropertyGetFirstValueNonListField))
+    test.property(_PropertyHeadersCaseInsensitive)
+    test.property(_PropertyHeadersSetReplaces)
+    test.property(_PropertyHeadersAddPreserves)
+    test.property(_PropertyGetCombinesListField)
+    test.property(_PropertyGetFirstValueNonListField)
     test(_TestHeadersListNoMatchNone)
     test(_TestHeadersDeniedNotCombined)
     test(_TestHeadersCombineSeparatorEdges)
@@ -56,13 +49,11 @@ actor \nodoc\ Main is TestList
     test(_TestListValuedHeadersDenyDisjoint)
 
     // Response serializer tests
-    test(Property1UnitTest[_ResponseInput](
-      _PropertyResponseWireFormat))
+    test.property(_PropertyResponseWireFormat)
     test(_TestResponseSerializerKnownGood)
 
     // Response builder tests
-    test(Property1UnitTest[_ResponseInput](
-      _PropertyBuilderMatchesSerializer))
+    test.property(_PropertyBuilderMatchesSerializer)
     test(_TestResponseBuilderKnownGood)
     test(_TestRespond)
     test(_TestRespondIgnoredAfterFirst)
@@ -79,18 +70,12 @@ actor \nodoc\ Main is TestList
     test(_TestSendChunkClosedMidCall)
 
     // Parser property-based tests
-    test(Property1UnitTest[(String val, String val)](
-      _PropertyValidRequestLineParsesCorrectly))
-    test(Property1UnitTest[String val](
-      _PropertyInvalidMethodRejected))
-    test(Property1UnitTest[Array[(String val, String val)] ref](
-      _PropertyHeadersRoundtrip))
-    test(Property1UnitTest[USize](
-      _PropertyFixedBodyDelivered))
-    test(Property1UnitTest[Array[USize] ref](
-      _PropertyChunkedBodyDelivered))
-    test(Property1UnitTest[(String val, Bool)](
-      _PropertyRequestLineBoundary))
+    test.property(_PropertyValidRequestLineParsesCorrectly)
+    test.property(_PropertyInvalidMethodRejected)
+    test.property(_PropertyHeadersRoundtrip)
+    test.property(_PropertyFixedBodyDelivered)
+    test.property(_PropertyChunkedBodyDelivered)
+    test.property(_PropertyRequestLineBoundary)
 
     // Parser example-based tests
     test(_TestParserKnownGoodRequests)
@@ -168,22 +153,17 @@ actor \nodoc\ Main is TestList
     test(_TestServerTimerCancelled)
 
     // Keep-alive decision tests
-    test(Property1UnitTest[(Version, (String val | None))](
-      _PropertyKeepAliveDecision))
-    test(Property1UnitTest[(String val, Array[String val] ref, USize, Version)](
-      _PropertyKeepAliveCloseAlwaysWins))
+    test.property(_PropertyKeepAliveDecision)
+    test.property(_PropertyKeepAliveCloseAlwaysWins)
     test(_TestKeepAliveMultiToken)
 
     // Chunked encoder tests
-    test(Property1UnitTest[Array[U8] val](
-      _PropertyChunkedEncoderFormat))
+    test.property(_PropertyChunkedEncoderFormat)
     test(_TestChunkedEncoderKnownInputs)
 
     // Response queue tests
-    test(Property1UnitTest[Array[USize] val](
-      _PropertyQueueInOrderDelivery))
-    test(Property1UnitTest[(USize, Array[USize] val)](
-      _PropertyQueueMixedResponses))
+    test.property(_PropertyQueueInOrderDelivery)
+    test.property(_PropertyQueueMixedResponses)
     test(_TestQueueReverseOrder)
     test(_TestQueueKeepAliveFalseStopsFlush)
     test(_TestQueueStreamingHead)
@@ -197,12 +177,10 @@ actor \nodoc\ Main is TestList
     test(_TestQueueRethrottleMidFlushNewHead)
     test(_TestQueueRethrottleOnLastChunk)
     test(_TestQueueCloseDuringRethrottle)
-    test(Property1UnitTest[(USize, USize)](
-      _PropertyQueueRethrottleDelivery))
+    test.property(_PropertyQueueRethrottleDelivery)
 
     // Response queue token tests
-    test(Property1UnitTest[Array[USize] val](
-      _PropertyQueueTokenOrder))
+    test.property(_PropertyQueueTokenOrder)
     test(_TestQueueTokenImmediateFlush)
     test(_TestQueueTokenBufferedFlush)
     test(_TestQueueTokenNoneForInternalSends)
@@ -236,62 +214,43 @@ actor \nodoc\ Main is TestList
     test(_TestPipelinedBodies)
 
     // Cookie validator tests
-    test(Property1UnitTest[String val](
-      _PropertyValidCookieNameAccepted))
-    test(Property1UnitTest[String val](
-      _PropertyInvalidCookieNameRejected))
-    test(Property1UnitTest[(String val, Bool)](
-      _PropertyCookieNameBoundary))
-    test(Property1UnitTest[String val](
-      _PropertyValidCookieValueAccepted))
-    test(Property1UnitTest[String val](
-      _PropertyInvalidCookieValueRejected))
-    test(Property1UnitTest[(String val, Bool)](
-      _PropertyCookieValueBoundary))
+    test.property(_PropertyValidCookieNameAccepted)
+    test.property(_PropertyInvalidCookieNameRejected)
+    test.property(_PropertyCookieNameBoundary)
+    test.property(_PropertyValidCookieValueAccepted)
+    test.property(_PropertyInvalidCookieValueRejected)
+    test.property(_PropertyCookieValueBoundary)
 
     // Attribute value validator tests
-    test(Property1UnitTest[String val](
-      _PropertyValidAttrValueAccepted))
-    test(Property1UnitTest[String val](
-      _PropertyInvalidAttrValueRejected))
-    test(Property1UnitTest[(String val, Bool)](
-      _PropertyAttrValueBoundary))
+    test.property(_PropertyValidAttrValueAccepted)
+    test.property(_PropertyInvalidAttrValueRejected)
+    test.property(_PropertyAttrValueBoundary)
 
     // HTTP date tests
     test(_TestHTTPDateKnownGood)
-    test(Property1UnitTest[I64](_PropertyHTTPDateFormat))
+    test.property(_PropertyHTTPDateFormat)
 
     // Cookie parsing tests
     test(_TestParseCookieKnownGood)
-    test(Property1UnitTest[Array[(String val, String val)] ref](
-      _PropertyCookieParseRoundtrip))
-    test(Property1UnitTest[String val](
-      _PropertyCookieParseRobustness))
+    test.property(_PropertyCookieParseRoundtrip)
+    test.property(_PropertyCookieParseRobustness)
 
     // Set-Cookie builder tests
     test(_TestSetCookieKnownGood)
     test(_TestSetCookieErrors)
-    test(Property1UnitTest[(String val, String val)](
-      _PropertySetCookieValidBuild))
-    test(Property1UnitTest[String val](
-      _PropertySetCookieInvalidNameErrors))
-    test(Property1UnitTest[String val](
-      _PropertySetCookieInvalidValueErrors))
+    test.property(_PropertySetCookieValidBuild)
+    test.property(_PropertySetCookieInvalidNameErrors)
+    test.property(_PropertySetCookieInvalidValueErrors)
 
     // Cookie integration test
     test(_TestServerCookieParsing)
 
     // Content negotiation tests
-    test(Property1UnitTest[String val](
-      _PropertyNegotiateRobustness))
-    test(Property1UnitTest[USize](
-      _PropertyNegotiateResultFromSupported))
-    test(Property1UnitTest[USize](
-      _PropertyNegotiateQZeroExcludes))
-    test(Property1UnitTest[USize](
-      _PropertyNegotiateServerPreference))
-    test(Property1UnitTest[String val](
-      _PropertyNegotiateQualityBounds))
+    test.property(_PropertyNegotiateRobustness)
+    test.property(_PropertyNegotiateResultFromSupported)
+    test.property(_PropertyNegotiateQZeroExcludes)
+    test.property(_PropertyNegotiateServerPreference)
+    test.property(_PropertyNegotiateQualityBounds)
     test(_TestNegotiateKnownGood)
     test(_TestAcceptParserKnownGood)
 
