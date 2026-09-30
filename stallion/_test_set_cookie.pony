@@ -1,4 +1,3 @@
-use "pony_check"
 use "pony_test"
 
 class \nodoc\ iso _TestSetCookieKnownGood is UnitTest
@@ -307,7 +306,7 @@ class \nodoc\ iso _TestSetCookieErrors is UnitTest
     end
 
 class \nodoc\ iso _PropertySetCookieValidBuild
-  is Property1[(String val, String val)]
+  is Property[(String val, String val)]
   """
   Valid names and values always build successfully.
   """
@@ -336,7 +335,7 @@ class \nodoc\ iso _PropertySetCookieValidBuild
     end
 
 class \nodoc\ iso _PropertySetCookieInvalidNameErrors
-  is Property1[String val]
+  is Property[String val]
   """
   Invalid names always produce InvalidCookieName.
   """
@@ -356,7 +355,7 @@ class \nodoc\ iso _PropertySetCookieInvalidNameErrors
     end
 
 class \nodoc\ iso _PropertySetCookieInvalidValueErrors
-  is Property1[String val]
+  is Property[String val]
   """
   Invalid values always produce InvalidCookieValue.
   """

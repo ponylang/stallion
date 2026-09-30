@@ -1,5 +1,4 @@
 use "format"
-use "pony_check"
 use "pony_test"
 
 class \nodoc\ _TestParserNotify is _RequestParserNotify
@@ -35,7 +34,7 @@ class \nodoc\ _TestParserNotify is _RequestParserNotify
     out.clone()
 
 class \nodoc\ iso _PropertyValidRequestLineParsesCorrectly
-  is Property1[(String val, String val)]
+  is Property[(String val, String val)]
   """
   Valid (method, path) pairs serialized as HTTP/1.1 request lines parse
   correctly, delivering request_received with matching values and then
@@ -89,7 +88,7 @@ class \nodoc\ iso _PropertyValidRequestLineParsesCorrectly
     end
 
 class \nodoc\ iso _PropertyInvalidMethodRejected
-  is Property1[String val]
+  is Property[String val]
   """
   Invalid method strings in request lines produce UnknownMethod errors.
   """
@@ -129,7 +128,7 @@ class \nodoc\ iso _PropertyInvalidMethodRejected
     end
 
 class \nodoc\ iso _PropertyHeadersRoundtrip
-  is Property1[Array[(String val, String val)] ref]
+  is Property[Array[(String val, String val)] ref]
   """
   Headers added to a request are correctly parsed and available in the
   delivered Headers collection.
@@ -193,7 +192,7 @@ class \nodoc\ iso _PropertyHeadersRoundtrip
     end
 
 class \nodoc\ iso _PropertyFixedBodyDelivered
-  is Property1[USize]
+  is Property[USize]
   """
   Requests with Content-Length have their body delivered completely via
   body_chunk callbacks, followed by request_complete.
@@ -266,7 +265,7 @@ class \nodoc\ iso _PropertyFixedBodyDelivered
     end
 
 class \nodoc\ iso _PropertyChunkedBodyDelivered
-  is Property1[Array[USize] ref]
+  is Property[Array[USize] ref]
   """
   Chunked transfer encoding delivers the complete body and
   request_complete.
@@ -330,7 +329,7 @@ class \nodoc\ iso _PropertyChunkedBodyDelivered
       "total body size mismatch")
 
 class \nodoc\ iso _PropertyRequestLineBoundary
-  is Property1[(String val, Bool)]
+  is Property[(String val, Bool)]
   """
   Mixed valid/invalid request lines: valid ones produce request_received,
   invalid ones produce parse_error.

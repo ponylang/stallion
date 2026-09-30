@@ -1,5 +1,4 @@
 use "collections"
-use "pony_check"
 use "pony_test"
 
 class \nodoc\ iso _TestParseCookieKnownGood is UnitTest
@@ -145,7 +144,7 @@ class \nodoc\ iso _TestParseCookieKnownGood is UnitTest
     end
 
 class \nodoc\ iso _PropertyCookieParseRoundtrip
-  is Property1[Array[(String val, String val)] ref]
+  is Property[Array[(String val, String val)] ref]
   """
   Generate valid cookie pairs, serialize as a Cookie header, parse back,
   and verify all pairs are present with correct values.
@@ -199,7 +198,7 @@ class \nodoc\ iso _PropertyCookieParseRoundtrip
     end
 
 class \nodoc\ iso _PropertyCookieParseRobustness
-  is Property1[String val]
+  is Property[String val]
   """
   Arbitrary strings never crash the parser.
   """

@@ -1,5 +1,4 @@
 use "collections"
-use "pony_check"
 use "pony_test"
 
 class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
@@ -88,7 +87,7 @@ class \nodoc\ ref _TestQueueNotify is _ResponseQueueNotify
     result
 
 class \nodoc\ iso _PropertyQueueInOrderDelivery
-  is Property1[Array[USize] val]
+  is Property[Array[USize] val]
   """
   Register N entries, submit responses in a random permutation order.
   Verify that _flush_data calls arrive in registration order.
@@ -146,7 +145,7 @@ class \nodoc\ iso _PropertyQueueInOrderDelivery
       "Expected " + n.string() + " completions")
 
 class \nodoc\ iso _PropertyQueueMixedResponses
-  is Property1[(USize, Array[USize] val)]
+  is Property[(USize, Array[USize] val)]
   """
   Register N entries,
   send multiple chunks per entry,
@@ -863,7 +862,7 @@ class \nodoc\ iso _TestQueueCloseDuringRethrottle is UnitTest
       "Closed queue must not complete")
 
 class \nodoc\ iso _PropertyQueueRethrottleDelivery
-  is Property1[(USize, USize)]
+  is Property[(USize, USize)]
   """
   For a finished head with N buffered token-carrying chunks,
   re-throttling
@@ -965,7 +964,7 @@ class \nodoc\ iso _PropertyQueueRethrottleDelivery
       "Expected exactly one completion for k=" + k.string())
 
 class \nodoc\ iso _PropertyQueueTokenOrder
-  is Property1[Array[USize] val]
+  is Property[Array[USize] val]
   """
   Register N entries, each with 1 None send (simulated headers) + 1 token
   send (simulated chunk) + 1 None send (simulated terminal). Finish in

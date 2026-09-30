@@ -1,4 +1,3 @@
-use "pony_check"
 use "pony_test"
 
 class \nodoc\ iso _TestHTTPDateKnownGood is UnitTest
@@ -27,7 +26,7 @@ class \nodoc\ iso _TestHTTPDateKnownGood is UnitTest
       _HTTPDate(1582934400),
       "leap year 2020-02-29")
 
-class \nodoc\ iso _PropertyHTTPDateFormat is Property1[I64]
+class \nodoc\ iso _PropertyHTTPDateFormat is Property[I64]
   """
   Every formatted date has the correct structure:
   3-char day, comma, space, 2-digit day, space, 3-char month, space,

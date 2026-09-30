@@ -1,8 +1,8 @@
 use "collections"
-use "pony_check"
+use "pony_test"
 
 class \nodoc\ iso _PropertyValidCookieNameAccepted
-  is Property1[String val]
+  is Property[String val]
   """
   Strings composed entirely of RFC 2616 token characters are valid
   cookie names.
@@ -18,7 +18,7 @@ class \nodoc\ iso _PropertyValidCookieNameAccepted
       "Expected valid name: " + arg1)
 
 class \nodoc\ iso _PropertyInvalidCookieNameRejected
-  is Property1[String val]
+  is Property[String val]
   """
   Strings containing at least one non-token character are rejected
   as cookie names.
@@ -34,7 +34,7 @@ class \nodoc\ iso _PropertyInvalidCookieNameRejected
       "Expected invalid name: " + arg1)
 
 class \nodoc\ iso _PropertyCookieNameBoundary
-  is Property1[(String val, Bool)]
+  is Property[(String val, Bool)]
   """
   Mixed generator: valid names accepted, invalid names rejected.
   """
@@ -53,7 +53,7 @@ class \nodoc\ iso _PropertyCookieNameBoundary
         if expect_valid then "valid" else "invalid" end)
 
 class \nodoc\ iso _PropertyValidCookieValueAccepted
-  is Property1[String val]
+  is Property[String val]
   """
   Strings composed entirely of RFC 6265 cookie-octets are valid
   cookie values.
@@ -69,7 +69,7 @@ class \nodoc\ iso _PropertyValidCookieValueAccepted
       "Expected valid value: " + arg1)
 
 class \nodoc\ iso _PropertyInvalidCookieValueRejected
-  is Property1[String val]
+  is Property[String val]
   """
   Strings containing at least one non-cookie-octet are rejected
   as cookie values.
@@ -85,7 +85,7 @@ class \nodoc\ iso _PropertyInvalidCookieValueRejected
       "Expected invalid value: " + arg1)
 
 class \nodoc\ iso _PropertyCookieValueBoundary
-  is Property1[(String val, Bool)]
+  is Property[(String val, Bool)]
   """
   Mixed generator: valid values accepted, invalid values rejected.
   """
@@ -104,7 +104,7 @@ class \nodoc\ iso _PropertyCookieValueBoundary
         if expect_valid then "valid" else "invalid" end)
 
 class \nodoc\ iso _PropertyValidAttrValueAccepted
-  is Property1[String val]
+  is Property[String val]
   """
   US-ASCII strings (0x20–0x7E) with no semicolons are valid attribute values.
   """
@@ -119,7 +119,7 @@ class \nodoc\ iso _PropertyValidAttrValueAccepted
       "Expected valid attr value: " + arg1)
 
 class \nodoc\ iso _PropertyInvalidAttrValueRejected
-  is Property1[String val]
+  is Property[String val]
   """
   Strings containing CTLs, non-ASCII bytes, or semicolons are rejected
   as attribute values.
@@ -135,7 +135,7 @@ class \nodoc\ iso _PropertyInvalidAttrValueRejected
       "Expected invalid attr value: " + arg1)
 
 class \nodoc\ iso _PropertyAttrValueBoundary
-  is Property1[(String val, Bool)]
+  is Property[(String val, Bool)]
   """
   Mixed generator: valid attr values accepted, invalid attr values rejected.
   """

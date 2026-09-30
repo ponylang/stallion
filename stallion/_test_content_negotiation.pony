@@ -1,9 +1,8 @@
-use "pony_check"
 use "pony_test"
 use uri_pkg = "uri"
 
 class \nodoc\ iso _PropertyNegotiateRobustness
-  is Property1[String val]
+  is Property[String val]
   """Arbitrary strings never crash the parser or negotiation."""
   fun name(): String => "content_negotiation/robustness"
 
@@ -27,7 +26,7 @@ class \nodoc\ iso _PropertyNegotiateRobustness
     end
 
 class \nodoc\ iso _PropertyNegotiateResultFromSupported
-  is Property1[USize]
+  is Property[USize]
   """
   Negotiation result is always from the supported list or NoAcceptableType.
   """
@@ -76,7 +75,7 @@ class \nodoc\ iso _PropertyNegotiateResultFromSupported
     end
 
 class \nodoc\ iso _PropertyNegotiateQZeroExcludes
-  is Property1[USize]
+  is Property[USize]
   """Types explicitly excluded with q=0 are never returned."""
   fun name(): String => "content_negotiation/q_zero_excludes"
 
@@ -104,7 +103,7 @@ class \nodoc\ iso _PropertyNegotiateQZeroExcludes
     end
 
 class \nodoc\ iso _PropertyNegotiateServerPreference
-  is Property1[USize]
+  is Property[USize]
   """Equal quality returns the first type in the supported list."""
   fun name(): String => "content_negotiation/server_preference"
 
@@ -143,7 +142,7 @@ class \nodoc\ iso _PropertyNegotiateServerPreference
     end
 
 class \nodoc\ iso _PropertyNegotiateQualityBounds
-  is Property1[String val]
+  is Property[String val]
   """All parsed qualities fall in the 0–1000 range."""
   fun name(): String => "content_negotiation/quality_bounds"
 

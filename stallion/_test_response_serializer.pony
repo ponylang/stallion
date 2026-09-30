@@ -1,4 +1,3 @@
-use "pony_check"
 use "pony_test"
 
 class val _ResponseInput is Stringable
@@ -29,7 +28,7 @@ class val _ResponseInput is Stringable
         .> append(")")
     end
 
-class \nodoc\ iso _PropertyResponseWireFormat is Property1[_ResponseInput]
+class \nodoc\ iso _PropertyResponseWireFormat is Property[_ResponseInput]
   """
   Serialized responses have valid HTTP wire format structure: status line,
   headers with `: ` separator, blank line, then body.

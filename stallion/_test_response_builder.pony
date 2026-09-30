@@ -1,8 +1,7 @@
-use "pony_check"
 use "pony_test"
 
 class \nodoc\ iso _PropertyBuilderMatchesSerializer
-  is Property1[_ResponseInput]
+  is Property[_ResponseInput]
   """
   ResponseBuilder produces identical output to _ResponseSerializer for
   the same status, headers, and body.
