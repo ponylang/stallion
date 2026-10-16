@@ -125,7 +125,7 @@ class \nodoc\ iso _TestCompletionPoints is UnitTest
 
   fun _step(
     h: TestHelper,
-    label: String,
+    label': String,
     before: String,
     expected_before: USize,
     rest: String,
@@ -137,12 +137,12 @@ class \nodoc\ iso _TestCompletionPoints is UnitTest
     h.assert_eq[USize](
       expected_before,
       notify.completed,
-      label + ": completions before final bytes")
+      label' + ": completions before final bytes")
     parser.parse(recover rest.array().clone() end)
     h.assert_eq[USize](
       expected_after,
       notify.completed,
-      label + ": completions after final bytes")
+      label' + ": completions after final bytes")
 
 class \nodoc\ iso _TestSizeLimitChunkHeader is UnitTest
   """
