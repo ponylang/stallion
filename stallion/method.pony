@@ -1,69 +1,70 @@
-interface val Method is (Equatable[Method] & Stringable)
+interface val Method is Equatable[Method]
   """
   An HTTP request method (RFC 7231).
   """
+  fun string(): String val
 
 primitive GET is Method
   """
   HTTP GET method.
   """
-  fun string(): String iso^ => "GET".clone()
+  fun string(): String val => "GET"
   fun eq(that: Method): Bool => that is this
 
 primitive HEAD is Method
   """
   HTTP HEAD method.
   """
-  fun string(): String iso^ => "HEAD".clone()
+  fun string(): String val => "HEAD"
   fun eq(that: Method): Bool => that is this
 
 primitive POST is Method
   """
   HTTP POST method.
   """
-  fun string(): String iso^ => "POST".clone()
+  fun string(): String val => "POST"
   fun eq(that: Method): Bool => that is this
 
 primitive PUT is Method
   """
   HTTP PUT method.
   """
-  fun string(): String iso^ => "PUT".clone()
+  fun string(): String val => "PUT"
   fun eq(that: Method): Bool => that is this
 
 primitive DELETE is Method
   """
   HTTP DELETE method.
   """
-  fun string(): String iso^ => "DELETE".clone()
+  fun string(): String val => "DELETE"
   fun eq(that: Method): Bool => that is this
 
 primitive CONNECT is Method
   """
   HTTP CONNECT method.
   """
-  fun string(): String iso^ => "CONNECT".clone()
+  fun string(): String val => "CONNECT"
   fun eq(that: Method): Bool => that is this
 
 primitive OPTIONS is Method
   """
   HTTP OPTIONS method.
   """
-  fun string(): String iso^ => "OPTIONS".clone()
+  fun string(): String val => "OPTIONS"
   fun eq(that: Method): Bool => that is this
 
 primitive TRACE is Method
   """
   HTTP TRACE method.
   """
-  fun string(): String iso^ => "TRACE".clone()
+  fun string(): String val => "TRACE"
   fun eq(that: Method): Bool => that is this
 
 primitive PATCH is Method
   """
   HTTP PATCH method.
   """
-  fun string(): String iso^ => "PATCH".clone()
+  fun string(): String val => "PATCH"
   fun eq(that: Method): Bool => that is this
 
 primitive Methods

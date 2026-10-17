@@ -1,4 +1,4 @@
-primitive NoAcceptableType is Stringable
+primitive NoAcceptableType
   """
   Returned by `ContentNegotiation` when none of the server's supported
   media types match the client's `Accept` header preferences.
@@ -6,4 +6,4 @@ primitive NoAcceptableType is Stringable
   Servers should respond with 406 Not Acceptable when they receive this
   result.
   """
-  fun string(): String iso^ => "NoAcceptableType".clone()
+  fun string(): String val => "NoAcceptableType"

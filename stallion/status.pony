@@ -1,4 +1,4 @@
-interface val Status is Stringable
+interface val Status
   """
   An HTTP response status code with numeric code and reason phrase.
   """
@@ -12,6 +12,8 @@ interface val Status is Stringable
     The reason phrase for this status code.
     """
 
+  fun string(): String val
+
 // --- 1xx Informational ---
 primitive StatusContinue is Status
   """
@@ -19,7 +21,7 @@ primitive StatusContinue is Status
   """
   fun code(): U16 => 100
   fun reason(): String val => "Continue"
-  fun string(): String iso^ => "100 Continue".clone()
+  fun string(): String val => "100 Continue"
 
 primitive StatusSwitchingProtocols is Status
   """
@@ -27,7 +29,7 @@ primitive StatusSwitchingProtocols is Status
   """
   fun code(): U16 => 101
   fun reason(): String val => "Switching Protocols"
-  fun string(): String iso^ => "101 Switching Protocols".clone()
+  fun string(): String val => "101 Switching Protocols"
 
 // --- 2xx Success ---
 primitive StatusOK is Status
@@ -36,7 +38,7 @@ primitive StatusOK is Status
   """
   fun code(): U16 => 200
   fun reason(): String val => "OK"
-  fun string(): String iso^ => "200 OK".clone()
+  fun string(): String val => "200 OK"
 
 primitive StatusCreated is Status
   """
@@ -44,7 +46,7 @@ primitive StatusCreated is Status
   """
   fun code(): U16 => 201
   fun reason(): String val => "Created"
-  fun string(): String iso^ => "201 Created".clone()
+  fun string(): String val => "201 Created"
 
 primitive StatusAccepted is Status
   """
@@ -52,7 +54,7 @@ primitive StatusAccepted is Status
   """
   fun code(): U16 => 202
   fun reason(): String val => "Accepted"
-  fun string(): String iso^ => "202 Accepted".clone()
+  fun string(): String val => "202 Accepted"
 
 primitive StatusNoContent is Status
   """
@@ -60,7 +62,7 @@ primitive StatusNoContent is Status
   """
   fun code(): U16 => 204
   fun reason(): String val => "No Content"
-  fun string(): String iso^ => "204 No Content".clone()
+  fun string(): String val => "204 No Content"
 
 primitive StatusPartialContent is Status
   """
@@ -68,7 +70,7 @@ primitive StatusPartialContent is Status
   """
   fun code(): U16 => 206
   fun reason(): String val => "Partial Content"
-  fun string(): String iso^ => "206 Partial Content".clone()
+  fun string(): String val => "206 Partial Content"
 
 // --- 3xx Redirection ---
 primitive StatusMovedPermanently is Status
@@ -77,7 +79,7 @@ primitive StatusMovedPermanently is Status
   """
   fun code(): U16 => 301
   fun reason(): String val => "Moved Permanently"
-  fun string(): String iso^ => "301 Moved Permanently".clone()
+  fun string(): String val => "301 Moved Permanently"
 
 primitive StatusFound is Status
   """
@@ -85,7 +87,7 @@ primitive StatusFound is Status
   """
   fun code(): U16 => 302
   fun reason(): String val => "Found"
-  fun string(): String iso^ => "302 Found".clone()
+  fun string(): String val => "302 Found"
 
 primitive StatusSeeOther is Status
   """
@@ -93,7 +95,7 @@ primitive StatusSeeOther is Status
   """
   fun code(): U16 => 303
   fun reason(): String val => "See Other"
-  fun string(): String iso^ => "303 See Other".clone()
+  fun string(): String val => "303 See Other"
 
 primitive StatusNotModified is Status
   """
@@ -101,7 +103,7 @@ primitive StatusNotModified is Status
   """
   fun code(): U16 => 304
   fun reason(): String val => "Not Modified"
-  fun string(): String iso^ => "304 Not Modified".clone()
+  fun string(): String val => "304 Not Modified"
 
 primitive StatusTemporaryRedirect is Status
   """
@@ -109,7 +111,7 @@ primitive StatusTemporaryRedirect is Status
   """
   fun code(): U16 => 307
   fun reason(): String val => "Temporary Redirect"
-  fun string(): String iso^ => "307 Temporary Redirect".clone()
+  fun string(): String val => "307 Temporary Redirect"
 
 primitive StatusPermanentRedirect is Status
   """
@@ -117,7 +119,7 @@ primitive StatusPermanentRedirect is Status
   """
   fun code(): U16 => 308
   fun reason(): String val => "Permanent Redirect"
-  fun string(): String iso^ => "308 Permanent Redirect".clone()
+  fun string(): String val => "308 Permanent Redirect"
 
 // --- 4xx Client Error ---
 primitive StatusBadRequest is Status
@@ -126,7 +128,7 @@ primitive StatusBadRequest is Status
   """
   fun code(): U16 => 400
   fun reason(): String val => "Bad Request"
-  fun string(): String iso^ => "400 Bad Request".clone()
+  fun string(): String val => "400 Bad Request"
 
 primitive StatusUnauthorized is Status
   """
@@ -134,7 +136,7 @@ primitive StatusUnauthorized is Status
   """
   fun code(): U16 => 401
   fun reason(): String val => "Unauthorized"
-  fun string(): String iso^ => "401 Unauthorized".clone()
+  fun string(): String val => "401 Unauthorized"
 
 primitive StatusForbidden is Status
   """
@@ -142,7 +144,7 @@ primitive StatusForbidden is Status
   """
   fun code(): U16 => 403
   fun reason(): String val => "Forbidden"
-  fun string(): String iso^ => "403 Forbidden".clone()
+  fun string(): String val => "403 Forbidden"
 
 primitive StatusNotFound is Status
   """
@@ -150,7 +152,7 @@ primitive StatusNotFound is Status
   """
   fun code(): U16 => 404
   fun reason(): String val => "Not Found"
-  fun string(): String iso^ => "404 Not Found".clone()
+  fun string(): String val => "404 Not Found"
 
 primitive StatusMethodNotAllowed is Status
   """
@@ -158,7 +160,7 @@ primitive StatusMethodNotAllowed is Status
   """
   fun code(): U16 => 405
   fun reason(): String val => "Method Not Allowed"
-  fun string(): String iso^ => "405 Method Not Allowed".clone()
+  fun string(): String val => "405 Method Not Allowed"
 
 primitive StatusNotAcceptable is Status
   """
@@ -166,7 +168,7 @@ primitive StatusNotAcceptable is Status
   """
   fun code(): U16 => 406
   fun reason(): String val => "Not Acceptable"
-  fun string(): String iso^ => "406 Not Acceptable".clone()
+  fun string(): String val => "406 Not Acceptable"
 
 primitive StatusRequestTimeout is Status
   """
@@ -174,7 +176,7 @@ primitive StatusRequestTimeout is Status
   """
   fun code(): U16 => 408
   fun reason(): String val => "Request Timeout"
-  fun string(): String iso^ => "408 Request Timeout".clone()
+  fun string(): String val => "408 Request Timeout"
 
 primitive StatusConflict is Status
   """
@@ -182,7 +184,7 @@ primitive StatusConflict is Status
   """
   fun code(): U16 => 409
   fun reason(): String val => "Conflict"
-  fun string(): String iso^ => "409 Conflict".clone()
+  fun string(): String val => "409 Conflict"
 
 primitive StatusGone is Status
   """
@@ -190,7 +192,7 @@ primitive StatusGone is Status
   """
   fun code(): U16 => 410
   fun reason(): String val => "Gone"
-  fun string(): String iso^ => "410 Gone".clone()
+  fun string(): String val => "410 Gone"
 
 primitive StatusLengthRequired is Status
   """
@@ -198,7 +200,7 @@ primitive StatusLengthRequired is Status
   """
   fun code(): U16 => 411
   fun reason(): String val => "Length Required"
-  fun string(): String iso^ => "411 Length Required".clone()
+  fun string(): String val => "411 Length Required"
 
 primitive StatusPayloadTooLarge is Status
   """
@@ -206,7 +208,7 @@ primitive StatusPayloadTooLarge is Status
   """
   fun code(): U16 => 413
   fun reason(): String val => "Payload Too Large"
-  fun string(): String iso^ => "413 Payload Too Large".clone()
+  fun string(): String val => "413 Payload Too Large"
 
 primitive StatusURITooLong is Status
   """
@@ -214,7 +216,7 @@ primitive StatusURITooLong is Status
   """
   fun code(): U16 => 414
   fun reason(): String val => "URI Too Long"
-  fun string(): String iso^ => "414 URI Too Long".clone()
+  fun string(): String val => "414 URI Too Long"
 
 primitive StatusUnsupportedMediaType is Status
   """
@@ -222,7 +224,7 @@ primitive StatusUnsupportedMediaType is Status
   """
   fun code(): U16 => 415
   fun reason(): String val => "Unsupported Media Type"
-  fun string(): String iso^ => "415 Unsupported Media Type".clone()
+  fun string(): String val => "415 Unsupported Media Type"
 
 primitive StatusUnprocessableEntity is Status
   """
@@ -230,7 +232,7 @@ primitive StatusUnprocessableEntity is Status
   """
   fun code(): U16 => 422
   fun reason(): String val => "Unprocessable Entity"
-  fun string(): String iso^ => "422 Unprocessable Entity".clone()
+  fun string(): String val => "422 Unprocessable Entity"
 
 primitive StatusTooManyRequests is Status
   """
@@ -238,7 +240,7 @@ primitive StatusTooManyRequests is Status
   """
   fun code(): U16 => 429
   fun reason(): String val => "Too Many Requests"
-  fun string(): String iso^ => "429 Too Many Requests".clone()
+  fun string(): String val => "429 Too Many Requests"
 
 primitive StatusRequestHeaderFieldsTooLarge is Status
   """
@@ -246,7 +248,7 @@ primitive StatusRequestHeaderFieldsTooLarge is Status
   """
   fun code(): U16 => 431
   fun reason(): String val => "Request Header Fields Too Large"
-  fun string(): String iso^ => "431 Request Header Fields Too Large".clone()
+  fun string(): String val => "431 Request Header Fields Too Large"
 
 // --- 5xx Server Error ---
 primitive StatusInternalServerError is Status
@@ -255,7 +257,7 @@ primitive StatusInternalServerError is Status
   """
   fun code(): U16 => 500
   fun reason(): String val => "Internal Server Error"
-  fun string(): String iso^ => "500 Internal Server Error".clone()
+  fun string(): String val => "500 Internal Server Error"
 
 primitive StatusNotImplemented is Status
   """
@@ -263,7 +265,7 @@ primitive StatusNotImplemented is Status
   """
   fun code(): U16 => 501
   fun reason(): String val => "Not Implemented"
-  fun string(): String iso^ => "501 Not Implemented".clone()
+  fun string(): String val => "501 Not Implemented"
 
 primitive StatusBadGateway is Status
   """
@@ -271,7 +273,7 @@ primitive StatusBadGateway is Status
   """
   fun code(): U16 => 502
   fun reason(): String val => "Bad Gateway"
-  fun string(): String iso^ => "502 Bad Gateway".clone()
+  fun string(): String val => "502 Bad Gateway"
 
 primitive StatusServiceUnavailable is Status
   """
@@ -279,7 +281,7 @@ primitive StatusServiceUnavailable is Status
   """
   fun code(): U16 => 503
   fun reason(): String val => "Service Unavailable"
-  fun string(): String iso^ => "503 Service Unavailable".clone()
+  fun string(): String val => "503 Service Unavailable"
 
 primitive StatusGatewayTimeout is Status
   """
@@ -287,7 +289,7 @@ primitive StatusGatewayTimeout is Status
   """
   fun code(): U16 => 504
   fun reason(): String val => "Gateway Timeout"
-  fun string(): String iso^ => "504 Gateway Timeout".clone()
+  fun string(): String val => "504 Gateway Timeout"
 
 primitive StatusHTTPVersionNotSupported is Status
   """
@@ -295,4 +297,4 @@ primitive StatusHTTPVersionNotSupported is Status
   """
   fun code(): U16 => 505
   fun reason(): String val => "HTTP Version Not Supported"
-  fun string(): String iso^ => "505 HTTP Version Not Supported".clone()
+  fun string(): String val => "505 HTTP Version Not Supported"
