@@ -1,4 +1,4 @@
-class val MediaType is (Equatable[MediaType] & Stringable)
+class val MediaType is Equatable[MediaType]
   """
   An HTTP media type consisting of a top-level type and subtype.
 
@@ -24,5 +24,5 @@ class val MediaType is (Equatable[MediaType] & Stringable)
   fun ne(that: box->MediaType): Bool =>
     not eq(that)
 
-  fun string(): String iso^ =>
-    (type_name + "/" + subtype).clone()
+  fun string(): String val =>
+    type_name + "/" + subtype
