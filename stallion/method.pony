@@ -2,69 +2,69 @@ interface val Method is Equatable[Method]
   """
   An HTTP request method (RFC 7231).
   """
-  fun string(): String val
+  fun string(): String
 
 primitive GET is Method
   """
   HTTP GET method.
   """
-  fun string(): String val => "GET"
+  fun string(): String => "GET"
   fun eq(that: Method): Bool => that is this
 
 primitive HEAD is Method
   """
   HTTP HEAD method.
   """
-  fun string(): String val => "HEAD"
+  fun string(): String => "HEAD"
   fun eq(that: Method): Bool => that is this
 
 primitive POST is Method
   """
   HTTP POST method.
   """
-  fun string(): String val => "POST"
+  fun string(): String => "POST"
   fun eq(that: Method): Bool => that is this
 
 primitive PUT is Method
   """
   HTTP PUT method.
   """
-  fun string(): String val => "PUT"
+  fun string(): String => "PUT"
   fun eq(that: Method): Bool => that is this
 
 primitive DELETE is Method
   """
   HTTP DELETE method.
   """
-  fun string(): String val => "DELETE"
+  fun string(): String => "DELETE"
   fun eq(that: Method): Bool => that is this
 
 primitive CONNECT is Method
   """
   HTTP CONNECT method.
   """
-  fun string(): String val => "CONNECT"
+  fun string(): String => "CONNECT"
   fun eq(that: Method): Bool => that is this
 
 primitive OPTIONS is Method
   """
   HTTP OPTIONS method.
   """
-  fun string(): String val => "OPTIONS"
+  fun string(): String => "OPTIONS"
   fun eq(that: Method): Bool => that is this
 
 primitive TRACE is Method
   """
   HTTP TRACE method.
   """
-  fun string(): String val => "TRACE"
+  fun string(): String => "TRACE"
   fun eq(that: Method): Bool => that is this
 
 primitive PATCH is Method
   """
   HTTP PATCH method.
   """
-  fun string(): String val => "PATCH"
+  fun string(): String => "PATCH"
   fun eq(that: Method): Bool => that is this
 
 primitive Methods

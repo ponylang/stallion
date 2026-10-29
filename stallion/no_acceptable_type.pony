@@ -6,4 +6,4 @@ primitive NoAcceptableType
   Servers should respond with 406 Not Acceptable when they receive this
   result.
   """
-  fun string(): String val => "NoAcceptableType"
+  fun string(): String => "NoAcceptableType"

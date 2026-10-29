@@ -1,17 +1,17 @@
 interface val _StartChunkedResponseResult
-  fun string(): String val
+  fun string(): String
 
 primitive StreamingStarted is _StartChunkedResponseResult
   """
   Chunked streaming response was successfully started.
   """
-  fun string(): String val => "StreamingStarted"
+  fun string(): String => "StreamingStarted"
 
 primitive AlreadyResponded is _StartChunkedResponseResult
   """
   A response has already been started or completed for this request.
   """
-  fun string(): String val => "AlreadyResponded"
+  fun string(): String => "AlreadyResponded"
 
 primitive ChunkedNotSupported is _StartChunkedResponseResult
   """
@@ -19,7 +19,7 @@ primitive ChunkedNotSupported is _StartChunkedResponseResult
 
   Use `respond()` with a `ResponseBuilder`-constructed response instead.
   """
-  fun string(): String val => "ChunkedNotSupported"
+  fun string(): String => "ChunkedNotSupported"
 
 primitive ConnectionClosed is _StartChunkedResponseResult
   """
@@ -30,7 +30,7 @@ primitive ConnectionClosed is _StartChunkedResponseResult
   `Responder` returns `ConnectionClosed` again, and a later `send_chunk()`
   returns `None`.
   """
-  fun string(): String val => "ConnectionClosed"
+  fun string(): String => "ConnectionClosed"
 
 type StartChunkedResponseResult is
   (

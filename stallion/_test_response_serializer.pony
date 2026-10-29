@@ -15,8 +15,8 @@ class val _ResponseInput is Stringable
     body_size = bs
     use_http10 = h10
 
-  fun string(): String iso^ =>
-    recover iso
+  fun string(): String =>
+    recover val
       String .> append("ResponseInput(status_idx=")
         .> append(status_idx.string())
         .> append(", num_headers=")

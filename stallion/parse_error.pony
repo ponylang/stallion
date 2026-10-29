@@ -2,13 +2,13 @@ primitive TooLarge
   """
   Request line or headers exceed the configured size limit.
   """
-  fun string(): String iso^ => "TooLarge".clone()
+  fun string(): String => "TooLarge"
 
 primitive UnknownMethod
   """
   HTTP method string not recognized.
   """
-  fun string(): String iso^ => "UnknownMethod".clone()
+  fun string(): String => "UnknownMethod"
 
 primitive InvalidURI
   """
@@ -18,13 +18,13 @@ primitive InvalidURI
   RFC 3986 structural parsing in the connection layer (e.g., invalid
   authority in CONNECT targets).
   """
-  fun string(): String iso^ => "InvalidURI".clone()
+  fun string(): String => "InvalidURI"
 
 primitive InvalidVersion
   """
   HTTP version is not HTTP/1.0 or HTTP/1.1.
   """
-  fun string(): String iso^ => "InvalidVersion".clone()
+  fun string(): String => "InvalidVersion"
 
 primitive BareCRLF
   """
@@ -37,7 +37,7 @@ primitive BareCRLF
   intermediary that splits on it sees a message boundary where Stallion would
   not, desynchronizing the two.
   """
-  fun string(): String iso^ => "BareCRLF".clone()
+  fun string(): String => "BareCRLF"
 
 primitive InvalidFieldName
   """
@@ -47,7 +47,7 @@ primitive InvalidFieldName
   non-token character, interior whitespace, whitespace between the name and the
   colon, an empty name, or a missing colon.
   """
-  fun string(): String iso^ => "InvalidFieldName".clone()
+  fun string(): String => "InvalidFieldName"
 
 primitive InvalidFieldValue
   """
@@ -57,7 +57,7 @@ primitive InvalidFieldValue
   LF in a value are caught earlier by the line policy as `BareCRLF`; this error
   covers the remaining forbidden byte, NUL.)
   """
-  fun string(): String iso^ => "InvalidFieldValue".clone()
+  fun string(): String => "InvalidFieldValue"
 
 primitive ObsFold
   """
@@ -66,7 +66,7 @@ primitive ObsFold
   An obs-fold continuation line (a field-line beginning with SP or HTAB) is
   rejected per RFC 9112 §5.2.
   """
-  fun string(): String iso^ => "ObsFold".clone()
+  fun string(): String => "ObsFold"
 
 primitive InvalidRequestLine
   """
@@ -76,13 +76,13 @@ primitive InvalidRequestLine
   of spaces — extra delimiters, or a space inside the request-target — is a
   framing violation and is rejected here.
   """
-  fun string(): String iso^ => "InvalidRequestLine".clone()
+  fun string(): String => "InvalidRequestLine"
 
 primitive InvalidContentLength
   """
   Content-Length is non-numeric, negative, or has conflicting values.
   """
-  fun string(): String iso^ => "InvalidContentLength".clone()
+  fun string(): String => "InvalidContentLength"
 
 primitive InvalidChunk
   """
@@ -93,7 +93,7 @@ primitive InvalidChunk
   chunk data. (Forbidden bytes in a chunk extension are `InvalidChunkExtension`;
   a bare CR or LF in a chunk line is `BareCRLF`.)
   """
-  fun string(): String iso^ => "InvalidChunk".clone()
+  fun string(): String => "InvalidChunk"
 
 primitive InvalidChunkExtension
   """
@@ -109,13 +109,13 @@ primitive InvalidChunkExtension
   chunk-extension bytes are a smuggling surface, so they are parsed
   rather than skipped to CRLF.
   """
-  fun string(): String iso^ => "InvalidChunkExtension".clone()
+  fun string(): String => "InvalidChunkExtension"
 
 primitive BodyTooLarge
   """
   Request body exceeds the configured maximum body size.
   """
-  fun string(): String iso^ => "BodyTooLarge".clone()
+  fun string(): String => "BodyTooLarge"
 
 primitive InvalidTransferEncoding
   """
@@ -125,7 +125,7 @@ primitive InvalidTransferEncoding
   applies `chunked` before the final coding (RFC 9112 §6.1/§6.3). The
   message length is undeterminable, so the request is rejected.
   """
-  fun string(): String iso^ => "InvalidTransferEncoding".clone()
+  fun string(): String => "InvalidTransferEncoding"
 
 primitive UnsupportedTransferEncoding
   """
@@ -134,7 +134,7 @@ primitive UnsupportedTransferEncoding
   Stallion only understands `chunked`. Any other coding (e.g. `gzip`),
   alone or alongside `chunked`, is rejected per RFC 9112 §6.3.
   """
-  fun string(): String iso^ => "UnsupportedTransferEncoding".clone()
+  fun string(): String => "UnsupportedTransferEncoding"
 
 primitive ForbiddenTrailer
   """
@@ -148,7 +148,7 @@ primitive ForbiddenTrailer
   syntax may be perfectly valid — the fault is the field's presence in a
   trailer.
   """
-  fun string(): String iso^ => "ForbiddenTrailer".clone()
+  fun string(): String => "ForbiddenTrailer"
 
 primitive BadHostHeader
   """
@@ -161,7 +161,7 @@ primitive BadHostHeader
   line is request-smuggling surface regardless of version. Enforced at the
   protocol layer (where the assembled headers are known), not the parser.
   """
-  fun string(): String iso^ => "BadHostHeader".clone()
+  fun string(): String => "BadHostHeader"
 
 primitive InvalidHostValue
   """
@@ -175,7 +175,7 @@ primitive InvalidHostValue
   `BadHostHeader`, which covers a missing or duplicated Host field rather than a
   malformed value. Enforced at the protocol layer (where the headers are known).
   """
-  fun string(): String iso^ => "InvalidHostValue".clone()
+  fun string(): String => "InvalidHostValue"
 
 primitive MismatchedHost
   """
@@ -196,7 +196,7 @@ primitive MismatchedHost
   contradicts the target. Enforced at the protocol layer (where the target and
   headers are both known).
   """
-  fun string(): String iso^ => "MismatchedHost".clone()
+  fun string(): String => "MismatchedHost"
 
 primitive MissingConnectPort
   """
@@ -211,7 +211,7 @@ primitive MissingConnectPort
   *structural* parse failure: a portless authority parses fine under RFC 3986
   and fails only the HTTP authority-form requirement.
   """
-  fun string(): String iso^ => "MissingConnectPort".clone()
+  fun string(): String => "MissingConnectPort"
 
 primitive UserinfoInTarget
   """
@@ -226,7 +226,7 @@ primitive UserinfoInTarget
   userinfo in the request-target authority with 400, for every request-target
   form, independent of the Host header.
   """
-  fun string(): String iso^ => "UserinfoInTarget".clone()
+  fun string(): String => "UserinfoInTarget"
 
 primitive ContentLengthWithTransferEncoding
   """
@@ -240,7 +240,7 @@ primitive ContentLengthWithTransferEncoding
   framing, Stallion rejects the message — the presence of both headers is
   itself the fault, regardless of what either header's value resolves to.
   """
-  fun string(): String iso^ => "ContentLengthWithTransferEncoding".clone()
+  fun string(): String => "ContentLengthWithTransferEncoding"
 
 type ParseError is
   ( TooLarge | UnknownMethod | InvalidURI | InvalidVersion
