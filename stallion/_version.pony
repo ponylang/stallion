@@ -1,18 +1,18 @@
 interface val _Version is Equatable[Version]
-  fun string(): String val
+  fun string(): String
 
 primitive HTTP10 is _Version
   """
   HTTP/1.0 protocol version.
   """
-  fun string(): String val => "HTTP/1.0"
+  fun string(): String => "HTTP/1.0"
   fun eq(that: Version): Bool => that is this
 
 primitive HTTP11 is _Version
   """
   HTTP/1.1 protocol version.
   """
-  fun string(): String val => "HTTP/1.1"
+  fun string(): String => "HTTP/1.1"
   fun eq(that: Version): Bool => that is this
 
 type Version is ((HTTP10 | HTTP11) & _Version)

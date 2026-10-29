@@ -24,5 +24,5 @@ class val MediaType is Equatable[MediaType]
   fun ne(that: box->MediaType): Bool =>
     not eq(that)
 
-  fun string(): String val =>
+  fun string(): String =>
     type_name + "/" + subtype
