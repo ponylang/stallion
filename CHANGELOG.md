@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file. This projec
 ### Changed
 
 - Remove Stringable conformance from Method, Status, MediaType, and NoAcceptableType ([PR #187](https://github.com/ponylang/stallion/pull/187))
-
+- Update to work with ponyc 0.78.0 ([PR #188](https://github.com/ponylang/stallion/pull/188))
 
 ## [0.16.0] - 2026-10-17
 
