@@ -191,7 +191,7 @@ primitive \nodoc\ _CookieTestGenerators
         recover val
           let s = String(len)
           var h: U64 = seed
-          for i in Range(0, len) do
+          for i in Range[USize].till(0, len) do
             h = (h * 6364136223846793005) + 1442695040888963407
             try s.push(chars((h.usize() >> 16) % chars.size())?) end
           end
@@ -212,9 +212,9 @@ primitive \nodoc\ _CookieTestGenerators
         {(prefix_len: USize, suffix_len: USize): String val =>
           recover val
             let s = String
-            for i in Range(0, prefix_len) do s.push('a') end
+            for i in Range[USize].till(0, prefix_len) do s.push('a') end
             s.push(' ') // space is a separator
-            for i in Range(0, suffix_len) do s.push('b') end
+            for i in Range[USize].till(0, suffix_len) do s.push('b') end
             s
           end
         }))
@@ -225,9 +225,9 @@ primitive \nodoc\ _CookieTestGenerators
         {(prefix_len: USize, suffix_len: USize): String val =>
           recover val
             let s = String
-            for i in Range(0, prefix_len) do s.push('x') end
+            for i in Range[USize].till(0, prefix_len) do s.push('x') end
             s.push(0x01) // control character
-            for i in Range(0, suffix_len) do s.push('y') end
+            for i in Range[USize].till(0, suffix_len) do s.push('y') end
             s
           end
         }))
@@ -241,9 +241,9 @@ primitive \nodoc\ _CookieTestGenerators
         {(prefix_len: USize, suffix_len: USize): String val =>
           recover val
             let s = String
-            for i in Range(0, prefix_len) do s.push('x') end
+            for i in Range[USize].till(0, prefix_len) do s.push('x') end
             s.push(0x80)
-            for i in Range(0, suffix_len) do s.push('y') end
+            for i in Range[USize].till(0, suffix_len) do s.push('y') end
             s
           end
         }))
@@ -269,7 +269,7 @@ primitive \nodoc\ _CookieTestGenerators
         recover val
           let s = String(len)
           var h: U64 = seed
-          for i in Range(0, len) do
+          for i in Range[USize].till(0, len) do
             h = (h * 6364136223846793005) + 1442695040888963407
             try s.push(chars((h.usize() >> 16) % chars.size())?) end
           end
@@ -288,9 +288,9 @@ primitive \nodoc\ _CookieTestGenerators
         {(prefix_len: USize, suffix_len: USize): String val =>
           recover val
             let s = String
-            for i in Range(0, prefix_len) do s.push('a') end
+            for i in Range[USize].till(0, prefix_len) do s.push('a') end
             s.push(' ')
-            for i in Range(0, suffix_len) do s.push('b') end
+            for i in Range[USize].till(0, suffix_len) do s.push('b') end
             s
           end
         }))
@@ -301,9 +301,9 @@ primitive \nodoc\ _CookieTestGenerators
         {(prefix_len: USize, suffix_len: USize): String val =>
           recover val
             let s = String
-            for i in Range(0, prefix_len) do s.push('a') end
+            for i in Range[USize].till(0, prefix_len) do s.push('a') end
             s.push('"')
-            for i in Range(0, suffix_len) do s.push('b') end
+            for i in Range[USize].till(0, suffix_len) do s.push('b') end
             s
           end
         }))
@@ -320,9 +320,9 @@ primitive \nodoc\ _CookieTestGenerators
         {(prefix_len: USize, suffix_len: USize): String val =>
           recover val
             let s = String
-            for i in Range(0, prefix_len) do s.push('x') end
+            for i in Range[USize].till(0, prefix_len) do s.push('x') end
             s.push(0x01)
-            for i in Range(0, suffix_len) do s.push('y') end
+            for i in Range[USize].till(0, suffix_len) do s.push('y') end
             s
           end
         }))
@@ -336,9 +336,9 @@ primitive \nodoc\ _CookieTestGenerators
         {(prefix_len: USize, suffix_len: USize): String val =>
           recover val
             let s = String
-            for i in Range(0, prefix_len) do s.push('x') end
+            for i in Range[USize].till(0, prefix_len) do s.push('x') end
             s.push(0x80)
-            for i in Range(0, suffix_len) do s.push('y') end
+            for i in Range[USize].till(0, suffix_len) do s.push('y') end
             s
           end
         }))
@@ -376,7 +376,7 @@ primitive \nodoc\ _CookieTestGenerators
         recover val
           let s = String(len)
           var h: U64 = seed
-          for i in Range(0, len) do
+          for i in Range[USize].till(0, len) do
             h = (h * 6364136223846793005) + 1442695040888963407
             try s.push(chars((h.usize() >> 16) % chars.size())?) end
           end
@@ -395,9 +395,9 @@ primitive \nodoc\ _CookieTestGenerators
         {(prefix_len: USize, suffix_len: USize): String val =>
           recover val
             let s = String
-            for i in Range(0, prefix_len) do s.push('a') end
+            for i in Range[USize].till(0, prefix_len) do s.push('a') end
             s.push(';')
-            for i in Range(0, suffix_len) do s.push('b') end
+            for i in Range[USize].till(0, suffix_len) do s.push('b') end
             s
           end
         }))
@@ -408,9 +408,9 @@ primitive \nodoc\ _CookieTestGenerators
         {(prefix_len: USize, suffix_len: USize): String val =>
           recover val
             let s = String
-            for i in Range(0, prefix_len) do s.push('x') end
+            for i in Range[USize].till(0, prefix_len) do s.push('x') end
             s.push(0x01)
-            for i in Range(0, suffix_len) do s.push('y') end
+            for i in Range[USize].till(0, suffix_len) do s.push('y') end
             s
           end
         }))
@@ -421,9 +421,9 @@ primitive \nodoc\ _CookieTestGenerators
         {(prefix_len: USize, suffix_len: USize): String val =>
           recover val
             let s = String
-            for i in Range(0, prefix_len) do s.push('x') end
+            for i in Range[USize].till(0, prefix_len) do s.push('x') end
             s.push(0x7F)
-            for i in Range(0, suffix_len) do s.push('y') end
+            for i in Range[USize].till(0, suffix_len) do s.push('y') end
             s
           end
         }))
@@ -437,9 +437,9 @@ primitive \nodoc\ _CookieTestGenerators
         {(prefix_len: USize, suffix_len: USize): String val =>
           recover val
             let s = String
-            for i in Range(0, prefix_len) do s.push('x') end
+            for i in Range[USize].till(0, prefix_len) do s.push('x') end
             s.push(0x80)
-            for i in Range(0, suffix_len) do s.push('y') end
+            for i in Range[USize].till(0, suffix_len) do s.push('y') end
             s
           end
         }))
