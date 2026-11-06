@@ -109,7 +109,7 @@ class \nodoc\ iso _PropertyQueueInOrderDelivery
 
     // Register N entries, each with a unique body
     let ids = Array[U64](n)
-    for i in Range(0, n) do
+    for i in Range[USize].till(0, n) do
       ids.push(queue.register(true))
     end
 
@@ -129,7 +129,7 @@ class \nodoc\ iso _PropertyQueueInOrderDelivery
       n,
       flushed.size(),
       "Expected " + n.string() + " flushes, got " + flushed.size().string())
-    for i in Range(0, n) do
+    for i in Range[USize].till(0, n) do
       try
         ph.assert_eq[String val](
           i.string(),
@@ -174,13 +174,13 @@ class \nodoc\ iso _PropertyQueueMixedResponses
     let notify = _TestQueueNotify
     let queue = _ResponseQueue(notify)
     let ids = Array[U64](n)
-    for i in Range(0, n) do
+    for i in Range[USize].till(0, n) do
       ids.push(queue.register(true))
     end
 
     // Send 2 chunks per entry (entry 0 is head, sent immediately;
     // others are buffered until they become head)
-    for i in Range(0, n) do
+    for i in Range[USize].till(0, n) do
       try
         let id = ids(i)?
         let data1: String val = "chunk1-" + i.string()
@@ -207,7 +207,7 @@ class \nodoc\ iso _PropertyQueueMixedResponses
       n * 2,
       flushed.size(),
       "Expected " + (n * 2).string() + " flushes")
-    for i in Range(0, n) do
+    for i in Range[USize].till(0, n) do
       try
         let expected1: String val = "chunk1-" + i.string()
         let expected2: String val = "chunk2-" + i.string()
@@ -893,7 +893,7 @@ class \nodoc\ iso _PropertyQueueRethrottleDelivery
     let id = queue.register(true)
     let tokens = Array[ChunkSendToken](n)
     queue.throttle()
-    for i in Range(0, n) do
+    for i in Range[USize].till(0, n) do
       let tok = queue.create_chunk_token()
       tokens.push(tok)
       queue.send_data(id, i.string(), tok)
@@ -932,7 +932,7 @@ class \nodoc\ iso _PropertyQueueRethrottleDelivery
       n,
       flushed.size(),
       "Expected " + n.string() + " chunks for k=" + k.string())
-    for i in Range(0, n) do
+    for i in Range[USize].till(0, n) do
       try
         ph.assert_eq[String val](
           i.string(),
@@ -943,7 +943,7 @@ class \nodoc\ iso _PropertyQueueRethrottleDelivery
     // Tokens stay paired with their chunks across the re-throttle. Match
     // explicitly so a None (desynced) token fails rather than being swallowed.
     ph.assert_eq[USize](n, notify.flushed_tokens.size())
-    for i in Range(0, n) do
+    for i in Range[USize].till(0, n) do
       try
         match \exhaustive\ notify.flushed_tokens(i)?
         | let ct: ChunkSendToken =>
@@ -986,7 +986,7 @@ class \nodoc\ iso _PropertyQueueTokenOrder
     // Register N entries, each with headers + chunk (token) + terminal
     let ids = Array[U64](n)
     let tokens = Array[ChunkSendToken](n)
-    for i in Range(0, n) do
+    for i in Range[USize].till(0, n) do
       let id = queue.register(true)
       ids.push(id)
       // Headers (no token)
@@ -1018,7 +1018,7 @@ class \nodoc\ iso _PropertyQueueTokenOrder
       "Expected " + n.string() + " chunk tokens")
 
     // Verify tokens appear in registration order
-    for i in Range(0, n) do
+    for i in Range[USize].till(0, n) do
       try
         ph.assert_true(
           tokens(i)? == flushed_chunk_tokens(i)?,
@@ -1038,7 +1038,7 @@ primitive \nodoc\ _PermutationGenerator
         {(entropy: Array[USize] ref): Array[USize] val =>
           // Create identity permutation
           let perm = Array[USize](n)
-          for i in Range(0, n) do
+          for i in Range[USize].till(0, n) do
             perm.push(i)
           end
           // Fisher-Yates shuffle using entropy values
