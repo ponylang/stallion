@@ -2,14 +2,11 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/) and [Keep a CHANGELOG](http://keepachangelog.com/).
 
-## [unreleased] - unreleased
+## [0.17.0] - 2026-11-06
 
 ### Fixed
 
 - Fix unnecessary heap allocations in string() on value types ([PR #187](https://github.com/ponylang/stallion/pull/187))
-
-### Added
-
 
 ### Changed
 
